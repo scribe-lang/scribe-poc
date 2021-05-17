@@ -1,0 +1,68 @@
+BLOCK = '{' [STATEMENT]* '}'
+
+STATEMENT = VAR_DECL
+	| FUNC_DEF
+	| EXTERN
+	| CONDITIONAL
+	| FOR
+	| WHILE
+	| RETURN
+	| CONTINUE
+	| BREAK
+	| EXPR_COLS
+
+EXPR_COLS = EXPR ';'
+EXPR = L16
+
+L16 = L15 [',' L15]*
+L15 = L14 ['=' L14]*
+L14 = L13 [['+=' '-=' '*='
+	    '/=' '%=' '<<=' '>>='
+	    '&=' '|=' '^='] L13]* ['or' BLOCK]*
+L13 = L12 ['||' L12]*
+L12 = L11 ['&&' L11]*
+L11 = L10 ['|' L10]*
+L10 = L09 ['^' L09]*
+L09 = L08 ['&' L08]*
+L08 = L07 ['==' '!=' L07]*
+L07 = L06 ['<' '<=' '>' '>=' L06]*
+L06 = L05 ['<<' '>>' L05]*
+L05 = L04 ['+' '-' L04]*
+L04 = L03 ['/' '*' '%' L03]*
+L03 = ['++x' '--x' 'u+' 'u-' '*' '&' '!' '~']* L02
+L02 = L01 ['x++' 'x--']{0,1}
+L01 = '(' EXPR ')'
+	| [ ['@']{0,1} TERM ['(' EXPR [',' iden '...']{0,1} ')' | '[' EXPR ']' | '.' TERM]{0,1}]*
+
+TERM = iden | str | int | flt | char
+
+FUNC_DECL_ARGS = [iden ':' VAR_TYPE ',']+ ['...' iden]{0,1}
+FUNC_SIGNATURE = 'fn' '(' [FUNC_DECL_ARGS]{0,1} ')' [':' VAR_TYPE]{0,1}
+FUNC_DEF = FUNC_SIGNATURE
+	BLOCK
+
+HEADER = str [':' str]{0,1} # str is comma separated list of include files - along with bracket/quotes to be used, second str is (optional) include cli parameters (space separated)
+LIB = str # str is the space separated list of lib flags
+EXTERN = 'extern' '[' iden [',' HEADER]{0,1} [',' LIB]{0,1} ']' FUNC_SIGNATURE ';' # here first str is header name, second is include loc (optional)
+COMPTIME = 'comptime' FUNC_DEF
+
+# ENUM_VAL must return an integer type
+ENUM_VAL = int | TERM ['(' EXPR [iden '...']{0,1} ')' | '[' EXPR ']' | '.' TERM]+
+ENUM_ITEM = iden ['=' [ENUM_VAL]{0,1}]{0,1}
+ENUM_DEF = 'enum' '{' ENUM_ITEM [',' ENUM_ITEM]* '}'
+STRUCT_DEF = 'struct' '{' [iden ':' VAR_TYPE ',']+ '}'
+
+VAR_TYPE = ['&' | ['*']*] ['static']{0,1} ['const']{0,1} ['volatile']{0,1} iden ['.' iden]*
+VAR_DECL_BASE = iden [':' VAR_TYPE]{0,1} ['=' L15]{0,1} [',' iden ['=' L15]{0,1}]* # at least var type or value must be provided
+VAR_DECL = 'let' [VAR_DECL_BASE | '=' [ENUM_DEF | STRUCT_DEF | FUNC_DEF | COMPTIME]] ';'
+
+CONDITIONAL = 'if' L15 BLOCK ['elif' L15 BLOCK]* ['else' BLOCK]{0,1}
+
+FOR = 'for' iden 'in' L01 BLOCK
+	| 'for' [VAR_DECL | EXPR]{0,1} ';' [EXPR]{0,1} ';' [EXPR]{0,1} BLOCK
+
+WHILE = 'while' L15 BLOCK
+
+RETURN = 'return' [L15]{0,1} ';'
+CONTINUE = 'continue' ';'
+BREAK = 'break' ';'
