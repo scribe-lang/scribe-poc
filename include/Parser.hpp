@@ -11,31 +11,21 @@
 	furnished to do so.
 */
 
-#ifndef ERROR_HPP
-#define ERROR_HPP
+#ifndef PARSER_HPP
+#define PARSER_HPP
 
-#include <string>
+#include <cstddef>
 
 #include "Lex.hpp"
+#include "parser/Stmts.hpp"
 
 namespace sc
 {
-namespace err
+namespace parser
 {
-enum EType
-{
-	WARN,
-	FAIL,
-};
-void set(const size_t &line, const size_t &col_beg, const size_t &col_end, const std::string &e,
-	 const EType &type = FAIL);
-inline void set(const lex::Lexeme &tok, const std::string &e, const EType &type = FAIL)
-{
-	set(tok.line, tok.col_beg, tok.col_end, e, type);
-}
-bool present();
-void show(FILE *f, const std::string &data, const std::string &filename);
-} // namespace err
+// on successful parse, returns true, and tree is allocated
+bool parse(std::vector<lex::Lexeme> &toks, stmt_block_t *&tree);
+} // namespace parser
 } // namespace sc
 
-#endif // ERROR_HPP
+#endif // PARSER_HPP

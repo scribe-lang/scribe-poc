@@ -19,12 +19,15 @@
 #include "Error.hpp"
 #include "FS.hpp"
 #include "Lex.hpp"
+#include "Parser.hpp"
 
 int main(int argc, char **argv)
 {
 	using namespace sc;
 	args::ArgParser args(argc, (const char **)argv);
 	args.add("version").set_short("v").set_long("version").set_help("prints program version");
+	args.add("tokens").set_short("t").set_long("tokens").set_help("shows lexical tokens");
+	args.add("parse").set_short("p").set_long("parse").set_help("shows AST");
 
 	args.parse();
 
@@ -58,10 +61,22 @@ int main(int argc, char **argv)
 		err::show(stderr, data, file);
 		return 1;
 	}
-	printf("Tokens:\n");
-	for(auto &l : toks) {
-		printf("%s\n", l.str().c_str());
+	if(args.has("tokens")) {
+		printf("Tokens:\n");
+		for(auto &l : toks) {
+			printf("%s\n", l.str().c_str());
+		}
+	}
+	parser::stmt_block_t *ptree = nullptr;
+	if(!parser::parse(toks, ptree)) {
+		err::show(stderr, data, file);
+		return 1;
+	}
+	if(args.has("parse")) {
+		printf("AST:\n");
+		ptree->disp(false);
 	}
 
+	if(ptree) delete ptree;
 	return 0;
 }

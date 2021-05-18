@@ -12,13 +12,14 @@ STATEMENT = VAR_DECL
 	| EXPR_COLS
 
 EXPR_COLS = EXPR ';'
-EXPR = L16
+EXPR = L17
 
-L16 = L15 [',' L15]*
+L17 = L16 [',' L16]*
+L16 = L15 ['?' L15 ':' L15]{0,1}
 L15 = L14 ['=' L14]*
 L14 = L13 [['+=' '-=' '*='
 	    '/=' '%=' '<<=' '>>='
-	    '&=' '|=' '^='] L13]* ['or' BLOCK]*
+	    '&=' '|=' '^='] L13]* ['or' iden BLOCK]*
 L13 = L12 ['||' L12]*
 L12 = L11 ['&&' L11]*
 L11 = L10 ['|' L10]*
@@ -32,29 +33,29 @@ L04 = L03 ['/' '*' '%' L03]*
 L03 = ['++x' '--x' 'u+' 'u-' '*' '&' '!' '~']* L02
 L02 = L01 ['x++' 'x--']{0,1}
 L01 = '(' EXPR ')'
-	| [ ['@']{0,1} TERM ['(' EXPR [',' iden '...']{0,1} ')' | '[' EXPR ']' | '.' TERM]{0,1}]*
+	| [ ['@']{0,1} TERM [['.<' L01 [',' L01]*]{0,1} '(' EXPR [',' iden '...']{0,1} ')' | '[' EXPR ']' | '.' TERM]{0,1}]*
 
 TERM = iden | str | int | flt | char
 
-FUNC_DECL_ARGS = [iden ':' VAR_TYPE ',']+ ['...' iden]{0,1}
-FUNC_SIGNATURE = 'fn' '(' [FUNC_DECL_ARGS]{0,1} ')' [':' VAR_TYPE]{0,1}
+TYPE = ['&' | ['*']*] ['static']{0,1} ['const']{0,1} ['volatile']{0,1} iden ['.' iden]* | FUNC_SIGNATURE
+
+FUNC_DECL_ARGS = [iden ':' TYPE ',']+ ['...' iden]{0,1}
+FUNC_SIGNATURE = ['comptime']{0,1} 'fn' ['<' iden [',' iden]* '>']{0,1} '(' [FUNC_DECL_ARGS]{0,1} ')' [':' TYPE]{0,1}
 FUNC_DEF = FUNC_SIGNATURE
 	BLOCK
 
 HEADER = str [':' str]{0,1} # str is comma separated list of include files - along with bracket/quotes to be used, second str is (optional) include cli parameters (space separated)
 LIB = str # str is the space separated list of lib flags
 EXTERN = 'extern' '[' iden [',' HEADER]{0,1} [',' LIB]{0,1} ']' FUNC_SIGNATURE ';' # here first str is header name, second is include loc (optional)
-COMPTIME = 'comptime' FUNC_DEF
 
 # ENUM_VAL must return an integer type
 ENUM_VAL = int | TERM ['(' EXPR [iden '...']{0,1} ')' | '[' EXPR ']' | '.' TERM]+
 ENUM_ITEM = iden ['=' [ENUM_VAL]{0,1}]{0,1}
 ENUM_DEF = 'enum' '{' ENUM_ITEM [',' ENUM_ITEM]* '}'
-STRUCT_DEF = 'struct' '{' [iden ':' VAR_TYPE ',']+ '}'
+STRUCT_DEF = ['struct'] ['<' iden [',' iden]* '>']{0,1} '{' [iden ':' TYPE ',']+ '}' # for trait, all types must be function signatures
 
-VAR_TYPE = ['&' | ['*']*] ['static']{0,1} ['const']{0,1} ['volatile']{0,1} iden ['.' iden]*
-VAR_DECL_BASE = iden [':' VAR_TYPE]{0,1} ['=' L15]{0,1} [',' iden ['=' L15]{0,1}]* # at least var type or value must be provided
-VAR_DECL = 'let' [VAR_DECL_BASE | '=' [ENUM_DEF | STRUCT_DEF | FUNC_DEF | COMPTIME]] ';'
+VAR_DECL_BASE = iden [':' TYPE]{0,1} ['in' TYPE]{0,1} ['=' [L15 | ENUM_DEF | STRUCT_DEF | FUNC_DEF]]{0,1} # at least var type or value must be provided
+VAR_DECL = 'let' [VAR_DECL_BASE] ';'
 
 CONDITIONAL = 'if' L15 BLOCK ['elif' L15 BLOCK]* ['else' BLOCK]{0,1}
 

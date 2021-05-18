@@ -40,28 +40,29 @@ const char *TokStrs[_LAST] = {
 "return",
 "continue",
 "break",
-"true",
-"false",
-"nil",
+// "true",
+// "false",
+// "nil",
 "or",
 "static",
 "const",
 "volatile",
 "extern",
 "comptime",
-"self",
-"i8",
-"i16",
-"i32",
-"i64",
-"i128",
-"u8",
-"u16",
-"u32",
-"u64",
-"u128",
-"f32",
-"f64",
+"struct",
+"enum",
+// "i8",
+// "i16",
+// "i32",
+// "i64",
+// "i128",
+// "u8",
+// "u16",
+// "u32",
+// "u64",
+// "u128",
+// "f32",
+// "f64",
 
 // Operators
 "=",
@@ -123,6 +124,7 @@ const char *TokStrs[_LAST] = {
 
 // Separators
 ".",
+"?",
 ":",
 ",",
 "@",
@@ -147,44 +149,62 @@ std::string view_backslash(const std::string &data);
 
 Tok::Tok(const int &tok) : val((TokType)tok) {}
 
-Data::Data(const std::string &v) : s{STR, v} {}
-Data::Data(const uint64_t &v) : i{INT, v} {}
-Data::Data(const long double &v) : f{FLT, v} {}
-Data::Data(const Data &data)
+bool Data::cmp(Data &other, TokType type)
 {
-	switch(data.s.type) {
-	case STR: new(&s) auto(data.s); break;
-	case INT: new(&i) auto(data.i); break;
-	case FLT: new(&f) auto(data.f); break;
+	switch(type) {
+	case STR:
+	case IDEN: return s == other.s;
+	case INT: return i == other.i;
+	case FLT: return f == other.f;
+	default: return false;
 	}
-}
-Data::~Data()
-{
-	if(s.type == STR) s.~S();
+	return false;
 }
 
-Lexeme::Lexeme(const size_t &_pos, const TokType &type) : pos(_pos), tok(type), data(0lu) {}
-Lexeme::Lexeme(const size_t &_pos, const std::string &_data) : pos(_pos), tok(STR), data(_data) {}
-Lexeme::Lexeme(const size_t &_pos, const uint64_t &_data) : pos(_pos), tok(INT), data(_data) {}
-Lexeme::Lexeme(const size_t &_pos, const long double &_data) : pos(_pos), tok(FLT), data(_data) {}
-std::string Lexeme::str(const size_t &pad)
+Lexeme::Lexeme()
+	: line(0), col_beg(0), col_end(0), tok(INVALID), data({.s = "", .i = 0lu, .f = 0.0})
+{}
+Lexeme::Lexeme(const size_t &line, const size_t &col_beg, const size_t &col_end,
+	       const TokType &type)
+	: line(line), col_beg(col_beg), col_end(col_end), tok(type),
+	  data({.s = "", .i = 0lu, .f = 0.0})
+{}
+Lexeme::Lexeme(const size_t &line, const size_t &col_beg, const size_t &col_end,
+	       const TokType &type, const std::string &_data)
+	: line(line), col_beg(col_beg), col_end(col_end), tok(type),
+	  data({.s = _data, .i = 0lu, .f = 0.0})
+{}
+Lexeme::Lexeme(const size_t &line, const size_t &col_beg, const size_t &col_end,
+	       const int64_t &_data)
+	: line(line), col_beg(col_beg), col_end(col_end), tok(INT),
+	  data({.s = "", .i = _data, .f = 0.0})
+{}
+Lexeme::Lexeme(const size_t &line, const size_t &col_beg, const size_t &col_end,
+	       const long double &_data)
+	: line(line), col_beg(col_beg), col_end(col_end), tok(FLT),
+	  data({.s = "", .i = 0lu, .f = _data})
+{}
+std::string Lexeme::str(const int64_t &pad)
 {
 	std::string res;
-	size_t len;
-	res += TokStrs[tok.val];
+	int64_t len;
+	res += tok.cstr();
 	len = res.size();
-	for(size_t i = 0; i < pad - len; ++i) res += " ";
+	for(int64_t i = 0; i < pad - len; ++i) res += " ";
+	if(pad == 0) res += " ";
 	len = res.size();
-	res += std::to_string(pos);
-	if(tok.val != STR && tok.val != INT && tok.val != FLT) return res;
+	res += "[" + std::to_string(line) + ":" + std::to_string(col_beg) + "-" +
+	       std::to_string(col_end) + "]";
+	if(!tok.is_data()) return res;
 	len = res.size() - len;
-	for(size_t i = 0; i < pad - len; ++i) res += " ";
-	if(tok.val == STR) {
-		res += view_backslash(data.s.v);
+	for(int64_t i = 0; i < pad - len; ++i) res += " ";
+	if(pad == 0) res += " ";
+	if(tok.val == STR || tok.val == IDEN) {
+		res += view_backslash(data.s);
 	} else if(tok.val == INT) {
-		res += std::to_string(data.i.v);
+		res += std::to_string(data.i);
 	} else if(tok.val == FLT) {
-		res += std::to_string(data.f.v);
+		res += std::to_string(data.f);
 	}
 	return res;
 }
@@ -264,10 +284,13 @@ bool tokenize(const std::string &data, std::vector<Lexeme> &toks)
 			// check if string is a keyword
 			TokType str_class = classify_str(str);
 			if(str[0] == '.') str.erase(str.begin());
-			if(str_class == STR) { // place either the data itself (type = STR)
-				toks.emplace_back(i - str.size(), str);
+			if(str_class == STR || str_class == IDEN)
+			{ // place either the data itself (type = STR, IDEN)
+				toks.emplace_back(line, i - line_start - str.size(), i - line_start,
+						  str_class, str);
 			} else { // or the type
-				toks.emplace_back(i - str.size(), str_class);
+				toks.emplace_back(line, i - line_start - str.size(), i - line_start,
+						  str_class);
 			}
 			continue;
 		}
@@ -279,10 +302,12 @@ bool tokenize(const std::string &data, std::vector<Lexeme> &toks)
 			std::string num	 = get_num(data, i, line, line_start, num_type, base);
 			if(num.empty()) return false;
 			if(num_type == FLT) {
-				toks.emplace_back(i - num.size(), (long double)std::stod(num));
+				toks.emplace_back(line, i - line_start - num.size(), i - line_start,
+						  (long double)std::stod(num));
 				continue;
 			}
-			toks.emplace_back(i - num.size(), (uint64_t)std::stoull(num, 0, base));
+			toks.emplace_back(line, i - line_start - num.size(), i - line_start,
+					  (int64_t)std::stoull(num, 0, base));
 			continue;
 		}
 
@@ -290,7 +315,8 @@ bool tokenize(const std::string &data, std::vector<Lexeme> &toks)
 		if(CURR == '\"' || CURR == '\'' || CURR == '`') {
 			std::string str;
 			if(!get_const_str(data, i, line, line_start, str)) return false;
-			toks.emplace_back(i - str.size(), str);
+			toks.emplace_back(line, i - line_start - str.size(), i - line_start, STR,
+					  str);
 			continue;
 		}
 
@@ -298,7 +324,7 @@ bool tokenize(const std::string &data, std::vector<Lexeme> &toks)
 		size_t begin	= i;
 		TokType op_type = get_operator(data, i, line, line_start);
 		if(op_type == INVALID) return false;
-		toks.emplace_back(begin, op_type);
+		toks.emplace_back(line, begin - line_start, i - line_start, op_type);
 	}
 	return true;
 }
@@ -330,28 +356,29 @@ static TokType classify_str(const std::string &str)
 	if(str == TokStrs[RETURN]) return RETURN;
 	if(str == TokStrs[CONTINUE]) return CONTINUE;
 	if(str == TokStrs[BREAK]) return BREAK;
-	if(str == TokStrs[TRUE]) return TRUE;
-	if(str == TokStrs[FALSE]) return FALSE;
-	if(str == TokStrs[NIL]) return NIL;
+	// if(str == TokStrs[TRUE]) return TRUE;
+	// if(str == TokStrs[FALSE]) return FALSE;
+	// if(str == TokStrs[NIL]) return NIL;
 	if(str == TokStrs[OR]) return OR;
 	if(str == TokStrs[STATIC]) return STATIC;
 	if(str == TokStrs[CONST]) return CONST;
 	if(str == TokStrs[VOLATILE]) return VOLATILE;
 	if(str == TokStrs[EXTERN]) return EXTERN;
 	if(str == TokStrs[COMPTIME]) return COMPTIME;
-	if(str == TokStrs[SELF]) return SELF;
-	if(str == TokStrs[I8]) return I8;
-	if(str == TokStrs[I16]) return I16;
-	if(str == TokStrs[I32]) return I32;
-	if(str == TokStrs[I64]) return I64;
-	if(str == TokStrs[I128]) return I128;
-	if(str == TokStrs[U8]) return U8;
-	if(str == TokStrs[U16]) return U16;
-	if(str == TokStrs[U32]) return U32;
-	if(str == TokStrs[U64]) return U64;
-	if(str == TokStrs[U128]) return U128;
-	if(str == TokStrs[F32]) return F32;
-	if(str == TokStrs[F64]) return F64;
+	if(str == TokStrs[STRUCT]) return STRUCT;
+	if(str == TokStrs[ENUM]) return ENUM;
+	// if(str == TokStrs[I8]) return I8;
+	// if(str == TokStrs[I16]) return I16;
+	// if(str == TokStrs[I32]) return I32;
+	// if(str == TokStrs[I64]) return I64;
+	// if(str == TokStrs[I128]) return I128;
+	// if(str == TokStrs[U8]) return U8;
+	// if(str == TokStrs[U16]) return U16;
+	// if(str == TokStrs[U32]) return U32;
+	// if(str == TokStrs[U64]) return U64;
+	// if(str == TokStrs[U128]) return U128;
+	// if(str == TokStrs[F32]) return F32;
+	// if(str == TokStrs[F64]) return F64;
 
 	// if string begins with dot, it's an atom (str), otherwise an identifier
 	return str[0] == '.' ? STR : IDEN;
@@ -658,7 +685,8 @@ static TokType get_operator(const std::string &data, size_t &i, const size_t &li
 			}
 		}
 		SET_OP_TYPE_BRK(DOT);
-	case ':': SET_OP_TYPE_BRK(SCOPE);
+	case '?': SET_OP_TYPE_BRK(QUEST);
+	case ':': SET_OP_TYPE_BRK(COL);
 	case ',': SET_OP_TYPE_BRK(COMMA);
 	case ';': SET_OP_TYPE_BRK(COLS);
 	case '@': SET_OP_TYPE_BRK(AT);

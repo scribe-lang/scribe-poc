@@ -45,28 +45,29 @@ enum TokType
 	RETURN,
 	CONTINUE,
 	BREAK,
-	TRUE,
-	FALSE,
-	NIL,
+	// TRUE,
+	// FALSE,
+	// NIL,
 	OR,
 	STATIC,
 	CONST,
 	VOLATILE,
 	EXTERN,
 	COMPTIME,
-	SELF,
-	I8,
-	I16,
-	I32,
-	I64,
-	I128,
-	U8,
-	U16,
-	U32,
-	U64,
-	U128,
-	F32,
-	F64,
+	STRUCT,
+	ENUM,
+	// I8,
+	// I16,
+	// I32,
+	// I64,
+	// I128,
+	// U8,
+	// U16,
+	// U32,
+	// U64,
+	// U128,
+	// F32,
+	// F64,
 
 	// Operators
 	ASSN,
@@ -128,7 +129,8 @@ enum TokType
 
 	// Separators
 	DOT,
-	SCOPE,
+	QUEST,
+	COL,
 	COMMA,
 	AT,
 	SPC,
@@ -170,8 +172,7 @@ struct Tok
 	 */
 	inline bool is_data()
 	{
-		return val == INT || val == FLT || val == STR || val == IDEN || val == TRUE ||
-		       val == FALSE || val == NIL || val == PreVA || val == PostVA;
+		return val == INT || val == FLT || val == STR || val == IDEN;
 	}
 
 	/**
@@ -198,39 +199,47 @@ struct Tok
 	}
 
 	/**
+	 * \brief Check if the token is valid
+	 *
+	 * \return true If valid, false if not
+	 */
+	inline bool is_valid()
+	{
+		return val != INVALID && val != FEOF;
+	}
+
+	/**
 	 * \brief Get c-string representation of the token
 	 *
 	 * \return const char* of the token
 	 */
-	inline const char *str()
+	inline const char *cstr()
 	{
 		return TokStrs[val];
 	}
+	/**
+	 * \brief Get string representation of the token
+	 *
+	 * \return std::string of the token
+	 */
+	inline std::string str()
+	{
+		return TokStrs[val];
+	}
+
+	inline bool operator==(Tok &other)
+	{
+		return val == other.val;
+	}
 };
 
-union Data
+struct Data
 {
-	struct S
-	{
-		int type;
-		std::string v;
-	} s;
-	struct I
-	{
-		int type;
-		uint64_t v;
-	} i;
-	struct F
-	{
-		int type;
-		long double v;
-	} f;
+	std::string s;
+	int64_t i;
+	long double f;
 
-	Data(const std::string &v);
-	Data(const uint64_t &v);
-	Data(const long double &v);
-	Data(const Data &data);
-	~Data();
+	bool cmp(Data &other, TokType type);
 };
 
 /**
@@ -239,16 +248,32 @@ union Data
  */
 struct Lexeme
 {
-	size_t pos;
+	size_t line;
+	size_t col_beg;
+	size_t col_end;
 	Tok tok;
 	Data data;
 
-	Lexeme(const size_t &_pos, const TokType &type);
-	Lexeme(const size_t &_pos, const std::string &_data);
-	Lexeme(const size_t &_pos, const uint64_t &_data);
-	Lexeme(const size_t &_pos, const long double &_data);
+	Lexeme();
+	explicit Lexeme(const size_t &line, const size_t &col_beg, const size_t &col_end,
+			const TokType &type);
+	explicit Lexeme(const size_t &line, const size_t &col_beg, const size_t &col_end,
+			const TokType &type, const std::string &_data);
+	explicit Lexeme(const size_t &line, const size_t &col_beg, const size_t &col_end,
+			const int64_t &_data);
+	explicit Lexeme(const size_t &line, const size_t &col_beg, const size_t &col_end,
+			const long double &_data);
 
-	std::string str(const size_t &pad = 10);
+	std::string str(const int64_t &pad = 10);
+
+	inline bool operator==(Lexeme &other)
+	{
+		return tok == other.tok && data.cmp(other.data, tok.val);
+	}
+	inline bool operator!=(Lexeme &other)
+	{
+		return *this == other ? false : true;
+	}
 };
 
 /**
