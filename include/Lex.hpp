@@ -30,6 +30,7 @@ enum TokType
 	INT,
 	FLT,
 
+	CHAR,
 	STR,
 	IDEN,
 
@@ -116,12 +117,9 @@ enum TokType
 	LSHIFT_ASSN,
 	RSHIFT_ASSN,
 
-	// Functions
-	OPER_FN,
-	OPER_MEM_FN,
+	SUBS,
 
-	// Subscript
-	OPER_SUBS,
+	FNCALL,
 
 	// Varargs
 	PreVA,
@@ -172,7 +170,7 @@ struct Tok
 	 */
 	inline bool is_data()
 	{
-		return val == INT || val == FLT || val == STR || val == IDEN;
+		return val == INT || val == FLT || val == CHAR || val == STR || val == IDEN;
 	}
 
 	/**

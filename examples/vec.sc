@@ -4,15 +4,15 @@ let Vec = struct<T> {
 	data: *T;
 };
 
-let new = fn<T>() {
-	return Vec<T>(1, 0, nil);
+let new = fn<T>(): Vec<T> {
+	return Vec.<T>(1, 0, nil); // nil is an i64 with value = 0
 };
 
-let push = fn<T>(self: &Vec<T>, e: T) {
+let push in Vec<T> = fn(e: T) {
 	if self.len == self.cap { self.cap *= 2; }
 	self.data[self.len++] = e;
 };
-let pop = fn<T>(self: &Vec<T>) {
+let pop in Vec<T> = fn() {
 	if self.len == 0 {
 		@panic("no element in vector");
 	}

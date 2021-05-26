@@ -13,6 +13,8 @@
 
 #include "parser/Parse.hpp"
 
+#include <unordered_set>
+
 #include "Error.hpp"
 
 namespace sc
@@ -26,20 +28,20 @@ bool parse_block(ParseHelper &p, stmt_block_t *&tree, const bool &with_brace)
 	tree = nullptr;
 
 	std::vector<stmt_base_t *> stmts;
+	stmt_base_t *stmt = nullptr;
 
 	lex::Lexeme &start = p.peak();
 
 	if(with_brace) {
 		if(!p.acceptn(lex::LBRACE)) {
-			err::set(p.peak(), "expected opening braces '{' for block, found: " +
-					   p.peak().tok.str());
+			err::set(p.peak(), "expected opening braces '{' for block, found: %s",
+				 p.peak().tok.str().c_str());
 			return false;
 		}
 	}
 
 	while(p.valid() && (!with_brace || !p.accept(lex::RBRACE))) {
-		stmt_base_t *stmt = nullptr;
-		bool skip_cols	  = false;
+		bool skip_cols = false;
 		// logic
 		if(p.accept(lex::LET)) {
 			if(!parse_vardecl(p, stmt)) goto fail;
@@ -68,17 +70,18 @@ bool parse_block(ParseHelper &p, stmt_block_t *&tree, const bool &with_brace)
 
 		if(skip_cols || p.acceptn(lex::COLS)) {
 			stmts.push_back(stmt);
+			stmt = nullptr;
 			continue;
 		}
-		err::set(p.peak(),
-			 "expected semicolon for end of statement, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected semicolon for end of statement, found: %s",
+			 p.peak().tok.str().c_str());
 		goto fail;
 	}
 
 	if(with_brace) {
 		if(!p.acceptn(lex::RBRACE)) {
-			err::set(p.peak(), "expected closing braces '}' for block, found: " +
-					   p.peak().tok.str());
+			err::set(p.peak(), "expected closing braces '}' for block, found: %s",
+				 p.peak().tok.str().c_str());
 			goto fail;
 		}
 	}
@@ -87,6 +90,7 @@ bool parse_block(ParseHelper &p, stmt_block_t *&tree, const bool &with_brace)
 	return true;
 fail:
 	for(auto &stmt : stmts) delete stmt;
+	if(stmt) delete stmt;
 	return false;
 }
 
@@ -101,6 +105,8 @@ bool parse_type(ParseHelper &p, stmt_type_t *&type)
 	std::vector<stmt_base_t *> counts;
 	stmt_base_t *count = nullptr;
 	stmt_base_t *fn	   = nullptr;
+	bool dot_turn	   = false; // to ensure type name is in the form <name><dot><name>...
+	std::unordered_set<std::string> templnames;
 
 	lex::Lexeme &start = p.peak();
 
@@ -133,8 +139,8 @@ begin_brack:
 			return false;
 		}
 		if(!p.acceptn(lex::RBRACK)) {
-			err::set(p.peak(), "expected closing bracket ']' for array size, found: " +
-					   p.peak().tok.str());
+			err::set(p.peak(), "expected closing bracket ']' for array size, found: %s",
+				 p.peak().tok.str().c_str());
 			goto fail;
 		}
 		counts.insert(counts.begin(), count);
@@ -143,6 +149,15 @@ begin_brack:
 	}
 
 	while(p.accept(lex::IDEN, lex::DOT)) {
+		if(!dot_turn && !p.accept(lex::IDEN)) {
+			err::set(p.peak(), "expected identifier here, found dot");
+			goto fail;
+		}
+		if(dot_turn && !p.accept(lex::DOT)) {
+			err::set(p.peak(), "expected dot here, found identifier");
+			goto fail;
+		}
+		dot_turn = !dot_turn;
 		name.push_back(p.peak());
 		p.next();
 	}
@@ -155,16 +170,23 @@ begin_brack:
 	// templates
 	while(true) {
 		if(!p.accept(lex::IDEN)) {
-			err::set(p.peak(), "expected template name, found: " + p.peak().tok.str());
+			err::set(p.peak(), "expected template name, found: %s",
+				 p.peak().tok.str().c_str());
 			goto fail;
 		}
+		if(templnames.find(p.peak().data.s) != templnames.end()) {
+			err::set(p.peak(), "this template name is already used "
+					   "before in this template group");
+			goto fail;
+		}
+		templnames.insert(p.peak().data.s);
 		templates.push_back(p.peak());
 		p.next();
 		if(!p.acceptn(lex::COMMA)) break;
 	}
 	if(!p.acceptn(lex::GT)) {
-		err::set(p.peak(),
-			 "expected '>' for end of template names, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected '>' for end of template names, found: %s",
+			 p.peak().tok.str().c_str());
 		return false;
 	}
 after_templates:
@@ -182,7 +204,7 @@ bool parse_simple(ParseHelper &p, stmt_base_t *&data)
 	data = nullptr;
 
 	if(!p.peak().tok.is_data()) {
-		err::set(p.peak(), "expected data here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected data here, found: %s", p.peak().tok.str().c_str());
 		return false;
 	}
 
@@ -198,6 +220,8 @@ bool parse_expr(ParseHelper &p, stmt_base_t *&expr)
 	return parse_expr_17(p, expr);
 }
 
+// Left Associative
+// ,
 bool parse_expr_17(ParseHelper &p, stmt_base_t *&expr)
 {
 	expr = nullptr;
@@ -268,8 +292,8 @@ bool parse_expr_16(ParseHelper &p, stmt_base_t *&expr)
 		goto fail;
 	}
 	if(!p.accept(lex::COL)) {
-		err::set(p.peak(),
-			 "expected ':' for ternary operator, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected ':' for ternary operator, found: %s",
+			 p.peak().tok.str().c_str());
 		goto fail;
 	}
 	oper_inside = p.peak();
@@ -329,6 +353,7 @@ fail:
 // *= /= %=
 // <<= >>=
 // &= |= ^=
+// or-block
 bool parse_expr_14(ParseHelper &p, stmt_base_t *&expr)
 {
 	expr = nullptr;
@@ -799,11 +824,14 @@ bool parse_expr_01(ParseHelper &p, stmt_base_t *&expr)
 	lex::Lexeme &start = p.peak();
 	lex::Lexeme dot;
 
-	stmt_base_t **data = nullptr;
-
 	stmt_base_t *lhs = nullptr;
 	stmt_base_t *rhs = nullptr;
 	bool is_mem	 = false;
+	bool is_intrin	 = false;
+	std::vector<stmt_type_t *> templates;
+	stmt_type_t *templ = nullptr;
+	std::vector<stmt_base_t *> args;
+	stmt_base_t *arg = nullptr;
 
 	if(p.acceptn(lex::LPAREN)) {
 		if(!parse_expr(p, expr)) {
@@ -811,51 +839,116 @@ bool parse_expr_01(ParseHelper &p, stmt_base_t *&expr)
 		}
 		if(!p.acceptn(lex::RPAREN)) {
 			err::set(p.peak(),
-				 "expected ending parenthesis ')' for expression, found: " +
-				 p.peak().tok.str());
+				 "expected ending parenthesis ')' for expression, found: %s",
+				 p.peak().tok.str().c_str());
 			goto fail;
 		}
 		return true;
 	}
 
 begin:
-	data = lhs ? &rhs : &lhs;
+	if(p.acceptn(lex::AT)) is_intrin = true;
 
-	if(p.accept(lex::AT)) {
-		if(!parse_fncall(p, *data, is_mem)) {
+	if(p.acceptd() && !parse_simple(p, lhs)) goto fail;
+	goto begin_brack;
+
+after_dot:
+	if(!p.acceptd() || !parse_simple(p, rhs)) goto fail;
+	if(lhs && rhs) {
+		lhs = new stmt_expr_t(dot.line, dot.col_beg, lhs, dot, rhs);
+		rhs = nullptr;
+	}
+
+begin_brack:
+	if(p.accept(lex::LBRACK)) {
+		lex::Lexeme oper;
+		p.sett(lex::SUBS);
+		oper = p.peak();
+		p.next();
+		if(is_intrin) {
+			err::set(p.peak(), "only function calls can be intrinsic;"
+					   " attempted subscript here");
 			goto fail;
 		}
-		goto dot;
-	}
-
-	if(p.acceptd()) {
-		if((p.peakt(1) == lex::DOT && p.peakt(2) == lex::LT) || p.peakt(1) == lex::LPAREN ||
-		   p.peakt(1) == lex::LBRACK)
-		{
-			if(!parse_fncall(p, *data, is_mem)) {
-				goto fail;
+		if(!parse_expr_16(p, rhs)) {
+			err::set(oper, "failed to parse expression for subscript");
+			goto fail;
+		}
+		if(!p.acceptn(lex::RBRACK)) {
+			err::set(p.peak(),
+				 "expected closing bracket for"
+				 " subscript expression, found: %s",
+				 p.peak().tok.str().c_str());
+			goto fail;
+		}
+		lhs = new stmt_expr_t(oper.line, oper.col_beg, lhs, oper, rhs);
+		rhs = nullptr;
+		if(p.accept(lex::LBRACK, lex::LPAREN) ||
+		   (p.peakt() == lex::DOT && p.peakt(1) == lex::LT))
+			goto begin_brack;
+	} else if(p.accept(lex::LPAREN) || (p.peakt() == lex::DOT && p.peakt(1) == lex::LT)) {
+		lex::Lexeme oper;
+		// templates
+		if(p.acceptn(lex::DOT) && p.acceptn(lex::LT)) {
+			while(parse_type(p, templ)) {
+				templates.push_back(templ);
+				templ = nullptr;
+				if(!p.acceptn(lex::COMMA)) break;
 			}
-		} else {
-			if(!parse_simple(p, *data)) {
+			if(!p.acceptn(lex::GT)) {
+				err::set(p.peak(),
+					 "expected right angular bracket close for function call"
+					 " template arguments, found: %s",
+					 p.peak().tok.str().c_str());
 				goto fail;
 			}
 		}
-		goto dot;
+		if(!p.accept(lex::LPAREN)) {
+			err::set(p.peak(),
+				 "expected opening parenthesis for function call, found: %s",
+				 p.peak().tok.str().c_str());
+			goto fail;
+		}
+		p.sett(lex::FNCALL);
+		oper = p.peak();
+		p.next();
+		if(p.acceptn(lex::RPAREN)) {
+			goto post_args;
+		}
+		// parse arguments
+		while(true) {
+			if(!parse_expr_16(p, arg)) goto fail;
+			args.push_back(arg);
+			arg = nullptr;
+			if(!p.acceptn(lex::COMMA)) break;
+		}
+		if(!p.acceptn(lex::RPAREN)) {
+			err::set(p.peak(),
+				 "expected closing parenthesis after function"
+				 " call arguments, found: %s",
+				 p.peak().tok.str().c_str());
+			goto fail;
+		}
+	post_args:
+		rhs	  = new stmt_fncallinfo_t(oper.line, oper.col_beg, templates, args);
+		lhs	  = new stmt_expr_t(oper.line, oper.col_beg, lhs, oper, rhs);
+		rhs	  = nullptr;
+		args	  = {};
+		templates = {};
+		if(p.accept(lex::LBRACK, lex::LPAREN) ||
+		   (p.peakt() == lex::DOT && p.peakt(1) == lex::LT))
+			goto begin_brack;
 	}
-
-	err::set(p.peak(),
-		 "expected data, function call, or subscript; found: " + p.peak().tok.str());
-	goto fail;
 
 dot:
 	if(p.acceptn(lex::DOT, lex::ARROW)) {
-		is_mem = true;
 		if(lhs && rhs) {
-			lhs = new stmt_expr_t(p.peak().line, p.peak().col_beg, lhs, p.peak(), rhs);
+			lhs =
+			new stmt_expr_t(p.peak(-1).line, p.peak(-1).col_beg, lhs, p.peak(-1), rhs);
 			rhs = nullptr;
 		}
 		dot = p.peak(-1);
-		goto begin;
+		goto after_dot;
 	}
 
 done:
@@ -868,116 +961,41 @@ done:
 fail:
 	if(lhs) delete lhs;
 	if(rhs) delete rhs;
+	for(auto &t : templates) delete t;
+	if(templ) delete templ;
+	for(auto &a : args) delete a;
+	if(arg) delete arg;
 	return false;
 }
 
-bool parse_fncall(ParseHelper &p, stmt_base_t *&fn, const bool &is_mem)
-{
-	fn = nullptr;
-
-	bool comptime	   = false;
-	bool subscr	   = false;
-	lex::Lexeme &start = p.peak();
-	lex::Lexeme name;
-	std::vector<stmt_type_t *> templates;
-	stmt_type_t *templ = nullptr;
-	stmt_base_t *args  = nullptr;
-
-	if(p.acceptn(lex::AT)) comptime = true;
-
-	if(!p.acceptd()) {
-		err::set(p.peak(), "expected data for function call, found: " + p.peak().tok.str());
-		goto fail;
-	}
-	name = p.peak();
-	p.next();
-
-	if(p.peakt() == lex::DOT && p.peakt(1) == lex::LT) {
-		p.next();
-		p.next();
-		while(parse_type(p, templ)) {
-			templates.push_back(templ);
-			templ = nullptr;
-			if(!p.acceptn(lex::COMMA)) break;
-		}
-		if(!p.acceptn(lex::GT)) {
-			err::set(p.peak(), "expected right angular bracket close for function call"
-					   " template arguments, found: " +
-					   p.peak().tok.str());
-			goto fail;
-		}
-	}
-
-	if(p.acceptn(lex::LBRACK)) {
-		subscr		    = true;
-		lex::Lexeme &lbrack = p.peak(-1);
-		if(comptime) {
-			err::set(p.peak(), "only function calls can be compile time"
-					   " attempted subscript here");
-			goto fail;
-		}
-		if(!parse_expr_16(p, args)) {
-			err::set(lbrack, "failed to parse expression for subscript");
-			goto fail;
-		}
-		if(!p.acceptn(lex::RBRACK)) {
-			err::set(p.peak(), "expected closing bracket for"
-					   " subscript expression, found: " +
-					   p.peak().tok.str());
-			goto fail;
-		}
-		goto post_args;
-	}
-
-	if(!p.acceptn(lex::LPAREN)) {
-		err::set(p.peak(), "expected open parenthesis for"
-				   " function call arguments, found: " +
-				   p.peak().tok.str());
-		goto fail;
-	}
-
-	if(p.acceptn(lex::RPAREN)) {
-		goto post_args;
-	}
-
-	if(!parse_expr(p, args)) {
-		err::set(p.peak(), "failed to parse arguments for function call");
-		goto fail;
-	}
-
-	if(!p.acceptn(lex::RPAREN)) {
-		err::set(p.peak(), "expected closing parenthesis for"
-				   " function call arguments, found: " +
-				   p.peak().tok.str());
-		goto fail;
-	}
-
-post_args:
-
-	fn = new stmt_fncall_t(start.line, start.col_beg, name, templates, args, comptime, is_mem,
-			       subscr);
-	return true;
-fail:
-	if(fn) delete fn;
-	fn = nullptr;
-	return false;
-}
-
-bool parse_var(ParseHelper &p, stmt_var_t *&var, const Occurs &otype, const Occurs &oin,
+bool parse_var(ParseHelper &p, stmt_var_t *&var, const Occurs &intype, const Occurs &otype,
 	       const Occurs &oval)
 {
 	var = nullptr;
 
 	if(!p.accept(lex::IDEN)) {
-		err::set(p.peak(),
-			 "expected identifier for variable name, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected identifier for variable name, found: %s",
+			 p.peak().tok.str().c_str());
 		return false;
 	}
 	lex::Lexeme &name = p.peak();
 	p.next();
-	stmt_type_t *type = nullptr;
 	stmt_type_t *in	  = nullptr;
+	stmt_type_t *type = nullptr;
 	stmt_base_t *val  = nullptr;
+
+in:
+	if(intype == Occurs::NO && p.accept(lex::IN)) {
+		err::set(p.peak(), "unexpected 'in' here");
+		goto fail;
+	}
+	if(!p.acceptn(lex::IN)) {
+		goto type;
+	}
+	if(!parse_type(p, in)) {
+		err::set(p.peak(), "failed to parse in-type for variable: %s", name.data.s.c_str());
+		goto fail;
+	}
 
 type:
 	if(otype == Occurs::NO && p.accept(lex::COL)) {
@@ -985,23 +1003,13 @@ type:
 		goto fail;
 	}
 	if(!p.acceptn(lex::COL)) {
-		goto in;
-	}
-	if(!parse_type(p, type)) {
-		err::set(p.peak(), "failed to parse type for variable: " + name.data.s);
-		goto fail;
-	}
-in:
-	if(oin == Occurs::NO && p.accept(lex::IN)) {
-		err::set(p.peak(), "unexpected beginning of 'in' here");
-		goto fail;
-	}
-	if(!p.acceptn(lex::IN)) {
 		goto val;
 	}
-	if(!parse_type(p, in)) {
+	if(!parse_type(p, type)) {
+		err::set(p.peak(), "failed to parse type for variable: %s", name.data.s.c_str());
 		goto fail;
 	}
+
 val:
 	if(oval == Occurs::NO && p.accept(lex::ASSN)) {
 		err::set(p.peak(), "unexpected beginning of value assignment here");
@@ -1028,9 +1036,21 @@ done:
 		err::set(name, "invalid variable declaration - no type or value set");
 		goto fail;
 	}
-	var = new stmt_var_t(name.line, name.col_beg, name, type, in, val);
+	if(in) {
+		if(type) {
+			err::set(name, "let-in statements can only have values (function "
+				       "definitions) - no types allowed");
+			goto fail;
+		}
+		if(val && val->type != FNDEF) {
+			err::set(name, "only functions can be created using let-in statements");
+			goto fail;
+		}
+	}
+	var = new stmt_var_t(name.line, name.col_beg, name, in, type, val);
 	return true;
 fail:
+	if(in) delete in;
 	if(type) delete type;
 	if(val) delete val;
 	return false;
@@ -1041,16 +1061,29 @@ bool parse_fndecl_params(ParseHelper &p, stmt_fndecl_params_t *&fparams)
 	fparams = nullptr;
 
 	std::vector<stmt_var_t *> params;
-	stmt_var_t *var	   = nullptr;
+	stmt_var_t *var = nullptr;
+	std::unordered_set<std::string> fieldnames;
+	bool found_va	   = false;
 	lex::Lexeme &start = p.peak();
 
 	while(true) {
-		if(!parse_var(p, var, Occurs::YES, Occurs::NO, Occurs::NO)) {
+		if(fieldnames.find(p.peak().data.s) != fieldnames.end()) {
+			err::set(p.peak(), "this argument name is already used "
+					   "before in this function signature");
 			goto fail;
 		}
+		fieldnames.insert(p.peak().data.s);
+		if(!parse_var(p, var, Occurs::NO, Occurs::YES, Occurs::NO)) {
+			goto fail;
+		}
+		if(var->vtype->info & TypeInfoMask::VARIADIC) found_va = true;
 		params.push_back(var);
 		var = nullptr;
 		if(!p.acceptn(lex::COMMA)) break;
+		if(found_va) {
+			err::set(p.peak(), "no parameter can exist after variadic");
+			goto fail;
+		}
 	}
 
 	fparams = new stmt_fndecl_params_t(start.line, start.col_beg, params);
@@ -1068,12 +1101,13 @@ bool parse_fnsig(ParseHelper &p, stmt_base_t *&fsig)
 	stmt_fndecl_params_t *params = nullptr;
 	stmt_type_t *rettype	     = nullptr;
 	bool comptime		     = false;
-	lex::Lexeme &start	     = p.peak();
+	std::unordered_set<std::string> templnames;
+	lex::Lexeme &start = p.peak();
 
 	if(p.acceptn(lex::COMPTIME)) comptime = true;
 
 	if(!p.acceptn(lex::FN)) {
-		err::set(p.peak(), "expected 'fn' here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected 'fn' here, found: %s", p.peak().tok.str().c_str());
 		return false;
 	}
 
@@ -1082,23 +1116,30 @@ bool parse_fnsig(ParseHelper &p, stmt_base_t *&fsig)
 	// templates
 	while(true) {
 		if(!p.accept(lex::IDEN)) {
-			err::set(p.peak(), "expected template name, found: " + p.peak().tok.str());
+			err::set(p.peak(), "expected template name, found: %s",
+				 p.peak().tok.str().c_str());
 			goto fail;
 		}
+		if(templnames.find(p.peak().data.s) != templnames.end()) {
+			err::set(p.peak(), "this template name is already used "
+					   "before in this template group");
+			goto fail;
+		}
+		templnames.insert(p.peak().data.s);
 		templates.push_back(p.peak());
 		p.next();
 		if(!p.acceptn(lex::COMMA)) break;
 	}
 	if(!p.acceptn(lex::GT)) {
-		err::set(p.peak(),
-			 "expected '>' for end of template names, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected '>' for end of template names, found: %s",
+			 p.peak().tok.str().c_str());
 		return false;
 	}
 
 after_templates:
 	if(!p.acceptn(lex::LPAREN)) {
-		err::set(p.peak(), "expected opening parenthesis for function args, found: " +
-				   p.peak().tok.str());
+		err::set(p.peak(), "expected opening parenthesis for function args, found: %s",
+			 p.peak().tok.str().c_str());
 		return false;
 	}
 	if(p.acceptn(lex::RPAREN)) goto post_args;
@@ -1108,8 +1149,8 @@ after_templates:
 		goto fail;
 	}
 	if(!p.acceptn(lex::RPAREN)) {
-		err::set(p.peak(), "expected closing parenthesis after function args, found: " +
-				   p.peak().tok.str());
+		err::set(p.peak(), "expected closing parenthesis after function args, found: %s",
+			 p.peak().tok.str().c_str());
 		goto fail;
 	}
 
@@ -1152,8 +1193,9 @@ bool parse_header(ParseHelper &p, stmt_header_t *&header)
 	lex::Lexeme names, flags;
 
 	if(!p.accept(lex::IDEN, lex::STR)) {
-		err::set(p.peak(), "expected string or identifier for the name of header, found: " +
-				   p.peak().tok.str());
+		err::set(p.peak(),
+			 "expected string or identifier for the name of header, found: %s",
+			 p.peak().tok.str().c_str());
 		return false;
 	}
 	names = p.peak();
@@ -1162,8 +1204,8 @@ bool parse_header(ParseHelper &p, stmt_header_t *&header)
 	if(!p.acceptn(lex::COL)) goto done;
 
 	if(!p.accept(lex::IDEN, lex::STR)) {
-		err::set(p.peak(), "expected string or identifier for the header flags, found: " +
-				   p.peak().tok.str());
+		err::set(p.peak(), "expected string or identifier for the header flags, found: %s",
+			 p.peak().tok.str().c_str());
 		return false;
 	}
 	flags = p.peak();
@@ -1180,8 +1222,8 @@ bool parse_lib(ParseHelper &p, stmt_lib_t *&lib)
 	lex::Lexeme flags;
 
 	if(!p.accept(lex::IDEN, lex::STR)) {
-		err::set(p.peak(), "expected string or identifier for the lib flags, found: " +
-				   p.peak().tok.str());
+		err::set(p.peak(), "expected string or identifier for the lib flags, found: %s",
+			 p.peak().tok.str().c_str());
 		return false;
 	}
 	flags = p.peak();
@@ -1200,19 +1242,20 @@ bool parse_extern(ParseHelper &p, stmt_base_t *&ext)
 	stmt_base_t *sig       = nullptr;
 
 	if(!p.acceptn(lex::EXTERN)) {
-		err::set(p.peak(), "expected extern keyword here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected extern keyword here, found: %s",
+			 p.peak().tok.str().c_str());
 		return false;
 	}
 
 	if(!p.acceptn(lex::LBRACK)) {
-		err::set(p.peak(), "expected opening bracket for extern information, found: " +
-				   p.peak().tok.str());
+		err::set(p.peak(), "expected opening bracket for extern information, found: %s",
+			 p.peak().tok.str().c_str());
 		return false;
 	}
 
 	if(!p.accept(lex::IDEN)) {
-		err::set(p.peak(), "expected function name identifier or string here, found: " +
-				   p.peak().tok.str());
+		err::set(p.peak(), "expected function name identifier or string here, found: %s",
+			 p.peak().tok.str().c_str());
 		return false;
 	}
 	name = p.peak();
@@ -1226,8 +1269,8 @@ bool parse_extern(ParseHelper &p, stmt_base_t *&ext)
 
 endinfo:
 	if(!p.acceptn(lex::RBRACK)) {
-		err::set(p.peak(), "expected closing bracket after extern information, found: " +
-				   p.peak().tok.str());
+		err::set(p.peak(), "expected closing bracket after extern information, found: %s",
+			 p.peak().tok.str().c_str());
 		return false;
 	}
 
@@ -1249,28 +1292,37 @@ bool parse_struct(ParseHelper &p, stmt_base_t *&sd)
 	bool decl = false;
 	std::vector<lex::Lexeme> templates;
 	std::vector<stmt_var_t *> fields;
-	stmt_var_t *field  = nullptr;
+	stmt_var_t *field = nullptr;
+	std::unordered_set<std::string> fieldnames;
+	std::unordered_set<std::string> templnames;
 	lex::Lexeme &start = p.peak();
 
 	if(!p.acceptn(lex::STRUCT)) {
-		err::set(p.peak(), "expected 'struct' keyword here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected 'struct' keyword here, found: %s",
+			 p.peak().tok.str().c_str());
 		return false;
 	}
 
 	if(p.acceptn(lex::LT)) {
 		while(true) {
 			if(!p.accept(lex::IDEN)) {
-				err::set(p.peak(),
-					 "expected template name, found: " + p.peak().tok.str());
+				err::set(p.peak(), "expected template name, found: %s",
+					 p.peak().tok.str().c_str());
 				return false;
 			}
+			if(templnames.find(p.peak().data.s) != templnames.end()) {
+				err::set(p.peak(), "this template name is already used "
+						   "before in this template group");
+				goto fail;
+			}
+			templnames.insert(p.peak().data.s);
 			templates.push_back(p.peak());
 			p.next();
 			if(!p.acceptn(lex::COMMA)) break;
 		}
 		if(!p.acceptn(lex::GT)) {
-			err::set(p.peak(), "expected '>' for end of template names, found: " +
-					   p.peak().tok.str());
+			err::set(p.peak(), "expected '>' for end of template names, found: %s",
+				 p.peak().tok.str().c_str());
 			return false;
 		}
 	}
@@ -1281,15 +1333,22 @@ bool parse_struct(ParseHelper &p, stmt_base_t *&sd)
 	}
 
 	while(p.accept(lex::IDEN)) {
-		if(!parse_var(p, field, Occurs::YES, Occurs::NO, Occurs::NO)) goto fail;
+		if(fieldnames.find(p.peak().data.s) != fieldnames.end()) {
+			err::set(p.peak(), "this field name is already used "
+					   "before in this same structure");
+			goto fail;
+		}
+		fieldnames.insert(p.peak().data.s);
+		if(!parse_var(p, field, Occurs::NO, Occurs::YES, Occurs::NO)) goto fail;
 		fields.push_back(field);
 		field = nullptr;
 		if(!p.acceptn(lex::COLS)) break;
 	}
 	if(!p.acceptn(lex::RBRACE)) {
 		err::set(p.peak(),
-			 "expected closing brace for struct/trait declaration/definition, found: " +
-			 p.peak().tok.str());
+			 "expected closing brace for struct/trait"
+			 " declaration/definition, found: %s",
+			 p.peak().tok.str().c_str());
 		goto fail;
 	}
 
@@ -1312,7 +1371,8 @@ bool parse_vardecl(ParseHelper &p, stmt_base_t *&vd)
 	lex::Lexeme &start = p.peak();
 
 	if(!p.acceptn(lex::LET)) {
-		err::set(p.peak(), "expected 'let' keyword here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected 'let' keyword here, found: %s",
+			 p.peak().tok.str().c_str());
 		return false;
 	}
 
@@ -1342,7 +1402,7 @@ bool parse_conds(ParseHelper &p, stmt_base_t *&conds)
 
 cond:
 	if(!p.acceptn(lex::IF)) {
-		err::set(p.peak(), "expected 'if' here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected 'if' here, found: %s", p.peak().tok.str().c_str());
 		goto fail;
 	}
 
@@ -1388,20 +1448,20 @@ bool parse_forin(ParseHelper &p, stmt_base_t *&fin)
 	lex::Lexeme &start = p.peak();
 
 	if(!p.acceptn(lex::FOR)) {
-		err::set(p.peak(), "expected 'for' here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected 'for' here, found: %s", p.peak().tok.str().c_str());
 		return false;
 	}
 
 	if(!p.accept(lex::IDEN)) {
-		err::set(p.peak(),
-			 "expected iterator (identifier) here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected iterator (identifier) here, found: %s",
+			 p.peak().tok.str().c_str());
 		return false;
 	}
 	iter = p.peak();
 	p.next();
 
 	if(!p.acceptn(lex::IN)) {
-		err::set(p.peak(), "expected 'in' here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected 'in' here, found: %s", p.peak().tok.str().c_str());
 		return false;
 	}
 
@@ -1411,8 +1471,8 @@ bool parse_forin(ParseHelper &p, stmt_base_t *&fin)
 	}
 
 	if(!p.accept(lex::LBRACE)) {
-		err::set(p.peak(),
-			 "expected block for for-in construct, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected block for for-in construct, found: %s",
+			 p.peak().tok.str().c_str());
 		goto fail;
 	}
 
@@ -1439,7 +1499,7 @@ bool parse_for(ParseHelper &p, stmt_base_t *&f)
 	lex::Lexeme &start = p.peak();
 
 	if(!p.acceptn(lex::FOR)) {
-		err::set(p.peak(), "expected 'for' here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected 'for' here, found: %s", p.peak().tok.str().c_str());
 		return false;
 	}
 
@@ -1452,7 +1512,8 @@ init:
 		if(!parse_expr(p, init)) goto fail;
 	}
 	if(!p.acceptn(lex::COLS)) {
-		err::set(p.peak(), "expected semicolon here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected semicolon here, found: %s",
+			 p.peak().tok.str().c_str());
 		goto fail;
 	}
 
@@ -1461,7 +1522,8 @@ cond:
 
 	if(!parse_expr_16(p, cond)) goto fail;
 	if(!p.acceptn(lex::COLS)) {
-		err::set(p.peak(), "expected semicolon here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected semicolon here, found: %s",
+			 p.peak().tok.str().c_str());
 		goto fail;
 	}
 
@@ -1470,7 +1532,8 @@ incr:
 
 	if(!parse_expr(p, incr)) goto fail;
 	if(!p.accept(lex::LBRACE)) {
-		err::set(p.peak(), "expected braces for body here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected braces for body here, found: %s",
+			 p.peak().tok.str().c_str());
 		goto fail;
 	}
 
@@ -1498,13 +1561,14 @@ bool parse_while(ParseHelper &p, stmt_base_t *&w)
 	lex::Lexeme &start = p.peak();
 
 	if(!p.acceptn(lex::WHILE)) {
-		err::set(p.peak(), "expected 'while' here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected 'while' here, found: %s", p.peak().tok.str().c_str());
 		return false;
 	}
 
 	if(!parse_expr_16(p, cond)) goto fail;
 	if(!p.acceptn(lex::COLS)) {
-		err::set(p.peak(), "expected semicolon here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected semicolon here, found: %s",
+			 p.peak().tok.str().c_str());
 		goto fail;
 	}
 
@@ -1528,7 +1592,7 @@ bool parse_ret(ParseHelper &p, stmt_base_t *&ret)
 	lex::Lexeme &start = p.peak();
 
 	if(!p.acceptn(lex::RETURN)) {
-		err::set(p.peak(), "expected 'return' here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected 'return' here, found: %s", p.peak().tok.str().c_str());
 		return false;
 	}
 
@@ -1553,7 +1617,8 @@ bool parse_continue(ParseHelper &p, stmt_base_t *&cont)
 	lex::Lexeme &start = p.peak();
 
 	if(!p.acceptn(lex::CONTINUE)) {
-		err::set(p.peak(), "expected 'continue' here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected 'continue' here, found: %s",
+			 p.peak().tok.str().c_str());
 		return false;
 	}
 
@@ -1567,7 +1632,7 @@ bool parse_break(ParseHelper &p, stmt_base_t *&brk)
 	lex::Lexeme &start = p.peak();
 
 	if(!p.acceptn(lex::BREAK)) {
-		err::set(p.peak(), "expected 'break' here, found: " + p.peak().tok.str());
+		err::set(p.peak(), "expected 'break' here, found: %s", p.peak().tok.str().c_str());
 		return false;
 	}
 

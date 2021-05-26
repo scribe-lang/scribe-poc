@@ -1,0 +1,11 @@
+* Rebuild the type system, such that all arguments/types know if they are templates or not
+* Specialize function for each type to remove all templates, replacing them with specific types
+* Struct instance creation function to differentiate between a struct type vs a struct object
+* Template types will NOT be evaluated for existence of functions/variable names
+  * For template types, the evaluation will happen when they are being specialized (struct creation, function call, etc.)
+
+* `specialize()` will return the specialized type which will be used to rewrite the function names and such
+  * When specializing, the original function names will be kept as well (somehow) to refer to during codegen, when recreating function definition with specialized types
+
+For the new system, a new source file must be written to in simplistic syntax - no templates or member functions
+The code will be read from all sources as necessary, but only be written to the new single source according to what is being used - hence removing everything that is not necessary

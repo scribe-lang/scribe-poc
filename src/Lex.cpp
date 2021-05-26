@@ -25,6 +25,7 @@ namespace lex
 const char *TokStrs[_LAST] = {
 "INT",
 "FLT",
+"CHAR",
 "STR",
 "IDEN",
 
@@ -111,12 +112,8 @@ const char *TokStrs[_LAST] = {
 "<<=",
 ">>=",
 
-// Functions
-"()",  // func
-".()", // member func
-
-// Subscript
 "[]",
+"()",
 
 // Varargs
 "x...",
@@ -199,7 +196,7 @@ std::string Lexeme::str(const int64_t &pad)
 	len = res.size() - len;
 	for(int64_t i = 0; i < pad - len; ++i) res += " ";
 	if(pad == 0) res += " ";
-	if(tok.val == STR || tok.val == IDEN) {
+	if(tok.val == CHAR || tok.val == STR || tok.val == IDEN) {
 		res += view_backslash(data.s);
 	} else if(tok.val == INT) {
 		res += std::to_string(data.i);
@@ -213,8 +210,8 @@ static std::string get_name(const std::string &data, size_t &i);
 static TokType classify_str(const std::string &str);
 static std::string get_num(const std::string &data, size_t &i, size_t &line, size_t &line_start,
 			   TokType &num_type, int &base);
-static bool get_const_str(const std::string &data, size_t &i, size_t &line, size_t &line_start,
-			  std::string &buf);
+static bool get_const_str(const std::string &data, char &quote_type, size_t &i, size_t &line,
+			  size_t &line_start, std::string &buf);
 static TokType get_operator(const std::string &data, size_t &i, const size_t &line,
 			    const size_t &line_start);
 static void remove_back_slash(std::string &s);
@@ -314,9 +311,10 @@ bool tokenize(const std::string &data, std::vector<Lexeme> &toks)
 		// const strings
 		if(CURR == '\"' || CURR == '\'' || CURR == '`') {
 			std::string str;
-			if(!get_const_str(data, i, line, line_start, str)) return false;
-			toks.emplace_back(line, i - line_start - str.size(), i - line_start, STR,
-					  str);
+			char quote_type = 0;
+			if(!get_const_str(data, quote_type, i, line, line_start, str)) return false;
+			toks.emplace_back(line, i - line_start - str.size(), i - line_start,
+					  quote_type == '\'' ? CHAR : STR, str);
 			continue;
 		}
 
@@ -450,8 +448,8 @@ static std::string get_num(const std::string &data, size_t &i, size_t &line, siz
 		case '.':
 			if(!read_base && base != 10) {
 				err::set(line, first_digit_at - line_start, i - line_start,
-					 "encountered dot (.) character when base is not 10 (" +
-					 std::to_string(base) + ")");
+					 "encountered dot (.) character when base is not 10 (%d) ",
+					 base);
 				return "";
 			} else if(dot_loc == -1) {
 				if(next >= '0' && next <= '9') {
@@ -461,10 +459,11 @@ static std::string get_num(const std::string &data, size_t &i, size_t &line, siz
 					return buf;
 				}
 			} else {
-				err::set(line, first_digit_at - line_start, i - line_start,
-					 "encountered dot (.) character "
-					 "when the number being retrieved (from column " +
-					 std::to_string(first_digit_at + 1) + ") already had one");
+				err::set(
+				line, first_digit_at - line_start, i - line_start,
+				"encountered dot (.) character "
+				"when the number being retrieved (from column %zu) already had one",
+				first_digit_at + 1);
 				return "";
 			}
 			read_base = false;
@@ -474,9 +473,9 @@ static std::string get_num(const std::string &data, size_t &i, size_t &line, siz
 		fail:
 			if(isalnum(c)) {
 				err::set(line, first_digit_at - line_start, i - line_start,
-					 "encountered invalid character '" + std::string(c, 1) +
-					 "' while retrieving a number of base " +
-					 std::to_string(base));
+					 "encountered invalid character '%c' while retrieving a "
+					 "number of base %d",
+					 c, base);
 			} else {
 				return buf;
 			}
@@ -487,12 +486,12 @@ static std::string get_num(const std::string &data, size_t &i, size_t &line, siz
 	return buf;
 }
 
-static bool get_const_str(const std::string &data, size_t &i, size_t &line, size_t &line_start,
-			  std::string &buf)
+static bool get_const_str(const std::string &data, char &quote_type, size_t &i, size_t &line,
+			  size_t &line_start, std::string &buf)
 {
 	size_t len = data.size();
 	buf.clear();
-	const char quote_type	    = CURR;
+	quote_type		    = CURR;
 	int starting_at		    = i;
 	size_t continuous_backslash = 0;
 	// omit beginning quote
@@ -509,11 +508,20 @@ static bool get_const_str(const std::string &data, size_t &i, size_t &line, size
 		}
 		if(CURR == quote_type && continuous_backslash % 2 == 0) break;
 		buf.push_back(data[i++]);
+		if(quote_type == '\'') {
+			if(CURR != quote_type) {
+				err::set(line, starting_at - line_start, i - line_start,
+					 "expected single quote for end of const char, found: %c",
+					 CURR);
+				return false;
+			}
+			break;
+		}
 		continuous_backslash = 0;
 	}
 	if(CURR != quote_type) {
 		err::set(line, starting_at - line_start, i - line_start,
-			 "no matching quote for '" + std::string(quote_type, 1) + "' found");
+			 "no matching quote for '%c' found", quote_type);
 		return false;
 	}
 	// omit ending quote
@@ -698,7 +706,7 @@ static TokType get_operator(const std::string &data, size_t &i, const size_t &li
 	case '}': SET_OP_TYPE_BRK(RBRACE);
 	default:
 		err::set(line, starting_at - line_start, i - line_start,
-			 "unknown operator '" + std::string(CURR, 1) + "' found");
+			 "unknown operator '%c' found", CURR);
 		op_type = INVALID;
 	}
 

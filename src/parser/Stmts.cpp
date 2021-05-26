@@ -26,7 +26,9 @@ namespace parser
 stmt_base_t::stmt_base_t(const StmtType &type, const size_t &line, const size_t &col)
 	: type(type), line(line), col(col)
 {}
-stmt_base_t::~stmt_base_t() {}
+stmt_base_t::~stmt_base_t()
+{
+}
 
 std::string stmt_base_t::typestr()
 {
@@ -35,7 +37,7 @@ std::string stmt_base_t::typestr()
 	case TYPE: return "type";
 	case SIMPLE: return "simple";
 	case EXPR: return "expression";
-	case FNCALL: return "function call";
+	case FNCALLINFO: return "function call info";
 	case VAR: return "variable declaration base";
 	case FNPARAMS: return "function parameters";
 	case FNSIG: return "function signature";
@@ -73,7 +75,7 @@ stmt_block_t::~stmt_block_t()
 void stmt_block_t::stmt_block_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Block at: %p\n", this);
+	tio::print(has_next, "Block:\n");
 	for(size_t i = 0; i < stmts.size(); ++i) {
 		stmts[i]->disp(i != stmts.size() - 1);
 	}
@@ -103,10 +105,9 @@ stmt_type_t::~stmt_type_t()
 
 void stmt_type_t::disp(const bool &has_next)
 {
-	tio::taba(has_next);
 	if(func) {
-		tio::print(has_next, "Type: <%sFunction> at %p\n", is_extern ? "Extern " : "",
-			   this);
+		tio::taba(has_next);
+		tio::print(has_next, "Type: <%sFunction>\n", is_extern ? "Extern " : "");
 		fn->disp(false);
 		tio::tabr();
 		return;
@@ -127,7 +128,8 @@ void stmt_type_t::disp(const bool &has_next)
 		tname.pop_back();
 		tname += ">";
 	}
-	tio::print(has_next, "Type: %s at %p\n", tname.c_str(), this);
+	tio::taba(has_next);
+	tio::print(has_next, "Type: %s\n", tname.c_str());
 	if(!counts.empty()) {
 		tio::print(false, "Array counts:\n");
 		tio::taba(false);
@@ -167,7 +169,48 @@ stmt_simple_t::stmt_simple_t(const size_t &line, const size_t &col, const lex::L
 void stmt_simple_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Simple: %s at %p\n", val.str(0).c_str(), this);
+	tio::print(has_next, "Simple: %s\n", val.str(0).c_str());
+	tio::tabr();
+}
+
+stmt_simple_t::~stmt_simple_t() {}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////// stmt_fncallinfo_t //////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+stmt_fncallinfo_t::stmt_fncallinfo_t(const size_t &line, const size_t &col,
+				     const std::vector<stmt_type_t *> &templates,
+				     const std::vector<stmt_base_t *> &args)
+	: stmt_base_t(FNCALLINFO, line, col), templates(templates), args(args)
+{}
+stmt_fncallinfo_t::~stmt_fncallinfo_t()
+{
+	for(auto &templ : templates) delete templ;
+	for(auto &a : args) delete a;
+}
+
+void stmt_fncallinfo_t::disp(const bool &has_next)
+{
+	tio::taba(has_next);
+	tio::print(has_next, "Function Call Info: %s\n",
+		   templates.empty() && args.empty() ? "(empty)" : "");
+	if(!templates.empty()) {
+		tio::taba(!args.empty());
+		tio::print(!args.empty(), "Template Types:\n");
+		for(size_t i = 0; i < templates.size(); ++i) {
+			templates[i]->disp(i != templates.size() - 1);
+		}
+		tio::tabr();
+	}
+	if(!args.empty()) {
+		tio::taba(false);
+		tio::print(false, "Args:\n");
+		for(size_t i = 0; i < args.size(); ++i) {
+			args[i]->disp(i != args.size() - 1);
+		}
+		tio::tabr();
+	}
 	tio::tabr();
 }
 
@@ -178,7 +221,7 @@ void stmt_simple_t::disp(const bool &has_next)
 stmt_expr_t::stmt_expr_t(const size_t &line, const size_t &col, stmt_base_t *lhs,
 			 const lex::Lexeme &oper, stmt_base_t *rhs)
 	: stmt_base_t(EXPR, line, col), commas(0), lhs(lhs), oper(oper), rhs(rhs), or_blk(nullptr),
-	  or_blk_var()
+	  or_blk_var(), intrin(false)
 {}
 stmt_expr_t::~stmt_expr_t()
 {
@@ -190,10 +233,10 @@ stmt_expr_t::~stmt_expr_t()
 void stmt_expr_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Expression: %p\n", this);
+	tio::print(has_next, "Expression [intrinsic = %s]:\n", intrin ? "yes" : "no");
 	if(lhs) {
 		tio::taba(oper.tok.is_valid() || rhs || or_blk);
-		tio::print(oper.tok.is_valid() || rhs || or_blk, "LHS: %p\n", lhs);
+		tio::print(oper.tok.is_valid() || rhs || or_blk, "LHS:\n");
 		lhs->disp(false);
 		tio::tabr();
 	}
@@ -204,56 +247,15 @@ void stmt_expr_t::disp(const bool &has_next)
 	}
 	if(rhs) {
 		tio::taba(or_blk);
-		tio::print(or_blk, "RHS: %p\n", this);
+		tio::print(or_blk, "RHS:\n");
 		rhs->disp(false);
 		tio::tabr();
 	}
 	if(or_blk) {
 		tio::taba(false);
-		tio::print(false, "Or: %s at %p\n",
-			   or_blk_var.tok.is_data() ? or_blk_var.data.s.c_str() : "<none>", this);
+		tio::print(false, "Or: %s\n",
+			   or_blk_var.tok.is_data() ? or_blk_var.data.s.c_str() : "<none>");
 		or_blk->disp(false);
-		tio::tabr();
-	}
-	tio::tabr();
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////// stmt_fncall_t ////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-stmt_fncall_t::stmt_fncall_t(const size_t &line, const size_t &col, const lex::Lexeme &name,
-			     const std::vector<stmt_type_t *> &templates, stmt_base_t *args,
-			     const bool &comptime, const bool &mem, const bool &subscr)
-	: stmt_base_t(FNCALL, line, col), name(name), templates(templates), args(args),
-	  comptime(comptime), mem(mem), subscr(subscr)
-{}
-stmt_fncall_t::~stmt_fncall_t()
-{
-	for(auto &templ : templates) delete templ;
-	if(args) delete args;
-}
-
-void stmt_fncall_t::disp(const bool &has_next)
-{
-	tio::taba(has_next);
-	tio::print(has_next,
-		   "Function Call: %s [comptime = %s, member = %s, subscript = %s]"
-		   " at %p\n",
-		   name.data.s.c_str(), comptime ? "yes" : "no", mem ? "yes" : "no",
-		   subscr ? "yes" : "no", this);
-	if(!templates.empty()) {
-		tio::taba(args);
-		tio::print(false, "Template Types:\n");
-		for(size_t i = 0; i < templates.size(); ++i) {
-			templates[i]->disp(i != templates.size() - 1);
-		}
-		tio::tabr();
-	}
-	if(args) {
-		tio::taba(false);
-		tio::print(false, "Args:\n");
-		args->disp(false);
 		tio::tabr();
 	}
 	tio::tabr();
@@ -264,30 +266,30 @@ void stmt_fncall_t::disp(const bool &has_next)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 stmt_var_t::stmt_var_t(const size_t &line, const size_t &col, const lex::Lexeme &name,
-		       stmt_type_t *vtype, stmt_type_t *in, stmt_base_t *val)
-	: stmt_base_t(VAR, line, col), name(name), vtype(vtype), in(in), val(val)
+		       stmt_type_t *in, stmt_type_t *vtype, stmt_base_t *val)
+	: stmt_base_t(VAR, line, col), name(name), in(in), vtype(vtype), val(val)
 {}
 stmt_var_t::~stmt_var_t()
 {
-	if(vtype) delete vtype;
 	if(in) delete in;
+	if(vtype) delete vtype;
 	if(val) delete val;
 }
 
 void stmt_var_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Variable: %s at %p\n", name.data.s.c_str(), this);
-	if(vtype) {
-		tio::taba(in || val);
-		tio::print(in || val, "Type:\n");
-		vtype->disp(false);
+	tio::print(has_next, "Variable: %s\n", name.data.s.c_str());
+	if(in) {
+		tio::taba(vtype || val);
+		tio::print(vtype || val, "In:\n");
+		in->disp(false);
 		tio::tabr();
 	}
-	if(in) {
+	if(vtype) {
 		tio::taba(val);
-		tio::print(val, "In:\n");
-		in->disp(false);
+		tio::print(val, "Type:\n");
+		vtype->disp(false);
 		tio::tabr();
 	}
 	if(val) {
@@ -315,7 +317,7 @@ stmt_fndecl_params_t::~stmt_fndecl_params_t()
 void stmt_fndecl_params_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Function declaration parameters at %p\n", this);
+	tio::print(has_next, "Function declaration parameters\n");
 	for(size_t i = 0; i < params.size(); ++i) {
 		params[i]->disp(i != params.size() - 1);
 	}
@@ -341,8 +343,7 @@ stmt_fnsig_t::~stmt_fnsig_t()
 void stmt_fnsig_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Function signature at %p [comptime = %s]\n", this,
-		   comptime ? "yes" : "no");
+	tio::print(has_next, "Function signature [comptime = %s]\n", comptime ? "yes" : "no");
 	if(!templates.empty()) {
 		tio::taba(params || rettype);
 		tio::print(params || rettype, "Templates:\n");
@@ -385,14 +386,14 @@ stmt_fndef_t::~stmt_fndef_t()
 void stmt_fndef_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Function definition at %p\n", this);
+	tio::print(has_next, "Function definition\n");
 	tio::taba(true);
-	tio::print(true, "Signature:\n");
+	tio::print(true, "Function Signature:\n");
 	sig->disp(false);
 	tio::tabr();
 
 	tio::taba(false);
-	tio::print(false, "Block:\n");
+	tio::print(false, "Function Block:\n");
 	blk->disp(false);
 	tio::tabr(2);
 }
@@ -409,7 +410,7 @@ stmt_header_t::stmt_header_t(const size_t &line, const size_t &col, const lex::L
 void stmt_header_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Header at %p\n", this);
+	tio::print(has_next, "Header\n");
 	tio::taba(!flags.data.s.empty());
 	tio::print(!flags.data.s.empty(), "Names: %s\n", names.data.s.c_str());
 	tio::tabr();
@@ -433,7 +434,7 @@ stmt_lib_t::stmt_lib_t(const size_t &line, const size_t &col, const lex::Lexeme 
 void stmt_lib_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Libs at %p\n", this);
+	tio::print(has_next, "Libs\n");
 	tio::taba(false);
 	tio::print(false, "Flags: %s\n", flags.data.s.c_str());
 	tio::tabr(2);
@@ -457,7 +458,7 @@ stmt_extern_t::~stmt_extern_t()
 void stmt_extern_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Extern for %s at %p\n", fname.data.s.c_str(), this);
+	tio::print(has_next, "Extern for %s\n", fname.data.s.c_str());
 	if(headers) {
 		tio::taba(libs || sig);
 		tio::print(libs || sig, "Headers:\n");
@@ -512,11 +513,11 @@ stmt_struct_t::~stmt_struct_t()
 void stmt_struct_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "struct at %p [declaration = %s]\n", this, decl ? "yes" : "no");
+	tio::print(has_next, "struct [declaration = %s]\n", decl ? "yes" : "no");
 
 	if(!templates.empty()) {
 		tio::taba(!fields.empty());
-		tio::print(false, "Templates:\n");
+		tio::print(!fields.empty(), "Templates:\n");
 		for(size_t i = 0; i < templates.size(); ++i) {
 			tio::taba(i != templates.size() - 1);
 			tio::print(false, "%s\n", templates[i].str(0).c_str());
@@ -553,7 +554,7 @@ stmt_vardecl_t::~stmt_vardecl_t()
 void stmt_vardecl_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Variable declarations at %p\n", this);
+	tio::print(has_next, "Variable declarations\n");
 	for(size_t i = 0; i < decls.size(); ++i) {
 		decls[i]->disp(i != decls.size() - 1);
 	}
@@ -578,7 +579,7 @@ stmt_cond_t::~stmt_cond_t()
 void stmt_cond_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Conditional at %p\n", this);
+	tio::print(has_next, "Conditional\n");
 	for(size_t i = 0; i < conds.size(); ++i) {
 		tio::taba(i != conds.size() - 1);
 		tio::print(i != conds.size() - 1, "Branch:\n");
@@ -613,7 +614,7 @@ stmt_forin_t::~stmt_forin_t()
 void stmt_forin_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "For in with iterator %s at %p", iter.data.s.c_str(), this);
+	tio::print(has_next, "For in with iterator %s", iter.data.s.c_str());
 	tio::taba(true);
 	tio::print(true, "In:\n");
 	in->disp(true);
@@ -643,7 +644,7 @@ stmt_for_t::~stmt_for_t()
 void stmt_for_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "For at %p\n", this);
+	tio::print(has_next, "For\n");
 	if(init) {
 		tio::taba(cond || incr || blk);
 		tio::print(cond || incr || blk, "Init:\n");
@@ -688,7 +689,7 @@ stmt_while_t::~stmt_while_t()
 void stmt_while_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "While at %p\n", this);
+	tio::print(has_next, "While\n");
 	tio::taba(true);
 	tio::print(true, "Condition:\n");
 	cond->disp(true);
@@ -714,7 +715,7 @@ stmt_ret_t::~stmt_ret_t()
 void stmt_ret_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Return at %p\n", this);
+	tio::print(has_next, "Return\n");
 	if(val) {
 		tio::taba(false);
 		tio::print(false, "Value:\n");
@@ -734,7 +735,7 @@ stmt_cont_t::stmt_cont_t(const size_t &line, const size_t &col) : stmt_base_t(CO
 void stmt_cont_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Continue at %p\n", this);
+	tio::print(has_next, "Continue\n");
 	tio::tabr();
 }
 
@@ -747,7 +748,7 @@ stmt_break_t::stmt_break_t(const size_t &line, const size_t &col) : stmt_base_t(
 void stmt_break_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Break at %p\n", this);
+	tio::print(has_next, "Break\n");
 	tio::tabr();
 }
 } // namespace parser

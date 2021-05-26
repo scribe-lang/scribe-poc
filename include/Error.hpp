@@ -14,6 +14,7 @@
 #ifndef ERROR_HPP
 #define ERROR_HPP
 
+#include <cstdarg>
 #include <string>
 
 #include "Lex.hpp"
@@ -22,17 +23,11 @@ namespace sc
 {
 namespace err
 {
-enum EType
-{
-	WARN,
-	FAIL,
-};
-void set(const size_t &line, const size_t &col_beg, const size_t &col_end, const std::string &e,
-	 const EType &type = FAIL);
-inline void set(const lex::Lexeme &tok, const std::string &e, const EType &type = FAIL)
-{
-	set(tok.line, tok.col_beg, tok.col_end, e, type);
-}
+void set(const size_t &line, const size_t &col, const char *e, ...);
+void set(const lex::Lexeme &tok, const char *e, ...);
+void set(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e, ...);
+void set(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e,
+	 va_list args);
 bool present();
 void show(FILE *f, const std::string &data, const std::string &filename);
 } // namespace err

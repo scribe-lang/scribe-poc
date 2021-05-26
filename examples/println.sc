@@ -2,11 +2,7 @@ let str = @import("std/str");
 
 let c_puts = extern[puts, "<stdio.h>"] fn(data: *const u8): i32;
 
-let println = fn(format_str: *const u8, va: ...anytype): i32 {
-	return println(str.Str(format_str), va...);
-};
-
-let println = fn(fmt_str: str.Str, va: ...anytype): i32 {
+let println = fn(fmt_str: str.Str, va: ...any): i32 {
 	let len = fmt_str.len();
 	let j = 0;
 	for let i = 0; i < fmt_str.len(); ++i {

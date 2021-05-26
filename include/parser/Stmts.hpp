@@ -26,7 +26,7 @@ enum StmtType
 	TYPE,
 	SIMPLE,
 	EXPR,
-	FNCALL,
+	FNCALLINFO,
 	VAR, // Var and (Type or Val) (<var> : <type> = <value>)
 	FNPARAMS,
 	FNSIG, // function signature
@@ -46,13 +46,6 @@ enum StmtType
 	BREAK,
 };
 
-struct Type
-{
-	size_t ptr;  // number of ptrs
-	size_t info; // all from parser::TypeInfoMask
-	std::string name;
-};
-
 struct stmt_base_t
 {
 	StmtType type;
@@ -63,8 +56,6 @@ struct stmt_base_t
 	virtual void disp(const bool &has_next) = 0;
 
 	std::string typestr();
-
-	// virtual bool check_type(Type &t, Type *expect = nullptr) = 0;
 };
 
 template<typename T> T *as(stmt_base_t *data)
@@ -100,8 +91,6 @@ struct stmt_type_t : public stmt_base_t
 	void disp(const bool &has_next);
 
 	std::string getname();
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 
 struct stmt_block_t : public stmt_base_t
@@ -112,18 +101,27 @@ struct stmt_block_t : public stmt_base_t
 	~stmt_block_t();
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 
 struct stmt_simple_t : public stmt_base_t
 {
 	lex::Lexeme val;
 	stmt_simple_t(const size_t &line, const size_t &col, const lex::Lexeme &val);
+	~stmt_simple_t();
 
 	void disp(const bool &has_next);
+};
 
-	// bool check_type(Type &t, Type *expect = nullptr);
+struct stmt_fncallinfo_t : public stmt_base_t
+{
+	std::vector<stmt_type_t *> templates;
+	std::vector<stmt_base_t *> args;
+	stmt_fncallinfo_t(const size_t &line, const size_t &col,
+			  const std::vector<stmt_type_t *> &templates,
+			  const std::vector<stmt_base_t *> &args);
+	~stmt_fncallinfo_t();
+
+	void disp(const bool &has_next);
 };
 
 struct stmt_expr_t : public stmt_base_t
@@ -134,48 +132,27 @@ struct stmt_expr_t : public stmt_base_t
 	stmt_base_t *rhs;
 	stmt_block_t *or_blk;
 	lex::Lexeme or_blk_var;
+	bool intrin;
 	// or_blk and or_blk_var can be set separately - nullptr/INVALID by default
 	stmt_expr_t(const size_t &line, const size_t &col, stmt_base_t *lhs,
 		    const lex::Lexeme &oper, stmt_base_t *rhs);
 	~stmt_expr_t();
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
-};
-
-struct stmt_fncall_t : public stmt_base_t
-{
-	lex::Lexeme name;
-	std::vector<stmt_type_t *> templates;
-	stmt_base_t *args;
-	bool comptime;
-	bool mem;
-	bool subscr;
-	stmt_fncall_t(const size_t &line, const size_t &col, const lex::Lexeme &name,
-		      const std::vector<stmt_type_t *> &templates, stmt_base_t *args,
-		      const bool &comptime, const bool &mem, const bool &subscr);
-	~stmt_fncall_t();
-
-	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 
 struct stmt_var_t : public stmt_base_t
 {
 	lex::Lexeme name;
-	stmt_type_t *vtype;
 	stmt_type_t *in;
+	stmt_type_t *vtype;
 	stmt_base_t *val; // either of expr, funcdef, enumdef, or structdef
 	// at least one of type or val must be present
-	stmt_var_t(const size_t &line, const size_t &col, const lex::Lexeme &name,
-		   stmt_type_t *vtype, stmt_type_t *in, stmt_base_t *val);
+	stmt_var_t(const size_t &line, const size_t &col, const lex::Lexeme &name, stmt_type_t *in,
+		   stmt_type_t *vtype, stmt_base_t *val);
 	~stmt_var_t();
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 
 struct stmt_fndecl_params_t : public stmt_base_t
@@ -187,8 +164,6 @@ struct stmt_fndecl_params_t : public stmt_base_t
 	~stmt_fndecl_params_t();
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 
 struct stmt_fnsig_t : public stmt_base_t
@@ -203,8 +178,6 @@ struct stmt_fnsig_t : public stmt_base_t
 	~stmt_fnsig_t();
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 
 struct stmt_fndef_t : public stmt_base_t
@@ -215,8 +188,6 @@ struct stmt_fndef_t : public stmt_base_t
 	~stmt_fndef_t();
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 
 struct stmt_header_t : public stmt_base_t
@@ -228,8 +199,6 @@ struct stmt_header_t : public stmt_base_t
 		      const lex::Lexeme &flags);
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 
 struct stmt_lib_t : public stmt_base_t
@@ -239,8 +208,6 @@ struct stmt_lib_t : public stmt_base_t
 	stmt_lib_t(const size_t &line, const size_t &col, const lex::Lexeme &flags);
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 
 struct stmt_extern_t : public stmt_base_t
@@ -255,8 +222,6 @@ struct stmt_extern_t : public stmt_base_t
 	~stmt_extern_t();
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 
 struct stmt_enumdef_t : public stmt_base_t
@@ -268,8 +233,6 @@ struct stmt_enumdef_t : public stmt_base_t
 	~stmt_enumdef_t();
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 
 // both declaration and definition
@@ -285,8 +248,6 @@ struct stmt_struct_t : public stmt_base_t
 	~stmt_struct_t();
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 
 struct stmt_vardecl_t : public stmt_base_t
@@ -298,8 +259,6 @@ struct stmt_vardecl_t : public stmt_base_t
 	~stmt_vardecl_t();
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 
 struct cond_t
@@ -315,8 +274,6 @@ struct stmt_cond_t : public stmt_base_t
 	~stmt_cond_t();
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 
 struct stmt_forin_t : public stmt_base_t
@@ -329,8 +286,6 @@ struct stmt_forin_t : public stmt_base_t
 	~stmt_forin_t();
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 
 struct stmt_for_t : public stmt_base_t
@@ -345,8 +300,6 @@ struct stmt_for_t : public stmt_base_t
 	~stmt_for_t();
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 
 struct stmt_while_t : public stmt_base_t
@@ -357,8 +310,6 @@ struct stmt_while_t : public stmt_base_t
 	~stmt_while_t();
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 
 struct stmt_ret_t : public stmt_base_t
@@ -368,24 +319,18 @@ struct stmt_ret_t : public stmt_base_t
 	~stmt_ret_t();
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 struct stmt_cont_t : public stmt_base_t
 {
 	stmt_cont_t(const size_t &line, const size_t &col);
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 struct stmt_break_t : public stmt_base_t
 {
 	stmt_break_t(const size_t &line, const size_t &col);
 
 	void disp(const bool &has_next);
-
-	// bool check_type(Type &t, Type *expect = nullptr);
 };
 } // namespace parser
 } // namespace sc

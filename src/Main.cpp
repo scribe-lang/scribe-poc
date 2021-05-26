@@ -28,6 +28,7 @@ int main(int argc, char **argv)
 	args.add("version").set_short("v").set_long("version").set_help("prints program version");
 	args.add("tokens").set_short("t").set_long("tokens").set_help("shows lexical tokens");
 	args.add("parse").set_short("p").set_long("parse").set_help("shows AST");
+	args.add("semantic").set_short("s").set_long("semantic").set_help("shows Semantic Tree");
 
 	args.parse();
 
@@ -67,6 +68,7 @@ int main(int argc, char **argv)
 			printf("%s\n", l.str().c_str());
 		}
 	}
+
 	parser::stmt_block_t *ptree = nullptr;
 	if(!parser::parse(toks, ptree)) {
 		err::show(stderr, data, file);
@@ -77,6 +79,14 @@ int main(int argc, char **argv)
 		ptree->disp(false);
 	}
 
-	if(ptree) delete ptree;
+	if(args.has("semantic")) {
+		printf("Semantic Tree:\n");
+		ptree->disp(false);
+	}
+
+	delete ptree;
 	return 0;
+fail:
+	delete ptree;
+	return 1;
 }

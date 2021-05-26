@@ -53,10 +53,9 @@ bool parse_expr_03(ParseHelper &p, stmt_base_t *&expr);
 bool parse_expr_02(ParseHelper &p, stmt_base_t *&expr);
 bool parse_expr_01(ParseHelper &p, stmt_base_t *&expr);
 
-bool parse_var(ParseHelper &p, stmt_var_t *&var, const Occurs &otype, const Occurs &oin,
+bool parse_var(ParseHelper &p, stmt_var_t *&var, const Occurs &intype, const Occurs &otype,
 	       const Occurs &oval);
 
-bool parse_fncall(ParseHelper &p, stmt_base_t *&fn, const bool &is_mem);
 bool parse_fndecl_params(ParseHelper &p, stmt_fndecl_params_t *&fparams);
 bool parse_fnsig(ParseHelper &p, stmt_base_t *&fsig);
 bool parse_fndef(ParseHelper &p, stmt_base_t *&fndef);
