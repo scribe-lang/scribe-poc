@@ -13,6 +13,7 @@
 
 #include "parser/Stmts.hpp"
 
+#include "parser/Type.hpp"
 #include "TreeIO.hpp"
 
 namespace sc
@@ -24,10 +25,11 @@ namespace parser
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 stmt_base_t::stmt_base_t(const StmtType &type, const size_t &line, const size_t &col)
-	: type(type), line(line), col(col)
+	: type(type), line(line), col(col), vtyp(nullptr)
 {}
 stmt_base_t::~stmt_base_t()
 {
+	if(vtyp) delete vtyp;
 }
 
 std::string stmt_base_t::typestr()
@@ -91,11 +93,10 @@ stmt_type_t::stmt_type_t(const size_t &line, const size_t &col, const size_t &pt
 			 const std::vector<lex::Lexeme> &templates,
 			 const std::vector<stmt_base_t *> &counts)
 	: stmt_base_t(TYPE, line, col), func(false), ptr(ptr), info(info), name(name),
-	  templates(templates), fn(nullptr), counts(counts), is_extern(false)
+	  templates(templates), fn(nullptr), counts(counts)
 {}
 stmt_type_t::stmt_type_t(const size_t &line, const size_t &col, stmt_base_t *fn)
-	: stmt_base_t(TYPE, line, col), func(true), ptr(0), info(0), name({}), fn(fn), counts(),
-	  is_extern(fn->type == EXTERN)
+	: stmt_base_t(TYPE, line, col), func(true), ptr(0), info(0), name({}), fn(fn), counts()
 {}
 stmt_type_t::~stmt_type_t()
 {
@@ -107,7 +108,8 @@ void stmt_type_t::disp(const bool &has_next)
 {
 	if(func) {
 		tio::taba(has_next);
-		tio::print(has_next, "Type: <%sFunction>\n", is_extern ? "Extern " : "");
+		tio::print(has_next, "Type: <Function>%s\n",
+			   vtyp ? (" -> " + vtyp->str()).c_str() : "");
 		fn->disp(false);
 		tio::tabr();
 		return;
@@ -129,7 +131,8 @@ void stmt_type_t::disp(const bool &has_next)
 		tname += ">";
 	}
 	tio::taba(has_next);
-	tio::print(has_next, "Type: %s\n", tname.c_str());
+	tio::print(has_next, "Type: %s%s\n", tname.c_str(),
+		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
 	if(!counts.empty()) {
 		tio::print(false, "Array counts:\n");
 		tio::taba(false);
@@ -169,7 +172,8 @@ stmt_simple_t::stmt_simple_t(const size_t &line, const size_t &col, const lex::L
 void stmt_simple_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Simple: %s\n", val.str(0).c_str());
+	tio::print(has_next, "Simple: %s%s\n", val.str(0).c_str(),
+		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
 	tio::tabr();
 }
 
@@ -233,7 +237,8 @@ stmt_expr_t::~stmt_expr_t()
 void stmt_expr_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Expression [intrinsic = %s]:\n", intrin ? "yes" : "no");
+	tio::print(has_next, "Expression [intrinsic = %s]:%s\n", intrin ? "yes" : "no",
+		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
 	if(lhs) {
 		tio::taba(oper.tok.is_valid() || rhs || or_blk);
 		tio::print(oper.tok.is_valid() || rhs || or_blk, "LHS:\n");
@@ -279,7 +284,8 @@ stmt_var_t::~stmt_var_t()
 void stmt_var_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Variable: %s\n", name.data.s.c_str());
+	tio::print(has_next, "Variable: %s%s\n", name.data.s.c_str(),
+		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
 	if(in) {
 		tio::taba(vtype || val);
 		tio::print(vtype || val, "In:\n");
@@ -343,7 +349,8 @@ stmt_fnsig_t::~stmt_fnsig_t()
 void stmt_fnsig_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Function signature [comptime = %s]\n", comptime ? "yes" : "no");
+	tio::print(has_next, "Function signature [comptime = %s]%s\n", comptime ? "yes" : "no",
+		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
 	if(!templates.empty()) {
 		tio::taba(params || rettype);
 		tio::print(params || rettype, "Templates:\n");
@@ -386,7 +393,7 @@ stmt_fndef_t::~stmt_fndef_t()
 void stmt_fndef_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Function definition\n");
+	tio::print(has_next, "Function definition%s\n", vtyp ? (" -> " + vtyp->str()).c_str() : "");
 	tio::taba(true);
 	tio::print(true, "Function Signature:\n");
 	sig->disp(false);
@@ -458,7 +465,8 @@ stmt_extern_t::~stmt_extern_t()
 void stmt_extern_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Extern for %s\n", fname.data.s.c_str());
+	tio::print(has_next, "Extern for %s%s\n", fname.data.s.c_str(),
+		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
 	if(headers) {
 		tio::taba(libs || sig);
 		tio::print(libs || sig, "Headers:\n");
@@ -513,7 +521,8 @@ stmt_struct_t::~stmt_struct_t()
 void stmt_struct_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "struct [declaration = %s]\n", decl ? "yes" : "no");
+	tio::print(has_next, "struct [declaration = %s]%s\n", decl ? "yes" : "no",
+		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
 
 	if(!templates.empty()) {
 		tio::taba(!fields.empty());
@@ -715,7 +724,7 @@ stmt_ret_t::~stmt_ret_t()
 void stmt_ret_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Return\n");
+	tio::print(has_next, "Return%s\n", vtyp ? (" -> " + vtyp->str()).c_str() : "");
 	if(val) {
 		tio::taba(false);
 		tio::print(false, "Value:\n");

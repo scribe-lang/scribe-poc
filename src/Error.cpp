@@ -23,6 +23,7 @@ static std::vector<size_t> _line;
 static std::vector<size_t> _col_beg;
 static std::vector<size_t> _col_end;
 static std::vector<std::string> _e;
+static std::vector<bool> _warn;
 
 void set(const size_t &line, const size_t &col, const char *e, ...)
 {
@@ -51,6 +52,43 @@ void set(const size_t &line, const size_t &col_beg, const size_t &col_end, const
 	_line.insert(_line.begin(), line);
 	_col_beg.insert(_col_beg.begin(), col_beg);
 	_col_end.insert(_col_end.begin(), col_end);
+	_warn.insert(_warn.begin(), false);
+
+	static char msg[4096];
+	std::memset(msg, 0, 4096);
+	vsprintf(msg, e, args);
+	_e.insert(_e.begin(), msg);
+}
+
+// equivalent to set(), but for warnings
+void setw(const size_t &line, const size_t &col, const char *e, ...)
+{
+	va_list args;
+	va_start(args, e);
+	setw(line, col, col, e, args);
+	va_end(args);
+}
+void setw(const lex::Lexeme &tok, const char *e, ...)
+{
+	va_list args;
+	va_start(args, e);
+	setw(tok.line, tok.col_beg, tok.col_end, e, args);
+	va_end(args);
+}
+void setw(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e, ...)
+{
+	va_list args;
+	va_start(args, e);
+	setw(line, col_beg, col_end, e, args);
+	va_end(args);
+}
+void setw(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e,
+	  va_list args)
+{
+	_line.insert(_line.begin(), line);
+	_col_beg.insert(_col_beg.begin(), col_beg);
+	_col_end.insert(_col_end.begin(), col_end);
+	_warn.insert(_warn.begin(), true);
 
 	static char msg[4096];
 	std::memset(msg, 0, 4096);
@@ -68,6 +106,7 @@ void show(FILE *out, const std::string &data, const std::string &filename)
 		const size_t &__line	= _line.back();
 		const size_t &__col_beg = _col_beg.back();
 		const size_t &__col_end = _col_end.back();
+		const bool &__warn	= _warn.back();
 		const std::string &__e	= _e.back();
 		size_t line		= 0;
 		size_t idx		= 0;
@@ -101,8 +140,9 @@ void show(FILE *out, const std::string &data, const std::string &filename)
 			spacing_caret.insert(spacing_caret.begin(), '\t');
 		}
 
-		fprintf(out, "%s (%zu:%zu): Failure: %s\n%s\n%s%c\n", filename.c_str(), __line + 1,
-			__col_beg + 1, __e.c_str(), err_line.c_str(), spacing_caret.c_str(), '^');
+		fprintf(out, "%s (%zu:%zu): %s: %s\n%s\n%s%c\n", filename.c_str(), __line + 1,
+			__col_beg + 1, __warn ? "Warning" : "Failure", __e.c_str(),
+			err_line.c_str(), spacing_caret.c_str(), '^');
 
 		_line.pop_back();
 		_col_beg.pop_back();

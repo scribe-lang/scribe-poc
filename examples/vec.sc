@@ -5,7 +5,7 @@ let Vec = struct<T> {
 };
 
 let new = fn<T>(): Vec<T> {
-	return Vec.<T>(1, 0, nil); // nil is an i64 with value = 0
+	return Vec(:T, 1, 0, nil); // nil is an i1 with value = 0
 };
 
 let push in Vec<T> = fn(e: T) {

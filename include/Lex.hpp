@@ -46,9 +46,10 @@ enum TokType
 	RETURN,
 	CONTINUE,
 	BREAK,
-	// TRUE,
-	// FALSE,
-	// NIL,
+	VOID,
+	TRUE,
+	FALSE,
+	NIL,
 	OR,
 	STATIC,
 	CONST,
@@ -91,6 +92,8 @@ enum TokType
 	// Unary
 	UADD,
 	USUB,
+	UAND, // address of
+	UMUL, // dereference
 	// Logic
 	LAND,
 	LOR,
@@ -170,7 +173,8 @@ struct Tok
 	 */
 	inline bool is_data()
 	{
-		return val == INT || val == FLT || val == CHAR || val == STR || val == IDEN;
+		return val == INT || val == FLT || val == CHAR || val == STR || val == IDEN ||
+		       val == VOID || val == TRUE || val == FALSE || val == NIL;
 	}
 
 	/**

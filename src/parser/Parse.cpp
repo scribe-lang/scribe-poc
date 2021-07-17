@@ -115,11 +115,6 @@ bool parse_type(ParseHelper &p, stmt_type_t *&type)
 		type = new stmt_type_t(start.line, start.col_beg, fn);
 		return true;
 	}
-	if(p.accept(lex::EXTERN)) {
-		if(!parse_extern(p, fn)) goto fail;
-		type = new stmt_type_t(start.line, start.col_beg, fn);
-		return true;
-	}
 
 	if(p.acceptn(lex::PreVA)) info |= TypeInfoMask::VARIADIC;
 
@@ -752,6 +747,7 @@ fail:
 // Right Associative (single operand)
 // ++ -- (pre)
 // + - (unary)
+// * & (deref, addrof)
 // ! ~ (log/bit)
 bool parse_expr_03(ParseHelper &p, stmt_base_t *&expr)
 {
@@ -770,6 +766,8 @@ bool parse_expr_03(ParseHelper &p, stmt_base_t *&expr)
 		if(p.peakt() == lex::XDEC) p.sett(lex::DECX);
 		if(p.peakt() == lex::ADD) p.sett(lex::UADD);
 		if(p.peakt() == lex::SUB) p.sett(lex::USUB);
+		if(p.peakt() == lex::MUL) p.sett(lex::UMUL);
+		if(p.peakt() == lex::BAND) p.sett(lex::UAND);
 		opers.insert(opers.begin(), p.peak());
 		p.next();
 	}
@@ -826,7 +824,6 @@ bool parse_expr_01(ParseHelper &p, stmt_base_t *&expr)
 
 	stmt_base_t *lhs = nullptr;
 	stmt_base_t *rhs = nullptr;
-	bool is_mem	 = false;
 	bool is_intrin	 = false;
 	std::vector<stmt_type_t *> templates;
 	stmt_type_t *templ = nullptr;
@@ -935,6 +932,7 @@ begin_brack:
 		rhs	  = nullptr;
 		args	  = {};
 		templates = {};
+		static_cast<stmt_expr_t *>(lhs)->intrin = is_intrin;
 		if(p.accept(lex::LBRACK, lex::LPAREN) ||
 		   (p.peakt() == lex::DOT && p.peakt(1) == lex::LT))
 			goto begin_brack;
@@ -1158,6 +1156,12 @@ post_args:
 	if(p.acceptn(lex::COL) && !parse_type(p, rettype)) {
 		err::set(p.peak(), "failed to parse return type for function");
 		goto fail;
+	}
+	if(!rettype) {
+		size_t line = p.peak(-1).line;
+		size_t col  = p.peak(-1).col_beg;
+		rettype	    = new stmt_type_t(line, col, 0, 0,
+					      {lex::Lexeme(line, col, col, lex::VOID, "void")}, {}, {});
 	}
 
 	fsig = new stmt_fnsig_t(start.line, start.col_beg, templates, params, rettype, comptime);

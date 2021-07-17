@@ -20,6 +20,9 @@ namespace sc
 {
 namespace parser
 {
+struct VarMgr;
+struct type_base_t;
+
 enum StmtType
 {
 	BLOCK,
@@ -51,9 +54,12 @@ struct stmt_base_t
 	StmtType type;
 	size_t line;
 	size_t col;
+	type_base_t *vtyp;
 	stmt_base_t(const StmtType &type, const size_t &line, const size_t &col);
 	virtual ~stmt_base_t();
 	virtual void disp(const bool &has_next) = 0;
+
+	virtual bool assign_type(VarMgr &vars) = 0;
 
 	std::string typestr();
 };
@@ -79,9 +85,8 @@ struct stmt_type_t : public stmt_base_t
 	size_t info; // all from TypeInfoMask
 	std::vector<lex::Lexeme> name;
 	std::vector<lex::Lexeme> templates;
-	stmt_base_t *fn;
 	std::vector<stmt_base_t *> counts; // array counts (expr or int)
-	bool is_extern;
+	stmt_base_t *fn;
 	stmt_type_t(const size_t &line, const size_t &col, const size_t &ptr, const size_t &info,
 		    const std::vector<lex::Lexeme> &name, const std::vector<lex::Lexeme> &templates,
 		    const std::vector<stmt_base_t *> &counts);
@@ -89,6 +94,8 @@ struct stmt_type_t : public stmt_base_t
 	~stmt_type_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 
 	std::string getname();
 };
@@ -101,6 +108,8 @@ struct stmt_block_t : public stmt_base_t
 	~stmt_block_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 struct stmt_simple_t : public stmt_base_t
@@ -110,6 +119,8 @@ struct stmt_simple_t : public stmt_base_t
 	~stmt_simple_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 struct stmt_fncallinfo_t : public stmt_base_t
@@ -122,6 +133,8 @@ struct stmt_fncallinfo_t : public stmt_base_t
 	~stmt_fncallinfo_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 struct stmt_expr_t : public stmt_base_t
@@ -139,6 +152,8 @@ struct stmt_expr_t : public stmt_base_t
 	~stmt_expr_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 struct stmt_var_t : public stmt_base_t
@@ -153,6 +168,8 @@ struct stmt_var_t : public stmt_base_t
 	~stmt_var_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 struct stmt_fndecl_params_t : public stmt_base_t
@@ -164,6 +181,8 @@ struct stmt_fndecl_params_t : public stmt_base_t
 	~stmt_fndecl_params_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 struct stmt_fnsig_t : public stmt_base_t
@@ -178,6 +197,8 @@ struct stmt_fnsig_t : public stmt_base_t
 	~stmt_fnsig_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 struct stmt_fndef_t : public stmt_base_t
@@ -188,6 +209,8 @@ struct stmt_fndef_t : public stmt_base_t
 	~stmt_fndef_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 struct stmt_header_t : public stmt_base_t
@@ -199,6 +222,8 @@ struct stmt_header_t : public stmt_base_t
 		      const lex::Lexeme &flags);
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 struct stmt_lib_t : public stmt_base_t
@@ -208,6 +233,8 @@ struct stmt_lib_t : public stmt_base_t
 	stmt_lib_t(const size_t &line, const size_t &col, const lex::Lexeme &flags);
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 struct stmt_extern_t : public stmt_base_t
@@ -222,6 +249,8 @@ struct stmt_extern_t : public stmt_base_t
 	~stmt_extern_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 struct stmt_enumdef_t : public stmt_base_t
@@ -233,6 +262,8 @@ struct stmt_enumdef_t : public stmt_base_t
 	~stmt_enumdef_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 // both declaration and definition
@@ -248,6 +279,8 @@ struct stmt_struct_t : public stmt_base_t
 	~stmt_struct_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 struct stmt_vardecl_t : public stmt_base_t
@@ -259,6 +292,8 @@ struct stmt_vardecl_t : public stmt_base_t
 	~stmt_vardecl_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 struct cond_t
@@ -274,6 +309,8 @@ struct stmt_cond_t : public stmt_base_t
 	~stmt_cond_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 struct stmt_forin_t : public stmt_base_t
@@ -286,6 +323,8 @@ struct stmt_forin_t : public stmt_base_t
 	~stmt_forin_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 struct stmt_for_t : public stmt_base_t
@@ -300,6 +339,8 @@ struct stmt_for_t : public stmt_base_t
 	~stmt_for_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 struct stmt_while_t : public stmt_base_t
@@ -310,6 +351,8 @@ struct stmt_while_t : public stmt_base_t
 	~stmt_while_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 
 struct stmt_ret_t : public stmt_base_t
@@ -319,18 +362,24 @@ struct stmt_ret_t : public stmt_base_t
 	~stmt_ret_t();
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 struct stmt_cont_t : public stmt_base_t
 {
 	stmt_cont_t(const size_t &line, const size_t &col);
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 struct stmt_break_t : public stmt_base_t
 {
 	stmt_break_t(const size_t &line, const size_t &col);
 
 	void disp(const bool &has_next);
+
+	bool assign_type(VarMgr &vars);
 };
 } // namespace parser
 } // namespace sc

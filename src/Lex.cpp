@@ -41,9 +41,10 @@ const char *TokStrs[_LAST] = {
 "return",
 "continue",
 "break",
-// "true",
-// "false",
-// "nil",
+"void",
+"true",
+"false",
+"nil",
 "or",
 "static",
 "const",
@@ -86,6 +87,8 @@ const char *TokStrs[_LAST] = {
 // Unary (used by parser (in Expression.cpp))
 "u+",
 "u-",
+"u&",
+"u*",
 // Logic
 "&&",
 "||",
@@ -354,9 +357,10 @@ static TokType classify_str(const std::string &str)
 	if(str == TokStrs[RETURN]) return RETURN;
 	if(str == TokStrs[CONTINUE]) return CONTINUE;
 	if(str == TokStrs[BREAK]) return BREAK;
-	// if(str == TokStrs[TRUE]) return TRUE;
-	// if(str == TokStrs[FALSE]) return FALSE;
-	// if(str == TokStrs[NIL]) return NIL;
+	if(str == TokStrs[VOID]) return VOID;
+	if(str == TokStrs[TRUE]) return TRUE;
+	if(str == TokStrs[FALSE]) return FALSE;
+	if(str == TokStrs[NIL]) return NIL;
 	if(str == TokStrs[OR]) return OR;
 	if(str == TokStrs[STATIC]) return STATIC;
 	if(str == TokStrs[CONST]) return CONST;
