@@ -97,14 +97,10 @@ bool stmt_simple_t::assign_type(VarMgr &vars)
 	case lex::TRUE:	 // fallthrough
 	case lex::FALSE: // fallthrough
 	case lex::NIL: vtyp = vars.get_copy("i1"); break;
-	case lex::INT: vtyp = vars.get_copy("i64"); break;
-	case lex::FLT: vtyp = vars.get_copy("f64"); break;
+	case lex::INT: vtyp = vars.get_copy("i32"); break;
+	case lex::FLT: vtyp = vars.get_copy("f32"); break;
 	case lex::CHAR: vtyp = vars.get_copy("u8"); break;
-	case lex::STR:
-		vtyp = vars.get_copy("u8");
-		++vtyp->ptr;
-		vtyp->info |= TypeInfoMask::CONST;
-		break;
+	case lex::STR: vtyp = vars.get_copy("*const u8"); break;
 	case lex::IDEN:
 		vtyp = vars.get_copy(val.data.s);
 		if(vtyp == nullptr) return false;
@@ -135,7 +131,7 @@ bool stmt_fncallinfo_t::assign_type(VarMgr &vars)
 		}
 	}
 	vars.poplayer();
-	return false;
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -145,11 +141,11 @@ bool stmt_fncallinfo_t::assign_type(VarMgr &vars)
 bool stmt_expr_t::assign_type(VarMgr &vars)
 {
 	if(lhs && !lhs->assign_type(vars)) {
-		err::set(lhs->line, lhs->col, "failed to determine type of subexpression");
+		err::set(lhs->line, lhs->col, "failed to determine type of LHS");
 		return false;
 	}
 	if(rhs && !rhs->assign_type(vars)) {
-		err::set(rhs->line, rhs->col, "failed to determine type of subexpression");
+		err::set(rhs->line, rhs->col, "failed to determine type of RHS");
 		return false;
 	}
 	// TODO: or-var & or-blk
@@ -162,7 +158,8 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 				 "function call can be done only on a function or struct type");
 			return false;
 		}
-
+		vtyp = lhs->vtyp->copy();
+		break;
 	default: err::set(oper, "unimplemented operator"); return false;
 	}
 	if(commas > 0) {

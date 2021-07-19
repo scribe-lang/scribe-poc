@@ -9,3 +9,12 @@
 
 For the new system, a new source file must be written to in simplistic syntax - no templates or member functions
 The code will be read from all sources as necessary, but only be written to the new single source according to what is being used - hence removing everything that is not necessary
+
+
+
+
+
+
+
+
+rebuild vars system to use the structs and funcs etc.

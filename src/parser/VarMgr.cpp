@@ -13,6 +13,8 @@
 
 #include "parser/VarMgr.hpp"
 
+#include "parser/Stmts.hpp"
+
 namespace sc
 {
 namespace parser
@@ -49,18 +51,29 @@ type_base_t *VarSrc::get(const std::string &name)
 
 VarMgr::VarMgr()
 {
-	globals["void"] = new type_simple_t(0, 0, "void");
-	globals["i1"]	= new type_simple_t(0, 0, "i1");
-	globals["i8"]	= new type_simple_t(0, 0, "i8");
-	globals["i16"]	= new type_simple_t(0, 0, "i16");
-	globals["i32"]	= new type_simple_t(0, 0, "i32");
-	globals["i64"]	= new type_simple_t(0, 0, "i64");
-	globals["u8"]	= new type_simple_t(0, 0, "u8");
-	globals["u16"]	= new type_simple_t(0, 0, "u16");
-	globals["u32"]	= new type_simple_t(0, 0, "u32");
-	globals["u64"]	= new type_simple_t(0, 0, "u64");
-	globals["f32"]	= new type_simple_t(0, 0, "f32");
-	globals["f64"]	= new type_simple_t(0, 0, "f64");
+	globals["void"]	     = new type_simple_t(0, 0, "void");
+	globals["i1"]	     = new type_simple_t(0, 0, "i1");
+	globals["i8"]	     = new type_simple_t(0, 0, "i8");
+	globals["i16"]	     = new type_simple_t(0, 0, "i16");
+	globals["i32"]	     = new type_simple_t(0, 0, "i32");
+	globals["i64"]	     = new type_simple_t(0, 0, "i64");
+	globals["u8"]	     = new type_simple_t(0, 0, "u8");
+	globals["u16"]	     = new type_simple_t(0, 0, "u16");
+	globals["u32"]	     = new type_simple_t(0, 0, "u32");
+	globals["u64"]	     = new type_simple_t(0, 0, "u64");
+	globals["f32"]	     = new type_simple_t(0, 0, "f32");
+	globals["f64"]	     = new type_simple_t(0, 0, "f64");
+	globals["*const u8"] = new type_simple_t(1, TypeInfoMask::CONST, "u8"); // cstr
+
+	// intrinsics
+	type_simple_t *templ0	 = new type_simple_t(0, 0, "@0");
+	type_simple_t *templ0ptr = new type_simple_t(1, 0, "@0");
+	type_simple_t *templ1ptr = new type_simple_t(1, 0, "@1");
+	type_base_t *cstr	 = globals["*const u8"]->copy();
+	globals["import"] = new type_func_t(0, 0, {}, {cstr}, new type_struct_t(0, 0, {}, {}, {}));
+	globals["as"]	  = new type_func_t(0, 0, {"@0", "@1"}, {templ1ptr}, templ0ptr);
+	globals["sizeof"] = new type_func_t(0, 0, {"@0"}, {templ0}, globals["i32"]->copy());
+	globals["typeid"] = new type_func_t(0, 0, {"@0"}, {templ0->copy()}, globals["i32"]->copy());
 }
 VarMgr::~VarMgr()
 {

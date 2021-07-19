@@ -883,23 +883,8 @@ begin_brack:
 		if(p.accept(lex::LBRACK, lex::LPAREN) ||
 		   (p.peakt() == lex::DOT && p.peakt(1) == lex::LT))
 			goto begin_brack;
-	} else if(p.accept(lex::LPAREN) || (p.peakt() == lex::DOT && p.peakt(1) == lex::LT)) {
+	} else if(p.accept(lex::LPAREN)) {
 		lex::Lexeme oper;
-		// templates
-		if(p.acceptn(lex::DOT) && p.acceptn(lex::LT)) {
-			while(parse_type(p, templ)) {
-				templates.push_back(templ);
-				templ = nullptr;
-				if(!p.acceptn(lex::COMMA)) break;
-			}
-			if(!p.acceptn(lex::GT)) {
-				err::set(p.peak(),
-					 "expected right angular bracket close for function call"
-					 " template arguments, found: %s",
-					 p.peak().tok.str().c_str());
-				goto fail;
-			}
-		}
 		if(!p.accept(lex::LPAREN)) {
 			err::set(p.peak(),
 				 "expected opening parenthesis for function call, found: %s",
@@ -912,11 +897,17 @@ begin_brack:
 		if(p.acceptn(lex::RPAREN)) {
 			goto post_args;
 		}
-		// parse arguments
+		// parse templates and arguments
 		while(true) {
-			if(!parse_expr_16(p, arg)) goto fail;
-			args.push_back(arg);
-			arg = nullptr;
+			if(p.acceptn(lex::COL)) {
+				if(!parse_type(p, templ)) goto fail;
+				templates.push_back(templ);
+				templ = nullptr;
+			} else {
+				if(!parse_expr_16(p, arg)) goto fail;
+				args.push_back(arg);
+				arg = nullptr;
+			}
 			if(!p.acceptn(lex::COMMA)) break;
 		}
 		if(!p.acceptn(lex::RPAREN)) {
@@ -933,9 +924,8 @@ begin_brack:
 		args	  = {};
 		templates = {};
 		static_cast<stmt_expr_t *>(lhs)->intrin = is_intrin;
-		if(p.accept(lex::LBRACK, lex::LPAREN) ||
-		   (p.peakt() == lex::DOT && p.peakt(1) == lex::LT))
-			goto begin_brack;
+
+		if(p.accept(lex::LBRACK, lex::LPAREN)) goto begin_brack;
 	}
 
 dot:
