@@ -19,6 +19,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "parser/Stmts.hpp"
+
 namespace sc
 {
 namespace parser
@@ -45,8 +47,6 @@ struct type_base_t
 
 	virtual type_base_t *copy() = 0;
 
-	virtual type_base_t *specialize(const std::vector<type_base_t *> &templs) = 0;
-
 	inline void add_count(type_base_t *count)
 	{
 		counts.push_back(count);
@@ -60,23 +60,14 @@ struct type_base_t
 
 struct type_simple_t : public type_base_t
 {
-	bool is_template;
+	// is template is checked by the condition - name begins with '@'
 	std::string name;
 
 	type_simple_t(const size_t &ptr, const size_t &info, const std::string &name);
-	type_simple_t(const size_t &ptr, const size_t &info, const bool &is_template,
-		      const std::string &name);
 	type_simple_t(const int64_t &id, const size_t &ptr, const size_t &info,
-		      const bool &is_template, const std::string &name);
+		      const std::string &name);
 
 	type_base_t *copy();
-
-	inline bool is_templ()
-	{
-		return is_template;
-	}
-
-	type_base_t *specialize(const std::vector<type_base_t *> &templs);
 
 	std::string str();
 	std::string mangled_name();
@@ -105,8 +96,6 @@ struct type_struct_t : public type_base_t
 
 	type_base_t *copy();
 
-	type_base_t *specialize(const std::vector<type_base_t *> &templs);
-
 	std::string str();
 
 	bool add_field(const std::string &name, type_base_t *val);
@@ -130,17 +119,16 @@ struct type_func_t : public type_base_t
 	std::vector<std::string> templ;
 	std::vector<type_base_t *> args;
 	type_base_t *rettype;
+	stmt_fndef_t *fndef;
 
 	type_func_t(const size_t &ptr, const size_t &info, const std::vector<std::string> &templ,
 		    const std::vector<type_base_t *> &args, type_base_t *rettype);
 	type_func_t(const int64_t &id, const size_t &ptr, const size_t &info,
 		    const std::vector<std::string> &templ, const std::vector<type_base_t *> &args,
-		    type_base_t *rettype);
+		    type_base_t *rettype, stmt_fndef_t *fndef);
 	~type_func_t();
 
 	type_base_t *copy();
-
-	type_base_t *specialize(const std::vector<type_base_t *> &templs);
 
 	std::string str();
 	// std::string mangled_name();
@@ -157,6 +145,8 @@ struct type_func_t : public type_base_t
 		return args.size();
 	}
 };
+
+bool update_fncall_types(stmt_base_t *fb, stmt_fncallinfo_t *ci, stmt_fndef_t *&specializedfn);
 } // namespace parser
 } // namespace sc
 

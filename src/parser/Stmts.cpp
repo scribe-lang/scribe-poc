@@ -25,7 +25,7 @@ namespace parser
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 stmt_base_t::stmt_base_t(const StmtType &type, const size_t &line, const size_t &col)
-	: type(type), line(line), col(col), vtyp(nullptr)
+	: type(type), line(line), col(col), vtyp(nullptr), is_specialized(false)
 {}
 stmt_base_t::~stmt_base_t()
 {

@@ -47,13 +47,14 @@ bool stmt_type_t::assign_type(VarMgr &vars)
 {
 	for(size_t i = 0; i < templates.size(); ++i) {
 		std::string tname = "@" + std::to_string(i);
-		vars.add(templates[i].data.s, new type_simple_t(0, 0, tname));
+		vars.add(templates[i].data.s, new type_simple_t(0, 0, true, tname));
 	}
 	if(func) {
 		if(!fn->assign_type(vars)) {
 			err::set(line, col, "failed to determine type from the function type");
 			return false;
 		}
+		vtyp = fn->vtyp->copy();
 		return true;
 	}
 	type_base_t *res = vars.get(name.front().data.s);
@@ -158,6 +159,15 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 				 "function call can be done only on a function or struct type");
 			return false;
 		}
+		if(lhs->vtyp->type == TFUNC) {
+			stmt_fndef_t *specialized_fn = nullptr;
+			if(!update_fncall_types(lhs, static_cast<stmt_fncallinfo_t *>(rhs),
+						specialized_fn)) {
+				err::set(line, col, "failed to perform type check on function");
+				return false;
+			}
+		}
+		// TODO: check type
 		vtyp = lhs->vtyp->copy();
 		break;
 	default: err::set(oper, "unimplemented operator"); return false;
@@ -285,7 +295,8 @@ bool stmt_fndef_t::assign_type(VarMgr &vars)
 		err::set(blk->line, blk->col, "failed to assign type in function block");
 		return false;
 	}
-	vtyp = sig->vtyp->copy();
+	vtyp					= sig->vtyp->copy();
+	static_cast<type_func_t *>(vtyp)->fndef = this;
 	vars.poplayer();
 	return true;
 }
@@ -342,7 +353,7 @@ bool stmt_struct_t::assign_type(VarMgr &vars)
 	std::vector<std::string> templs;
 	for(size_t i = 0; i < templates.size(); ++i) {
 		std::string tname = "@" + std::to_string(i);
-		vars.add(templates[i].data.s, new type_simple_t(0, 0, tname));
+		vars.add(templates[i].data.s, new type_simple_t(0, 0, true, tname));
 		templs.push_back(tname);
 	}
 	std::vector<std::string> field_type_orders;
