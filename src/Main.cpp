@@ -83,7 +83,12 @@ int main(int argc, char **argv)
 	parser::VarMgr vartypes;
 	vartypes.addsrc(file);
 	vartypes.pushsrc(file);
+	vartypes.init_typefns();
 	if(!ptree->assign_type(vartypes)) {
+		err::show(stderr, data, file);
+		return 1;
+	}
+	if(!ptree->call_intrinsic()) {
 		err::show(stderr, data, file);
 		return 1;
 	}

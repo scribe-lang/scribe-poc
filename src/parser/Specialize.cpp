@@ -135,6 +135,7 @@ bool stmt_type_t::specialize(const std::vector<type_base_t *> &templs)
 		}
 		return update_type(vtyp, fn->vtyp);
 	}
+	templates.clear();
 	is_specialized = true;
 	return update_type(vtyp, templs, line, col);
 }
@@ -251,6 +252,7 @@ bool stmt_fnsig_t::specialize(const std::vector<type_base_t *> &templs)
 		err::set(rettype->line, rettype->col, "failed to specialize function return type");
 		return false;
 	}
+	templates.clear();
 	is_specialized = true;
 	return update_type(vtyp, templs, line, col);
 }
@@ -335,6 +337,7 @@ bool stmt_struct_t::specialize(const std::vector<type_base_t *> &templs)
 			return false;
 		}
 	}
+	templates.clear();
 	is_specialized = true;
 	return update_type(vtyp, templs, line, col);
 }
@@ -364,7 +367,7 @@ bool stmt_cond_t::specialize(const std::vector<type_base_t *> &templs)
 {
 	if(is_specialized) return true;
 	for(auto &c : conds) {
-		if(!c.cond->specialize(templs)) {
+		if(c.cond && !c.cond->specialize(templs)) {
 			err::set(c.cond->line, c.cond->col,
 				 "failed to specialize type of condition");
 			return false;

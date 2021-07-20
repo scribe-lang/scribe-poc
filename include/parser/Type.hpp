@@ -33,6 +33,9 @@ enum Types
 	TFUNC,
 };
 
+typedef bool (*intrinsic_fn_t)(stmt_base_t *stmt, type_base_t *type);
+#define INTRINSIC(name) bool intrinsic_##name(stmt_base_t *stmt, type_base_t *type)
+
 struct type_base_t
 {
 	Types type;
@@ -41,17 +44,29 @@ struct type_base_t
 	size_t ptr;
 	size_t info;
 	std::vector<type_base_t *> counts; // for arrays
+	intrinsic_fn_t intrin_fn;
 
 	type_base_t(const Types &type, stmt_base_t *parent, const size_t &ptr, const size_t &info);
 	type_base_t(const int64_t &id, const Types &type, stmt_base_t *parent, const size_t &ptr,
-		    const size_t &info);
+		    const size_t &info, intrinsic_fn_t intrin_fn);
 	virtual ~type_base_t();
 
 	virtual type_base_t *copy() = 0;
+	bool compatible_base(type_base_t *rhs, const size_t &line, const size_t &col);
+	virtual bool compatible(type_base_t *rhs, const size_t &line, const size_t &col) = 0;
 
 	inline void add_count(type_base_t *count)
 	{
 		counts.push_back(count);
+	}
+
+	inline void set_intrinsic(intrinsic_fn_t intrinsic)
+	{
+		intrin_fn = intrinsic;
+	}
+	inline bool call_intrinsic(stmt_base_t *stmt, type_base_t *type)
+	{
+		return intrin_fn ? intrin_fn(stmt, type) : true;
 	}
 
 	std::string str_base();
@@ -68,9 +83,10 @@ struct type_simple_t : public type_base_t
 	type_simple_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
 		      const std::string &name);
 	type_simple_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
-		      const std::string &name);
+		      intrinsic_fn_t intrin_fn, const std::string &name);
 
 	type_base_t *copy();
+	bool compatible(type_base_t *rhs, const size_t &line, const size_t &col);
 
 	std::string str();
 	std::string mangled_name();
@@ -88,7 +104,7 @@ struct type_struct_t : public type_base_t
 		      const std::vector<std::string> &field_order,
 		      const std::unordered_map<std::string, type_base_t *> &fields);
 	type_struct_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
-		      const std::vector<std::string> &templ,
+		      intrinsic_fn_t intrin_fn, const std::vector<std::string> &templ,
 		      const std::vector<std::string> &field_order,
 		      const std::unordered_map<std::string, type_base_t *> &fields);
 	~type_struct_t();
@@ -99,6 +115,7 @@ struct type_struct_t : public type_base_t
 	}
 
 	type_base_t *copy();
+	bool compatible(type_base_t *rhs, const size_t &line, const size_t &col);
 
 	std::string str();
 
@@ -128,11 +145,12 @@ struct type_func_t : public type_base_t
 		    const std::vector<std::string> &templ, const std::vector<type_base_t *> &args,
 		    type_base_t *rettype);
 	type_func_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
-		    const std::vector<std::string> &templ, const std::vector<type_base_t *> &args,
-		    type_base_t *rettype);
+		    intrinsic_fn_t intrin_fn, const std::vector<std::string> &templ,
+		    const std::vector<type_base_t *> &args, type_base_t *rettype);
 	~type_func_t();
 
 	type_base_t *copy();
+	bool compatible(type_base_t *rhs, const size_t &line, const size_t &col);
 
 	std::string str();
 	// std::string mangled_name();
@@ -150,7 +168,8 @@ struct type_func_t : public type_base_t
 	}
 };
 
-bool update_fncall_types(stmt_base_t *fc, stmt_fncallinfo_t *fci, stmt_fndef_t *&specializedfn);
+bool update_fncall_types(type_func_t *ft, stmt_base_t *fc, stmt_fncallinfo_t *fci,
+			 stmt_fndef_t *&specializedfn);
 } // namespace parser
 } // namespace sc
 

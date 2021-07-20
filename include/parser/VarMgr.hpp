@@ -67,11 +67,15 @@ class VarMgr
 {
 	std::unordered_map<std::string, type_base_t *> globals;
 	std::unordered_map<std::string, VarSrc *> srcs;
+	// amalgamated ids as string -> function name -> function type
+	std::unordered_map<std::string, std::unordered_map<std::string, type_func_t *>> typefns;
 	std::vector<VarSrc *> srcstack;
 
 public:
 	VarMgr();
 	~VarMgr();
+	// MUST be called after at least one src has been pushed (pushsrc())
+	void init_typefns();
 	inline void pushlayer()
 	{
 		srcstack.back()->pushlayer();
@@ -96,6 +100,15 @@ public:
 	bool exists(const std::string &name, const bool &top_only, const bool &with_globals);
 	type_base_t *get(const std::string &name);
 	type_base_t *get_copy(const std::string &name);
+
+	bool add_type_func(const std::vector<int64_t> &argtypeids, const std::string &name,
+			   type_func_t *val);
+	bool add_type_func_copy(const std::vector<int64_t> &argtypeids, const std::string &name,
+				type_func_t *val);
+	type_func_t *get_type_func(const std::vector<int64_t> &argtypeids, const std::string &name);
+	bool has_type_func(const std::vector<int64_t> &argtypeids, const std::string &name);
+
+	std::string get_func_type_id(const std::vector<int64_t> &argtypeids);
 };
 } // namespace parser
 } // namespace sc

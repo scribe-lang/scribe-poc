@@ -213,7 +213,7 @@ void stmt_cond_t::set_parent(stmt_base_t *parent)
 	this->parent = parent;
 	if(this->vtyp) this->vtyp->parent = parent;
 	for(auto &c : conds) {
-		c.cond->set_parent(this);
+		if(c.cond) c.cond->set_parent(this);
 		c.blk->set_parent(this);
 	}
 }

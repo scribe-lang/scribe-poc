@@ -25,7 +25,8 @@ namespace parser
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 stmt_base_t::stmt_base_t(const StmtType &type, const size_t &line, const size_t &col)
-	: type(type), parent(nullptr), line(line), col(col), vtyp(nullptr), is_specialized(false)
+	: type(type), parent(nullptr), line(line), col(col), vtyp(nullptr), is_specialized(false),
+	  is_intrin(false)
 {}
 stmt_base_t::~stmt_base_t()
 {
@@ -233,7 +234,7 @@ void stmt_fncallinfo_t::disp(const bool &has_next)
 stmt_expr_t::stmt_expr_t(const size_t &line, const size_t &col, stmt_base_t *lhs,
 			 const lex::Lexeme &oper, stmt_base_t *rhs)
 	: stmt_base_t(EXPR, line, col), commas(0), lhs(lhs), oper(oper), rhs(rhs), or_blk(nullptr),
-	  or_blk_var(), intrin(false)
+	  or_blk_var()
 {}
 stmt_expr_t::~stmt_expr_t()
 {
@@ -245,7 +246,7 @@ stmt_expr_t::~stmt_expr_t()
 void stmt_expr_t::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Expression [intrinsic = %s]:%s\n", intrin ? "yes" : "no",
+	tio::print(has_next, "Expression [intrinsic = %s]:%s\n", is_intrin ? "yes" : "no",
 		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
 	if(lhs) {
 		tio::taba(oper.tok.is_valid() || rhs || or_blk);

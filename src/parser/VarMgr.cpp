@@ -13,6 +13,8 @@
 
 #include "parser/VarMgr.hpp"
 
+#include "parser/Intrinsics.hpp"
+#include "parser/PrimitiveFuncs.hpp"
 #include "parser/Stmts.hpp"
 
 namespace sc
@@ -52,6 +54,7 @@ type_base_t *VarSrc::get(const std::string &name)
 VarMgr::VarMgr()
 {
 	globals["void"]	     = new type_simple_t(nullptr, 0, 0, "void");
+	globals["nil"]	     = new type_simple_t(nullptr, 0, 0, "i1");
 	globals["i1"]	     = new type_simple_t(nullptr, 0, 0, "i1");
 	globals["i8"]	     = new type_simple_t(nullptr, 0, 0, "i8");
 	globals["i16"]	     = new type_simple_t(nullptr, 0, 0, "i16");
@@ -66,19 +69,48 @@ VarMgr::VarMgr()
 	globals["*const u8"] = new type_simple_t(nullptr, 1, TypeInfoMask::CONST, "u8"); // cstr
 
 	// intrinsics
-	type_simple_t *templ0ptr = new type_simple_t(nullptr, 1, 0, "@0");
-	type_simple_t *templ1ptr = new type_simple_t(nullptr, 1, 0, "@1");
-	type_base_t *cstr	 = globals["*const u8"]->copy();
-	globals["import"] =
-	new type_func_t(nullptr, 0, 0, {}, {cstr}, new type_struct_t(nullptr, 0, 0, {}, {}, {}));
-	globals["as"]	  = new type_func_t(nullptr, 0, 0, {"@0", "@1"}, {templ1ptr}, templ0ptr);
-	globals["sizeof"] = new type_func_t(nullptr, 0, 0, {"@0"}, {}, globals["i32"]->copy());
-	globals["typeid"] = new type_func_t(nullptr, 0, 0, {"@0"}, {}, globals["i32"]->copy());
+	type_simple_t *templ0ptr    = new type_simple_t(nullptr, 1, 0, "@0");
+	type_simple_t *templ1ptr    = new type_simple_t(nullptr, 1, 0, "@1");
+	type_struct_t *empty_struct = new type_struct_t(nullptr, 0, 0, {}, {}, {});
+	type_base_t *cstr	    = globals["*const u8"]->copy();
+
+	type_func_t *importfn = new type_func_t(nullptr, 0, 0, {}, {cstr}, empty_struct);
+	importfn->intrin_fn   = intrinsic_import;
+	globals["import"]     = importfn;
+
+	type_func_t *asfn = new type_func_t(nullptr, 0, 0, {"@0", "@1"}, {templ1ptr}, templ0ptr);
+	asfn->intrin_fn	  = intrinsic_as;
+	globals["as"]	  = asfn;
+
+	type_func_t *szfn = new type_func_t(nullptr, 0, 0, {"@0"}, {}, globals["i32"]->copy());
+	szfn->intrin_fn	  = intrinsic_szof;
+	globals["sizeof"] = szfn;
+
+	type_func_t *typeidfn = new type_func_t(nullptr, 0, 0, {"@0"}, {}, globals["i32"]->copy());
+	typeidfn->intrin_fn   = intrinsic_typid;
+	globals["typeid"]     = typeidfn;
 }
 VarMgr::~VarMgr()
 {
 	for(auto &g : globals) delete g.second;
 	for(auto &s : srcs) delete s.second;
+	for(auto &tf : typefns) {
+		for(auto &f : tf.second) delete f.second;
+	}
+}
+void VarMgr::init_typefns()
+{
+	add_primitive_integer_funcs("i1", *this);
+	add_primitive_integer_funcs("i8", *this);
+	add_primitive_integer_funcs("i16", *this);
+	add_primitive_integer_funcs("i32", *this);
+	add_primitive_integer_funcs("i64", *this);
+	add_primitive_integer_funcs("u8", *this);
+	add_primitive_integer_funcs("u16", *this);
+	add_primitive_integer_funcs("u32", *this);
+	add_primitive_integer_funcs("u64", *this);
+	add_primitive_integer_funcs("f32", *this);
+	add_primitive_integer_funcs("f64", *this);
 }
 bool VarMgr::pushsrc(const std::string &path)
 {
@@ -126,6 +158,46 @@ type_base_t *VarMgr::get_copy(const std::string &name)
 	type_base_t *res = get(name);
 	if(!res) return nullptr;
 	return res->copy();
+}
+
+bool VarMgr::add_type_func(const std::vector<int64_t> &argtypeids, const std::string &name,
+			   type_func_t *val)
+{
+	std::string id = get_func_type_id(argtypeids);
+	if(typefns[id].find(name) != typefns[id].end()) {
+		return false;
+	}
+	typefns[id][name] = val;
+	return true;
+}
+bool VarMgr::add_type_func_copy(const std::vector<int64_t> &argtypeids, const std::string &name,
+				type_func_t *val)
+{
+	std::string id = get_func_type_id(argtypeids);
+	if(typefns[id].find(name) != typefns[id].end()) return false;
+	typefns[id][name] = static_cast<type_func_t *>(val->copy());
+	return true;
+}
+type_func_t *VarMgr::get_type_func(const std::vector<int64_t> &argtypeids, const std::string &name)
+{
+	std::string id = get_func_type_id(argtypeids);
+	auto res       = typefns[id].find(name);
+	if(res == typefns[id].end()) return nullptr;
+	return res->second;
+}
+bool VarMgr::has_type_func(const std::vector<int64_t> &argtypeids, const std::string &name)
+{
+	std::string id = get_func_type_id(argtypeids);
+	return typefns.find(id) != typefns.end() && typefns[id].find(name) != typefns[id].end();
+}
+
+std::string VarMgr::get_func_type_id(const std::vector<int64_t> &argtypeids)
+{
+	std::string res;
+	for(auto &i : argtypeids) {
+		res += std::to_string(i);
+	}
+	return res;
 }
 } // namespace parser
 } // namespace sc

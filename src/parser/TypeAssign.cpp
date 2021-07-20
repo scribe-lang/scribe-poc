@@ -149,6 +149,7 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 		err::set(rhs->line, rhs->col, "failed to determine type of RHS");
 		return false;
 	}
+	stmt_base_t *tmp = nullptr;
 	// TODO: or-var & or-blk
 	switch(oper.tok.val) {
 	case lex::FNCALL:
@@ -161,16 +162,102 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 		}
 		if(lhs->vtyp->type == TFUNC) {
 			stmt_fndef_t *specialized_fn = nullptr;
-			if(!update_fncall_types(lhs, static_cast<stmt_fncallinfo_t *>(rhs),
-						specialized_fn)) {
+			if(!update_fncall_types(static_cast<type_func_t *>(lhs->vtyp), lhs,
+						static_cast<stmt_fncallinfo_t *>(rhs),
+						specialized_fn))
+			{
 				err::set(line, col, "failed to perform type check on function");
 				return false;
 			}
+		} else if(lhs->vtyp->type == TSTRUCT) {
+			// call the <struct>.init() function
+			err::set(line, col, "unimplemented struct call");
+			return false;
 		}
 		// TODO: check type
 		vtyp = lhs->vtyp->copy();
 		break;
-	default: err::set(oper, "unimplemented operator"); return false;
+	case lex::SUBS: err::set(line, col, "unimplemented subscript"); return false;
+	case lex::ASSN:
+		tmp = lhs;
+		lhs = rhs;
+		rhs = tmp;
+	// Arithmetic
+	case lex::ADD:
+	case lex::SUB:
+	case lex::MUL:
+	case lex::DIV:
+	case lex::MOD:
+	case lex::ADD_ASSN:
+	case lex::SUB_ASSN:
+	case lex::MUL_ASSN:
+	case lex::DIV_ASSN:
+	case lex::MOD_ASSN:
+	// Post/Pre Inc/Dec
+	case lex::XINC:
+	case lex::INCX:
+	case lex::XDEC:
+	case lex::DECX:
+	// Unary
+	case lex::UADD:
+	case lex::USUB:
+	case lex::UAND: // address of
+	case lex::UMUL: // dereference
+	// Logic
+	case lex::LAND:
+	case lex::LOR:
+	case lex::LNOT:
+	// Comparison
+	case lex::EQ:
+	case lex::LT:
+	case lex::GT:
+	case lex::LE:
+	case lex::GE:
+	case lex::NE:
+	// Bitwise
+	case lex::BAND:
+	case lex::BOR:
+	case lex::BNOT:
+	case lex::BXOR:
+	case lex::BAND_ASSN:
+	case lex::BOR_ASSN:
+	case lex::BNOT_ASSN:
+	case lex::BXOR_ASSN:
+	// Others
+	case lex::LSHIFT:
+	case lex::RSHIFT:
+	case lex::LSHIFT_ASSN:
+	case lex::RSHIFT_ASSN:
+		assert(lhs && rhs && "assignment requires both LHS and RHS to exist");
+		if(lhs->vtyp->type != TSIMPLE && lhs->vtyp->type != TSTRUCT) {
+			err::set(line, col,
+				 "operators are only usable on primitive types or structs");
+			return false;
+		}
+		{
+			std::vector<int64_t> typeids = {lhs->vtyp->id};
+			if(rhs) typeids.push_back(rhs->vtyp->id);
+			// TODO: this does not work for templates
+			type_func_t *fn = vars.get_type_func(typeids, oper.tok.str());
+			if(!fn) {
+				err::set(line, col, "function '%s' does not exist for type: %s",
+					 oper.tok.str().c_str(), lhs->vtyp->str().c_str());
+				return false;
+			}
+			stmt_fndef_t *specialized_fn = nullptr;
+			stmt_fncallinfo_t *fci = new stmt_fncallinfo_t(line, col, {}, {lhs, rhs});
+			if(!update_fncall_types(fn, nullptr, fci, specialized_fn)) {
+				err::set(line, col, "failed to perform type check on function");
+				fci->args.clear();
+				delete fci;
+				return false;
+			}
+			fci->args.clear();
+			delete fci;
+			vtyp = fn->rettype->copy();
+		}
+		break;
+	default: err::set(oper, "nonexistent operator"); return false;
 	}
 	if(commas > 0) {
 		if(vtyp) delete vtyp;
@@ -190,8 +277,9 @@ bool stmt_var_t::assign_type(VarMgr &vars)
 		err::set(name, "unable to determine type of 'in'");
 		return false;
 	}
-	if(in && in->vtyp->type != TSTRUCT && in->vtyp->type != TENUM) {
-		err::set(name, "'in' only works for structures and enums");
+	if(in && in->vtyp->type != TSIMPLE && in->vtyp->type != TSTRUCT && in->vtyp->type != TENUM)
+	{
+		err::set(name, "'in' only works for primitives, structures, and enums");
 		return false;
 	}
 	if(!in && vars.exists(name.data.s, true, false)) {
@@ -221,15 +309,13 @@ bool stmt_var_t::assign_type(VarMgr &vars)
 	// }
 	if(!in) return vars.add_copy(fullname, vtyp);
 
-	if(in->vtyp->type == TSTRUCT) {
-		type_struct_t *t = static_cast<type_struct_t *>(in->vtyp);
-		if(t->has_field(fullname)) {
-			err::set(name, "a field of this name already exists in struct");
-			return false;
-		}
-		return t->add_field_copy(fullname, vtyp);
-	} else if(in->vtyp->type == TENUM) {
-		err::set(name, "unimplemented for enum");
+	type_func_t *t		     = static_cast<type_func_t *>(vtyp);
+	std::vector<int64_t> typeids = {in->vtyp->id};
+	for(auto &a : t->args) typeids.push_back(a->id);
+
+	if(!vars.add_type_func_copy(typeids, fullname, static_cast<type_func_t *>(vtyp))) {
+		err::set(name, "a function of this name already exists in type: %s",
+			 in->vtyp->str().c_str());
 		return false;
 	}
 	return true;

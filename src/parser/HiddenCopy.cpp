@@ -30,6 +30,7 @@ stmt_base_t *stmt_block_t::hidden_copy()
 	}
 	stmt_base_t *res = new stmt_block_t(line, col, newstmts);
 	res->vtyp	 = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	 = is_intrin;
 	return res;
 }
 
@@ -49,6 +50,7 @@ stmt_base_t *stmt_type_t::hidden_copy()
 	}
 	stmt_base_t *res = new stmt_type_t(line, col, ptr, info, name, templates, newcounts);
 	res->vtyp	 = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	 = is_intrin;
 	return res;
 }
 
@@ -60,6 +62,7 @@ stmt_base_t *stmt_simple_t::hidden_copy()
 {
 	stmt_base_t *res = new stmt_simple_t(line, col, val);
 	res->vtyp	 = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	 = is_intrin;
 	return res;
 }
 
@@ -79,6 +82,7 @@ stmt_base_t *stmt_fncallinfo_t::hidden_copy()
 	}
 	stmt_base_t *res = new stmt_fncallinfo_t(line, col, newtemplates, newargs);
 	res->vtyp	 = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	 = is_intrin;
 	return res;
 }
 
@@ -93,6 +97,7 @@ stmt_base_t *stmt_expr_t::hidden_copy()
 	stmt_expr_t *res    = new stmt_expr_t(line, col, newlhs, oper, newrhs);
 	if(or_blk) res->or_blk = static_cast<stmt_block_t *>(or_blk->hidden_copy());
 	res->or_blk_var = or_blk_var;
+	res->is_intrin	= is_intrin;
 	return res;
 }
 
@@ -108,6 +113,7 @@ stmt_base_t *stmt_var_t::hidden_copy()
 
 	stmt_base_t *res = new stmt_var_t(line, col, name, newin, newvtype, newval);
 	res->vtyp	 = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	 = is_intrin;
 	return res;
 }
 
@@ -123,6 +129,7 @@ stmt_base_t *stmt_fndecl_params_t::hidden_copy()
 	}
 	stmt_base_t *res = new stmt_fndecl_params_t(line, col, newparams);
 	res->vtyp	 = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	 = is_intrin;
 	return res;
 }
 
@@ -139,6 +146,7 @@ stmt_base_t *stmt_fnsig_t::hidden_copy()
 
 	stmt_base_t *res = new stmt_fnsig_t(line, col, templates, newparams, newrettype, comptime);
 	res->vtyp	 = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	 = is_intrin;
 	return res;
 }
 
@@ -152,6 +160,7 @@ stmt_base_t *stmt_fndef_t::hidden_copy()
 	stmt_block_t *newblk = blk ? static_cast<stmt_block_t *>(blk->hidden_copy()) : nullptr;
 	stmt_base_t *res     = new stmt_fndef_t(line, col, newsig, newblk);
 	res->vtyp	     = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	     = is_intrin;
 	return res;
 }
 
@@ -163,6 +172,7 @@ stmt_base_t *stmt_header_t::hidden_copy()
 {
 	stmt_base_t *res = new stmt_header_t(line, col, names, flags);
 	res->vtyp	 = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	 = is_intrin;
 	return res;
 }
 
@@ -174,6 +184,7 @@ stmt_base_t *stmt_lib_t::hidden_copy()
 {
 	stmt_base_t *res = new stmt_lib_t(line, col, flags);
 	res->vtyp	 = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	 = is_intrin;
 	return res;
 }
 
@@ -189,6 +200,7 @@ stmt_base_t *stmt_extern_t::hidden_copy()
 	stmt_fnsig_t *newsig = static_cast<stmt_fnsig_t *>(sig->hidden_copy());
 	stmt_base_t *res     = new stmt_extern_t(line, col, fname, newheaders, newlibs, newsig);
 	res->vtyp	     = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	     = is_intrin;
 	return res;
 }
 
@@ -204,6 +216,7 @@ stmt_base_t *stmt_enumdef_t::hidden_copy()
 	}
 	stmt_base_t *res = new stmt_enumdef_t(line, col, newitems);
 	res->vtyp	 = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	 = is_intrin;
 	return res;
 }
 
@@ -219,6 +232,7 @@ stmt_base_t *stmt_struct_t::hidden_copy()
 	}
 	stmt_base_t *res = new stmt_struct_t(line, col, decl, templates, newfields);
 	res->vtyp	 = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	 = is_intrin;
 	return res;
 }
 
@@ -234,6 +248,7 @@ stmt_base_t *stmt_vardecl_t::hidden_copy()
 	}
 	stmt_base_t *res = new stmt_vardecl_t(line, col, newdecls);
 	res->vtyp	 = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	 = is_intrin;
 	return res;
 }
 
@@ -245,11 +260,13 @@ stmt_base_t *stmt_cond_t::hidden_copy()
 {
 	std::vector<cond_t> newconds;
 	for(auto &c : conds) {
-		cond_t nc{c.cond->hidden_copy(), static_cast<stmt_block_t *>(c.blk->hidden_copy())};
+		cond_t nc{c.cond ? c.cond->hidden_copy() : nullptr,
+			  static_cast<stmt_block_t *>(c.blk->hidden_copy())};
 		newconds.push_back(nc);
 	}
 	stmt_base_t *res = new stmt_cond_t(line, col, newconds);
 	res->vtyp	 = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	 = is_intrin;
 	return res;
 }
 
@@ -263,6 +280,7 @@ stmt_base_t *stmt_forin_t::hidden_copy()
 	stmt_block_t *newblk = static_cast<stmt_block_t *>(blk->hidden_copy());
 	stmt_base_t *res     = new stmt_forin_t(line, col, iter, newin, newblk);
 	res->vtyp	     = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	     = is_intrin;
 	return res;
 }
 
@@ -278,6 +296,7 @@ stmt_base_t *stmt_for_t::hidden_copy()
 	stmt_block_t *newblk = static_cast<stmt_block_t *>(blk->hidden_copy());
 	stmt_base_t *res     = new stmt_for_t(line, col, newinit, newcond, newincr, newblk);
 	res->vtyp	     = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	     = is_intrin;
 	return res;
 }
 
@@ -291,6 +310,7 @@ stmt_base_t *stmt_while_t::hidden_copy()
 	stmt_block_t *newblk = static_cast<stmt_block_t *>(blk->hidden_copy());
 	stmt_base_t *res     = new stmt_while_t(line, col, newcond, newblk);
 	res->vtyp	     = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	     = is_intrin;
 	return res;
 }
 
@@ -303,6 +323,7 @@ stmt_base_t *stmt_ret_t::hidden_copy()
 	stmt_base_t *newval = val ? val->hidden_copy() : nullptr;
 	stmt_base_t *res    = new stmt_ret_t(line, col, newval);
 	res->vtyp	    = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	    = is_intrin;
 	return res;
 }
 
@@ -314,6 +335,7 @@ stmt_base_t *stmt_cont_t::hidden_copy()
 {
 	stmt_base_t *res = new stmt_cont_t(line, col);
 	res->vtyp	 = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	 = is_intrin;
 	return res;
 }
 
@@ -325,6 +347,7 @@ stmt_base_t *stmt_break_t::hidden_copy()
 {
 	stmt_base_t *res = new stmt_break_t(line, col);
 	res->vtyp	 = vtyp ? vtyp->copy() : nullptr;
+	res->is_intrin	 = is_intrin;
 	return res;
 }
 } // namespace parser

@@ -918,12 +918,12 @@ begin_brack:
 			goto fail;
 		}
 	post_args:
-		rhs	  = new stmt_fncallinfo_t(oper.line, oper.col_beg, templates, args);
-		lhs	  = new stmt_expr_t(oper.line, oper.col_beg, lhs, oper, rhs);
-		rhs	  = nullptr;
-		args	  = {};
-		templates = {};
-		static_cast<stmt_expr_t *>(lhs)->intrin = is_intrin;
+		rhs	       = new stmt_fncallinfo_t(oper.line, oper.col_beg, templates, args);
+		lhs	       = new stmt_expr_t(oper.line, oper.col_beg, lhs, oper, rhs);
+		rhs	       = nullptr;
+		args	       = {};
+		templates      = {};
+		lhs->is_intrin = is_intrin;
 
 		if(p.accept(lex::LBRACK, lex::LPAREN)) goto begin_brack;
 	}
