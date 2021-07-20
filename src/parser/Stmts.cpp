@@ -25,11 +25,19 @@ namespace parser
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 stmt_base_t::stmt_base_t(const StmtType &type, const size_t &line, const size_t &col)
-	: type(type), line(line), col(col), vtyp(nullptr), is_specialized(false)
+	: type(type), parent(nullptr), line(line), col(col), vtyp(nullptr), is_specialized(false)
 {}
 stmt_base_t::~stmt_base_t()
 {
 	if(vtyp) delete vtyp;
+}
+
+stmt_base_t *stmt_base_t::copy()
+{
+	stmt_base_t *cp = hidden_copy();
+	if(!cp) return nullptr;
+	cp->set_parent(cp->parent); // no change for top level parent
+	return cp;
 }
 
 std::string stmt_base_t::typestr()

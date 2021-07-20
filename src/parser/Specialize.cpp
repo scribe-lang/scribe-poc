@@ -77,7 +77,8 @@ bool specialize_type(type_base_t *&src, const std::vector<type_base_t *> &templs
 			err::set(line, col, "failed to specialize function return type");
 			return false;
 		}
-		if(tfn->fndef && !tfn->fndef->specialize(templs)) {
+		// TODO: copy and then specialize
+		if(tfn->parent && !tfn->parent->specialize(templs)) {
 			err::set(line, col, "failed to specialize function definition");
 			return false;
 		}

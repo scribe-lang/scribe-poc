@@ -31,12 +31,13 @@ namespace sc
 {
 namespace parser
 {
-type_base_t::type_base_t(const Types &type, const size_t &ptr, const size_t &info)
-	: id(gen_id()), type(type), ptr(ptr), info(info)
-{}
-type_base_t::type_base_t(const int64_t &id, const Types &type, const size_t &ptr,
+type_base_t::type_base_t(const Types &type, stmt_base_t *parent, const size_t &ptr,
 			 const size_t &info)
-	: id(id), type(type), ptr(ptr), info(info)
+	: id(gen_id()), type(type), parent(parent), ptr(ptr), info(info)
+{}
+type_base_t::type_base_t(const int64_t &id, const Types &type, stmt_base_t *parent,
+			 const size_t &ptr, const size_t &info)
+	: id(id), type(type), parent(parent), ptr(ptr), info(info)
 {}
 type_base_t::~type_base_t() {}
 std::string type_base_t::str_base()
@@ -62,12 +63,13 @@ std::string type_base_t::str_base()
 // 	return "";
 // }
 
-type_simple_t::type_simple_t(const size_t &ptr, const size_t &info, const std::string &name)
-	: type_base_t(TSIMPLE, ptr, info), name(name)
-{}
-type_simple_t::type_simple_t(const int64_t &id, const size_t &ptr, const size_t &info,
+type_simple_t::type_simple_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
 			     const std::string &name)
-	: type_base_t(id, TSIMPLE, ptr, info), name(name)
+	: type_base_t(TSIMPLE, parent, ptr, info), name(name)
+{}
+type_simple_t::type_simple_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr,
+			     const size_t &info, const std::string &name)
+	: type_base_t(id, TSIMPLE, parent, ptr, info), name(name)
 {}
 std::string type_simple_t::str()
 {
@@ -80,21 +82,21 @@ std::string type_simple_t::str()
 // }
 type_base_t *type_simple_t::copy()
 {
-	return new type_simple_t(id, ptr, info, name);
+	return new type_simple_t(id, parent, ptr, info, name);
 }
 
-type_struct_t::type_struct_t(const size_t &ptr, const size_t &info,
+type_struct_t::type_struct_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
 			     const std::vector<std::string> &templ,
 			     const std::vector<std::string> &field_order,
 			     const std::unordered_map<std::string, type_base_t *> &fields)
-	: type_base_t(TSTRUCT, ptr, info), is_decl_only(false), templ(templ),
+	: type_base_t(TSTRUCT, parent, ptr, info), is_decl_only(false), templ(templ),
 	  field_order(field_order), fields(fields)
 {}
-type_struct_t::type_struct_t(const int64_t &id, const size_t &ptr, const size_t &info,
-			     const std::vector<std::string> &templ,
+type_struct_t::type_struct_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr,
+			     const size_t &info, const std::vector<std::string> &templ,
 			     const std::vector<std::string> &field_order,
 			     const std::unordered_map<std::string, type_base_t *> &fields)
-	: type_base_t(id, TSTRUCT, ptr, info), is_decl_only(false), templ(templ),
+	: type_base_t(id, TSTRUCT, parent, ptr, info), is_decl_only(false), templ(templ),
 	  field_order(field_order), fields(fields)
 {}
 type_struct_t::~type_struct_t()
@@ -107,7 +109,7 @@ type_base_t *type_struct_t::copy()
 	for(auto &f : fields) {
 		newfields[f.first] = f.second->copy();
 	}
-	return new type_struct_t(id, ptr, info, templ, field_order, newfields);
+	return new type_struct_t(id, parent, ptr, info, templ, field_order, newfields);
 }
 std::string type_struct_t::str()
 {
@@ -164,17 +166,15 @@ type_base_t *type_struct_t::get_field(const std::string &name)
 	return res->second;
 }
 
-type_func_t::type_func_t(const size_t &ptr, const size_t &info,
+type_func_t::type_func_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
 			 const std::vector<std::string> &templ,
 			 const std::vector<type_base_t *> &args, type_base_t *rettype)
-	: type_base_t(TFUNC, ptr, info), templ(templ), args(args), rettype(rettype), fndef(nullptr)
+	: type_base_t(TFUNC, parent, ptr, info), templ(templ), args(args), rettype(rettype)
 {}
-type_func_t::type_func_t(const int64_t &id, const size_t &ptr, const size_t &info,
-			 const std::vector<std::string> &templ,
-			 const std::vector<type_base_t *> &args, type_base_t *rettype,
-			 stmt_fndef_t *fndef)
-	: type_base_t(id, TFUNC, ptr, info), templ(templ), args(args), rettype(rettype),
-	  fndef(fndef)
+type_func_t::type_func_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr,
+			 const size_t &info, const std::vector<std::string> &templ,
+			 const std::vector<type_base_t *> &args, type_base_t *rettype)
+	: type_base_t(id, TFUNC, parent, ptr, info), templ(templ), args(args), rettype(rettype)
 {}
 type_func_t::~type_func_t()
 {
@@ -188,7 +188,7 @@ type_base_t *type_func_t::copy()
 	for(auto &a : args) {
 		newargs.push_back(a->copy());
 	}
-	return new type_func_t(id, ptr, info, templ, newargs, rettype->copy(), fndef);
+	return new type_func_t(id, parent, ptr, info, templ, newargs, rettype->copy());
 }
 std::string type_func_t::str()
 {
@@ -249,40 +249,43 @@ type_base_t *type_func_t::get_arg(const size_t &index)
 	return args[index];
 }
 
-bool update_fncall_types(stmt_base_t *fb, stmt_fncallinfo_t *ci, stmt_fndef_t *&specializedfn)
+bool update_fncall_types(stmt_base_t *fc, stmt_fncallinfo_t *fci, stmt_fndef_t *&specializedfn)
 {
-	type_func_t *ft	 = static_cast<type_func_t *>(fb->vtyp);
-	stmt_fndef_t *fn = ft->fndef;
-	if(ft->templ.size() < ci->templates.size()) {
-		err::set(ci->line, ci->col,
+	type_func_t *ft	 = static_cast<type_func_t *>(fc->vtyp);
+	stmt_fndef_t *fn = nullptr;
+	if(fc->type == FNDEF) {
+		fn = static_cast<stmt_fndef_t *>(fc);
+	}
+	if(ft->templ.size() < fci->templates.size()) {
+		err::set(fci->line, fci->col,
 			 "function call contains more templates than exist in definition");
 		return false;
 	}
-	if(ft->args.size() != ci->args.size()) {
-		err::set(ci->line, ci->col, "function call has %zu args, expected: %zu",
-			 ci->args.size(), ft->args.size());
+	if(ft->args.size() != fci->args.size()) {
+		err::set(fci->line, fci->col, "function call has %zu args, expected: %zu",
+			 fci->args.size(), ft->args.size());
 		return false;
 	}
 	std::vector<type_base_t *> templates;
-	for(auto &t : ci->templates) {
+	for(auto &t : fci->templates) {
 		templates.push_back(t->vtyp->copy());
 	}
 	size_t inferred_templates = ft->templ.size() - templates.size();
-	if(ci->args.size() < inferred_templates) {
-		err::set(ci->line, ci->col, "expected template count: %zu, found: %zu",
-			 ft->templ.size(), ci->templates.size() + ci->args.size());
+	if(fci->args.size() < inferred_templates) {
+		err::set(fci->line, fci->col, "expected template count: %zu, found: %zu",
+			 ft->templ.size(), fci->templates.size() + fci->args.size());
 		goto fail;
 	}
 	for(size_t i = 0; i < inferred_templates; ++i) {
-		templates.push_back(ci->args[i]->vtyp->copy());
+		templates.push_back(fci->args[i]->vtyp->copy());
 	}
 	if(!fn) goto done;
-	if(!fb->specialize(templates)) {
-		err::set(ci->line, ci->col, "failed to specialize function call");
+	if(!fc->specialize(templates)) {
+		err::set(fci->line, fci->col, "failed to specialize function call");
 		return false;
 	}
-	if(!ci->specialize(templates)) {
-		err::set(ci->line, ci->col, "failed to specialize function call info");
+	if(!fci->specialize(templates)) {
+		err::set(fci->line, fci->col, "failed to specialize function call info");
 		return false;
 	}
 	// TODO: copy function before specialization (original must never be specialized)

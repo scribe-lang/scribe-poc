@@ -259,7 +259,7 @@ bool stmt_fnsig_t::assign_type(VarMgr &vars)
 	std::vector<std::string> templs;
 	for(size_t i = 0; i < templates.size(); ++i) {
 		std::string tname = "@" + std::to_string(i);
-		vars.add(templates[i].data.s, new type_simple_t(0, 0, tname));
+		vars.add(templates[i].data.s, new type_simple_t(parent, 0, 0, tname));
 		templs.push_back(tname);
 	}
 	if(params && !params->assign_type(vars)) {
@@ -276,7 +276,7 @@ bool stmt_fnsig_t::assign_type(VarMgr &vars)
 			args.push_back(p->vtyp->copy());
 		}
 	}
-	vtyp = new type_func_t(0, 0, templs, args, rettype->vtyp->copy());
+	vtyp = new type_func_t(this, 0, 0, templs, args, rettype->vtyp->copy());
 	return true;
 }
 
@@ -295,8 +295,8 @@ bool stmt_fndef_t::assign_type(VarMgr &vars)
 		err::set(blk->line, blk->col, "failed to assign type in function block");
 		return false;
 	}
-	vtyp					= sig->vtyp->copy();
-	static_cast<type_func_t *>(vtyp)->fndef = this;
+	vtyp	     = sig->vtyp->copy();
+	vtyp->parent = this;
 	vars.poplayer();
 	return true;
 }
@@ -330,6 +330,14 @@ bool stmt_extern_t::assign_type(VarMgr &vars)
 		err::set(sig->line, sig->col, "failed to assign type to function signature");
 		return false;
 	}
+	if(headers && !headers->assign_type(vars)) {
+		err::set(headers->line, headers->col, "failed to assign header type");
+		return false;
+	}
+	if(libs && !libs->assign_type(vars)) {
+		err::set(libs->line, libs->col, "failed to assign lib type");
+		return false;
+	}
 	vars.poplayer();
 	return true;
 }
@@ -340,6 +348,15 @@ bool stmt_extern_t::assign_type(VarMgr &vars)
 
 bool stmt_enumdef_t::assign_type(VarMgr &vars)
 {
+	vars.pushlayer();
+	for(auto &i : items) {
+		if(!i->assign_type(vars)) {
+			err::set(i->line, i->col, "failed to assign type to enum");
+			return false;
+		}
+	}
+	vars.poplayer();
+	// TODO: create vtyp
 	return true;
 }
 
@@ -368,7 +385,7 @@ bool stmt_struct_t::assign_type(VarMgr &vars)
 	for(size_t i = 0; i < field_type_orders.size(); ++i) {
 		field_types[field_type_orders[i]] = fields[i]->vtyp->copy();
 	}
-	vtyp = new type_struct_t(0, 0, templs, field_type_orders, field_types);
+	vtyp = new type_struct_t(parent, 0, 0, templs, field_type_orders, field_types);
 	vars.poplayer();
 	return true;
 }

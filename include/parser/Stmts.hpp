@@ -54,15 +54,19 @@ enum StmtType
 struct stmt_base_t
 {
 	StmtType type;
+	stmt_base_t *parent;
 	size_t line;
 	size_t col;
 	type_base_t *vtyp;
 	bool is_specialized; // to prevent cycles (fn -> type_fn -> fn ...)
 	stmt_base_t(const StmtType &type, const size_t &line, const size_t &col);
 	virtual ~stmt_base_t();
-	virtual void disp(const bool &has_next) = 0;
-	virtual stmt_base_t *copy()		= 0;
 
+	// NEVER use hidden_copy(); instead use copy()
+	stmt_base_t *copy();
+	virtual stmt_base_t *hidden_copy()				  = 0;
+	virtual void disp(const bool &has_next)				  = 0;
+	virtual void set_parent(stmt_base_t *parent)			  = 0;
 	virtual bool assign_type(VarMgr &vars)				  = 0;
 	virtual bool specialize(const std::vector<type_base_t *> &templs) = 0;
 
@@ -98,10 +102,10 @@ struct stmt_type_t : public stmt_base_t
 	stmt_type_t(const size_t &line, const size_t &col, stmt_base_t *fn);
 	~stmt_type_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 
 	std::string getname();
@@ -114,10 +118,10 @@ struct stmt_block_t : public stmt_base_t
 		     const std::vector<stmt_base_t *> &stmts);
 	~stmt_block_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -127,10 +131,10 @@ struct stmt_simple_t : public stmt_base_t
 	stmt_simple_t(const size_t &line, const size_t &col, const lex::Lexeme &val);
 	~stmt_simple_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -143,10 +147,10 @@ struct stmt_fncallinfo_t : public stmt_base_t
 			  const std::vector<stmt_base_t *> &args);
 	~stmt_fncallinfo_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -164,10 +168,10 @@ struct stmt_expr_t : public stmt_base_t
 		    const lex::Lexeme &oper, stmt_base_t *rhs);
 	~stmt_expr_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -182,10 +186,10 @@ struct stmt_var_t : public stmt_base_t
 		   stmt_type_t *vtype, stmt_base_t *val);
 	~stmt_var_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -197,10 +201,10 @@ struct stmt_fndecl_params_t : public stmt_base_t
 			     const std::vector<stmt_var_t *> &params);
 	~stmt_fndecl_params_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -215,10 +219,10 @@ struct stmt_fnsig_t : public stmt_base_t
 		     stmt_type_t *rettype, const bool &comptime);
 	~stmt_fnsig_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -229,10 +233,10 @@ struct stmt_fndef_t : public stmt_base_t
 	stmt_fndef_t(const size_t &line, const size_t &col, stmt_fnsig_t *sig, stmt_block_t *blk);
 	~stmt_fndef_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -244,10 +248,10 @@ struct stmt_header_t : public stmt_base_t
 	stmt_header_t(const size_t &line, const size_t &col, const lex::Lexeme &names,
 		      const lex::Lexeme &flags);
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -257,10 +261,10 @@ struct stmt_lib_t : public stmt_base_t
 	lex::Lexeme flags;
 	stmt_lib_t(const size_t &line, const size_t &col, const lex::Lexeme &flags);
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -275,10 +279,10 @@ struct stmt_extern_t : public stmt_base_t
 		      stmt_header_t *headers, stmt_lib_t *libs, stmt_fnsig_t *sig);
 	~stmt_extern_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -290,10 +294,10 @@ struct stmt_enumdef_t : public stmt_base_t
 		       const std::vector<stmt_var_t *> &items);
 	~stmt_enumdef_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -309,10 +313,10 @@ struct stmt_struct_t : public stmt_base_t
 		      const std::vector<stmt_var_t *> &fields);
 	~stmt_struct_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -324,10 +328,10 @@ struct stmt_vardecl_t : public stmt_base_t
 		       const std::vector<stmt_var_t *> &decls);
 	~stmt_vardecl_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -343,10 +347,10 @@ struct stmt_cond_t : public stmt_base_t
 	stmt_cond_t(const size_t &line, const size_t &col, const std::vector<cond_t> &conds);
 	~stmt_cond_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -359,10 +363,10 @@ struct stmt_forin_t : public stmt_base_t
 		     stmt_base_t *in, stmt_block_t *blk);
 	~stmt_forin_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -377,10 +381,10 @@ struct stmt_for_t : public stmt_base_t
 		   stmt_base_t *incr, stmt_block_t *blk);
 	~stmt_for_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -391,10 +395,10 @@ struct stmt_while_t : public stmt_base_t
 	stmt_while_t(const size_t &line, const size_t &col, stmt_base_t *cond, stmt_block_t *blk);
 	~stmt_while_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 
@@ -404,30 +408,30 @@ struct stmt_ret_t : public stmt_base_t
 	stmt_ret_t(const size_t &line, const size_t &col, stmt_base_t *val);
 	~stmt_ret_t();
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 struct stmt_cont_t : public stmt_base_t
 {
 	stmt_cont_t(const size_t &line, const size_t &col);
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 struct stmt_break_t : public stmt_base_t
 {
 	stmt_break_t(const size_t &line, const size_t &col);
 
+	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
-
+	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
-
 	bool specialize(const std::vector<type_base_t *> &templs);
 };
 } // namespace parser

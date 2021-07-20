@@ -36,13 +36,15 @@ enum Types
 struct type_base_t
 {
 	Types type;
+	stmt_base_t *parent; // associated stmt with type (can be nullptr if required)
 	int64_t id;
 	size_t ptr;
 	size_t info;
 	std::vector<type_base_t *> counts; // for arrays
 
-	type_base_t(const Types &type, const size_t &ptr, const size_t &info);
-	type_base_t(const int64_t &id, const Types &type, const size_t &ptr, const size_t &info);
+	type_base_t(const Types &type, stmt_base_t *parent, const size_t &ptr, const size_t &info);
+	type_base_t(const int64_t &id, const Types &type, stmt_base_t *parent, const size_t &ptr,
+		    const size_t &info);
 	virtual ~type_base_t();
 
 	virtual type_base_t *copy() = 0;
@@ -63,8 +65,9 @@ struct type_simple_t : public type_base_t
 	// is template is checked by the condition - name begins with '@'
 	std::string name;
 
-	type_simple_t(const size_t &ptr, const size_t &info, const std::string &name);
-	type_simple_t(const int64_t &id, const size_t &ptr, const size_t &info,
+	type_simple_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
+		      const std::string &name);
+	type_simple_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
 		      const std::string &name);
 
 	type_base_t *copy();
@@ -80,10 +83,11 @@ struct type_struct_t : public type_base_t
 	std::vector<std::string> field_order;
 	std::unordered_map<std::string, type_base_t *> fields;
 
-	type_struct_t(const size_t &ptr, const size_t &info, const std::vector<std::string> &templ,
+	type_struct_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
+		      const std::vector<std::string> &templ,
 		      const std::vector<std::string> &field_order,
 		      const std::unordered_map<std::string, type_base_t *> &fields);
-	type_struct_t(const int64_t &id, const size_t &ptr, const size_t &info,
+	type_struct_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
 		      const std::vector<std::string> &templ,
 		      const std::vector<std::string> &field_order,
 		      const std::unordered_map<std::string, type_base_t *> &fields);
@@ -119,13 +123,13 @@ struct type_func_t : public type_base_t
 	std::vector<std::string> templ;
 	std::vector<type_base_t *> args;
 	type_base_t *rettype;
-	stmt_fndef_t *fndef;
 
-	type_func_t(const size_t &ptr, const size_t &info, const std::vector<std::string> &templ,
-		    const std::vector<type_base_t *> &args, type_base_t *rettype);
-	type_func_t(const int64_t &id, const size_t &ptr, const size_t &info,
+	type_func_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
 		    const std::vector<std::string> &templ, const std::vector<type_base_t *> &args,
-		    type_base_t *rettype, stmt_fndef_t *fndef);
+		    type_base_t *rettype);
+	type_func_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
+		    const std::vector<std::string> &templ, const std::vector<type_base_t *> &args,
+		    type_base_t *rettype);
 	~type_func_t();
 
 	type_base_t *copy();
@@ -146,7 +150,7 @@ struct type_func_t : public type_base_t
 	}
 };
 
-bool update_fncall_types(stmt_base_t *fb, stmt_fncallinfo_t *ci, stmt_fndef_t *&specializedfn);
+bool update_fncall_types(stmt_base_t *fc, stmt_fncallinfo_t *fci, stmt_fndef_t *&specializedfn);
 } // namespace parser
 } // namespace sc
 

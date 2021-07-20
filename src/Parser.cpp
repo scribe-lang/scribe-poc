@@ -23,7 +23,9 @@ namespace parser
 bool parse(std::vector<lex::Lexeme> &toks, stmt_block_t *&tree)
 {
 	ParseHelper p(toks);
-	return parse_block(p, tree, false);
+	if(!parse_block(p, tree, false)) return false;
+	tree->set_parent(nullptr);
+	return true;
 }
 } // namespace parser
 } // namespace sc
