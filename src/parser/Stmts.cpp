@@ -50,7 +50,6 @@ std::string stmt_base_t::typestr()
 	case EXPR: return "expression";
 	case FNCALLINFO: return "function call info";
 	case VAR: return "variable declaration base";
-	case FNPARAMS: return "function parameters";
 	case FNSIG: return "function signature";
 	case FNDEF: return "function definition";
 	case HEADER: return "extern header";
@@ -280,12 +279,11 @@ void stmt_expr_t::disp(const bool &has_next)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 stmt_var_t::stmt_var_t(const size_t &line, const size_t &col, const lex::Lexeme &name,
-		       stmt_type_t *in, stmt_type_t *vtype, stmt_base_t *val)
-	: stmt_base_t(VAR, line, col), name(name), in(in), vtype(vtype), val(val)
+		       stmt_type_t *vtype, stmt_base_t *val)
+	: stmt_base_t(VAR, line, col), name(name), vtype(vtype), val(val)
 {}
 stmt_var_t::~stmt_var_t()
 {
-	if(in) delete in;
 	if(vtype) delete vtype;
 	if(val) delete val;
 }
@@ -295,12 +293,6 @@ void stmt_var_t::disp(const bool &has_next)
 	tio::taba(has_next);
 	tio::print(has_next, "Variable: %s%s\n", name.data.s.c_str(),
 		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
-	if(in) {
-		tio::taba(vtype || val);
-		tio::print(vtype || val, "In:\n");
-		in->disp(false);
-		tio::tabr();
-	}
 	if(vtype) {
 		tio::taba(val);
 		tio::print(val, "Type:\n");
@@ -317,41 +309,19 @@ void stmt_var_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////// stmt_fndecl_params_t ////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-stmt_fndecl_params_t::stmt_fndecl_params_t(const size_t &line, const size_t &col,
-					   const std::vector<stmt_var_t *> &params)
-	: stmt_base_t(FNPARAMS, line, col), params(params)
-{}
-stmt_fndecl_params_t::~stmt_fndecl_params_t()
-{
-	for(auto &param : params) delete param;
-}
-
-void stmt_fndecl_params_t::disp(const bool &has_next)
-{
-	tio::taba(has_next);
-	tio::print(has_next, "Function declaration parameters\n");
-	for(size_t i = 0; i < params.size(); ++i) {
-		params[i]->disp(i != params.size() - 1);
-	}
-	tio::tabr();
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////// stmt_fnsig_t ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 stmt_fnsig_t::stmt_fnsig_t(const size_t &line, const size_t &col,
-			   const std::vector<lex::Lexeme> &templates, stmt_fndecl_params_t *params,
-			   stmt_type_t *rettype, const bool &comptime)
+			   const std::vector<lex::Lexeme> &templates,
+			   std::vector<stmt_var_t *> &params, stmt_type_t *rettype,
+			   const bool &comptime)
 	: stmt_base_t(FNSIG, line, col), templates(templates), params(params), rettype(rettype),
 	  comptime(comptime)
 {}
 stmt_fnsig_t::~stmt_fnsig_t()
 {
-	if(params) delete params;
+	for(auto &p : params) delete p;
 	if(rettype) delete rettype;
 }
 
@@ -361,8 +331,8 @@ void stmt_fnsig_t::disp(const bool &has_next)
 	tio::print(has_next, "Function signature [comptime = %s]%s\n", comptime ? "yes" : "no",
 		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
 	if(!templates.empty()) {
-		tio::taba(params || rettype);
-		tio::print(params || rettype, "Templates:\n");
+		tio::taba(params.size() > 0 || rettype);
+		tio::print(params.size() > 0 || rettype, "Templates:\n");
 		for(size_t i = 0; i < templates.size(); ++i) {
 			tio::taba(i != templates.size() - 1);
 			tio::print(i != templates.size() - 1, "%s\n", templates[i].data.s.c_str());
@@ -370,10 +340,12 @@ void stmt_fnsig_t::disp(const bool &has_next)
 		}
 		tio::tabr();
 	}
-	if(params) {
+	if(params.size() > 0) {
 		tio::taba(rettype);
 		tio::print(rettype, "Parameters:\n");
-		params->disp(false);
+		for(size_t i = 0; i < params.size(); ++i) {
+			params[i]->disp(i != params.size() - 1);
+		}
 		tio::tabr();
 	}
 	if(rettype) {

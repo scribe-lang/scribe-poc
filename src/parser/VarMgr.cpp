@@ -54,7 +54,6 @@ type_base_t *VarSrc::get(const std::string &name)
 VarMgr::VarMgr()
 {
 	globals["void"]	     = new type_simple_t(nullptr, 0, 0, "void");
-	globals["nil"]	     = new type_simple_t(nullptr, 0, 0, "i1");
 	globals["i1"]	     = new type_simple_t(nullptr, 0, 0, "i1");
 	globals["i8"]	     = new type_simple_t(nullptr, 0, 0, "i8");
 	globals["i16"]	     = new type_simple_t(nullptr, 0, 0, "i16");
@@ -67,10 +66,11 @@ VarMgr::VarMgr()
 	globals["f32"]	     = new type_simple_t(nullptr, 0, 0, "f32");
 	globals["f64"]	     = new type_simple_t(nullptr, 0, 0, "f64");
 	globals["*const u8"] = new type_simple_t(nullptr, 1, TypeInfoMask::CONST, "u8"); // cstr
+	globals["nil"]	     = globals["i1"]->copy();
 
 	// intrinsics
-	type_simple_t *templ0ptr    = new type_simple_t(nullptr, 1, 0, "@0");
-	type_simple_t *templ1ptr    = new type_simple_t(nullptr, 1, 0, "@1");
+	type_simple_t *templ0	    = new type_simple_t(nullptr, 0, 0, "@0");
+	type_simple_t *templ1	    = new type_simple_t(nullptr, 0, 0, "@1");
 	type_struct_t *empty_struct = new type_struct_t(nullptr, 0, 0, false, {}, {}, {});
 	type_base_t *cstr	    = globals["*const u8"]->copy();
 
@@ -78,7 +78,7 @@ VarMgr::VarMgr()
 	importfn->intrin_fn   = intrinsic_import;
 	globals["import"]     = importfn;
 
-	type_func_t *asfn = new type_func_t(nullptr, 0, 0, {"@0", "@1"}, {templ1ptr}, templ0ptr);
+	type_func_t *asfn = new type_func_t(nullptr, 0, 0, {"@0", "@1"}, {templ1}, templ0);
 	asfn->intrin_fn	  = intrinsic_as;
 	globals["as"]	  = asfn;
 
@@ -94,9 +94,7 @@ VarMgr::~VarMgr()
 {
 	for(auto &g : globals) delete g.second;
 	for(auto &s : srcs) delete s.second;
-	for(auto &tf : typefns) {
-		for(auto &f : tf.second) delete f.second;
-	}
+	for(auto &mfn : managedfnmaps) delete mfn;
 }
 void VarMgr::init_typefns()
 {
@@ -145,59 +143,62 @@ bool VarMgr::exists(const std::string &name, const bool &top_only, const bool &w
 	if(srcstack.back()->exists(name, top_only)) return true;
 	return with_globals ? globals.find(name) != globals.end() : false;
 }
-type_base_t *VarMgr::get(const std::string &name)
+type_base_t *VarMgr::get(const std::string &name, stmt_base_t *parent)
 {
 	type_base_t *res = srcstack.back()->get(name);
 	if(res) return res;
 	auto gres = globals.find(name);
 	if(gres != globals.end()) return gres->second;
-	return nullptr;
+	return get_funcmap(name, parent);
 }
-type_base_t *VarMgr::get_copy(const std::string &name)
+type_base_t *VarMgr::get_copy(const std::string &name, stmt_base_t *parent)
 {
-	type_base_t *res = get(name);
+	type_base_t *res = get(name, parent);
 	if(!res) return nullptr;
 	return res->copy();
 }
-
-bool VarMgr::add_type_func(const std::vector<int64_t> &argtypeids, const std::string &name,
-			   type_func_t *val)
+bool VarMgr::add_func(const std::string &name, type_base_t *vtyp, const bool &global)
 {
-	std::string id = get_func_type_id(argtypeids);
-	if(typefns[id].find(name) != typefns[id].end()) {
-		return false;
-	}
-	typefns[id][name] = val;
-	return true;
+	std::string fullname = name + "_" + vtyp->mangled_name();
+	return add(fullname, vtyp, global);
 }
-bool VarMgr::add_type_func_copy(const std::vector<int64_t> &argtypeids, const std::string &name,
-				type_func_t *val)
+bool VarMgr::add_func_copy(const std::string &name, type_base_t *vtyp, const bool &global)
 {
-	std::string id = get_func_type_id(argtypeids);
-	if(typefns[id].find(name) != typefns[id].end()) return false;
-	typefns[id][name] = static_cast<type_func_t *>(val->copy());
-	return true;
+	std::string fullname = name + "_" + vtyp->mangled_name();
+	return add_copy(fullname, vtyp, global);
 }
-type_func_t *VarMgr::get_type_func(const std::vector<int64_t> &argtypeids, const std::string &name)
+type_funcmap_t *VarMgr::get_funcmap(const std::string &name, stmt_base_t *parent)
 {
-	std::string id = get_func_type_id(argtypeids);
-	auto res       = typefns[id].find(name);
-	if(res == typefns[id].end()) return nullptr;
-	return res->second;
-}
-bool VarMgr::has_type_func(const std::vector<int64_t> &argtypeids, const std::string &name)
-{
-	std::string id = get_func_type_id(argtypeids);
-	return typefns.find(id) != typefns.end() && typefns[id].find(name) != typefns[id].end();
-}
-
-std::string VarMgr::get_func_type_id(const std::vector<int64_t> &argtypeids)
-{
-	std::string res;
-	for(auto &i : argtypeids) {
-		res += std::to_string(i);
-	}
+	type_funcmap_t *res = get_funcmap_copy(name, parent);
+	if(!res) return nullptr;
+	managedfnmaps.push_back(res);
 	return res;
+}
+type_funcmap_t *VarMgr::get_funcmap_copy(const std::string &name, stmt_base_t *parent)
+{
+	std::unordered_map<std::string, type_func_t *> funcs;
+	for(auto si = srcstack.rbegin(); si != srcstack.rend(); ++si) {
+		VarSrc *s			= *si;
+		std::vector<VarLayer *> &layers = s->get_layers();
+		for(auto li = layers.rbegin(); li != layers.rend(); ++li) {
+			VarLayer *l					      = *li;
+			std::unordered_map<std::string, type_base_t *> &items = l->get_items();
+			for(auto &i : items) {
+				if(startswith(i.first, name) && i.second->type == TFUNC) {
+					if(funcs.find(i.first) != funcs.end()) continue;
+					funcs[i.first] = static_cast<type_func_t *>(i.second);
+				}
+			}
+		}
+	}
+	for(auto &i : globals) {
+		if(startswith(i.first, name) && i.second->type == TFUNC) {
+			if(funcs.find(i.first) != funcs.end()) continue;
+			funcs[i.first] = static_cast<type_func_t *>(i.second);
+		}
+	}
+	if(funcs.empty()) return nullptr;
+	return new type_funcmap_t(parent, 0, 0, funcs);
 }
 } // namespace parser
 } // namespace sc

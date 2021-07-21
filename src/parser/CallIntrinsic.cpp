@@ -130,10 +130,6 @@ bool stmt_var_t::call_intrinsic(VarMgr &vars)
 		err::set(line, col, "failed to call intrinsic from type: %s", vtyp->str().c_str());
 		return false;
 	}
-	if(in && !in->call_intrinsic(vars)) {
-		err::set(line, col, "failed to call intrinsic for 'in'");
-		return false;
-	}
 	if(val && !val->call_intrinsic(vars)) {
 		err::set(line, col, "failed to call intrinsic for 'val'");
 		return false;
@@ -141,25 +137,6 @@ bool stmt_var_t::call_intrinsic(VarMgr &vars)
 	if(vtype && !vtype->call_intrinsic(vars)) {
 		err::set(line, col, "failed to call intrinsic for 'type'");
 		return false;
-	}
-	return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////// stmt_fndecl_params_t ////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-bool stmt_fndecl_params_t::call_intrinsic(VarMgr &vars)
-{
-	if(is_intrin && vtyp && !vtyp->call_intrinsic(vars, this)) {
-		err::set(line, col, "failed to call intrinsic from type: %s", vtyp->str().c_str());
-		return false;
-	}
-	for(auto &p : params) {
-		if(!p->call_intrinsic(vars)) {
-			err::set(line, col, "failed to call intrinsic for parameter");
-			return false;
-		}
 	}
 	return true;
 }
@@ -174,9 +151,11 @@ bool stmt_fnsig_t::call_intrinsic(VarMgr &vars)
 		err::set(line, col, "failed to call intrinsic from type: %s", vtyp->str().c_str());
 		return false;
 	}
-	if(params && !params->call_intrinsic(vars)) {
-		err::set(line, col, "failed to call intrinsic for parameters");
-		return false;
+	for(auto &p : params) {
+		if(!p->call_intrinsic(vars)) {
+			err::set(line, col, "failed to call intrinsic for parameter");
+			return false;
+		}
 	}
 	if(rettype && !rettype->call_intrinsic(vars)) {
 		err::set(line, col, "failed to call intrinsic for return type");

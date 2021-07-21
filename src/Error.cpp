@@ -150,5 +150,13 @@ void show(FILE *out, const std::string &data, const std::string &filename)
 		_e.pop_back();
 	}
 }
+void reset()
+{
+	_line.clear();
+	_col_beg.clear();
+	_col_end.clear();
+	_e.clear();
+	_warn.clear();
+}
 } // namespace err
 } // namespace sc

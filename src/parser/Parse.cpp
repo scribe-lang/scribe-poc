@@ -1034,8 +1034,18 @@ done:
 			err::set(name, "only functions can be created using let-in statements");
 			goto fail;
 		}
+		in->info |= TypeInfoMask::REF;
+		lex::Lexeme selfeme  = lex::Lexeme(in->line, in->col, in->col, lex::IDEN, "self");
+		stmt_var_t *self     = new stmt_var_t(in->line, in->col, selfeme, in, nullptr);
+		stmt_fnsig_t *valsig = as<stmt_fndef_t>(val)->sig;
+		for(auto &t : in->templates) {
+			valsig->templates.push_back(t);
+		}
+		in->templates.clear();
+		std::vector<stmt_var_t *> &params = valsig->params;
+		params.insert(params.begin(), self);
 	}
-	var = new stmt_var_t(name.line, name.col_beg, name, in, type, val);
+	var = new stmt_var_t(name.line, name.col_beg, name, type, val);
 	return true;
 fail:
 	if(in) delete in;
@@ -1044,51 +1054,17 @@ fail:
 	return false;
 }
 
-bool parse_fndecl_params(ParseHelper &p, stmt_fndecl_params_t *&fparams)
-{
-	fparams = nullptr;
-
-	std::vector<stmt_var_t *> params;
-	stmt_var_t *var = nullptr;
-	std::unordered_set<std::string> fieldnames;
-	bool found_va	   = false;
-	lex::Lexeme &start = p.peak();
-
-	while(true) {
-		if(fieldnames.find(p.peak().data.s) != fieldnames.end()) {
-			err::set(p.peak(), "this argument name is already used "
-					   "before in this function signature");
-			goto fail;
-		}
-		fieldnames.insert(p.peak().data.s);
-		if(!parse_var(p, var, Occurs::NO, Occurs::YES, Occurs::NO)) {
-			goto fail;
-		}
-		if(var->vtype->info & TypeInfoMask::VARIADIC) found_va = true;
-		params.push_back(var);
-		var = nullptr;
-		if(!p.acceptn(lex::COMMA)) break;
-		if(found_va) {
-			err::set(p.peak(), "no parameter can exist after variadic");
-			goto fail;
-		}
-	}
-
-	fparams = new stmt_fndecl_params_t(start.line, start.col_beg, params);
-	return true;
-fail:
-	if(var) delete var;
-	for(auto &p : params) delete p;
-	return false;
-}
 bool parse_fnsig(ParseHelper &p, stmt_base_t *&fsig)
 {
 	fsig = nullptr;
 
 	std::vector<lex::Lexeme> templates;
-	stmt_fndecl_params_t *params = nullptr;
-	stmt_type_t *rettype	     = nullptr;
-	bool comptime		     = false;
+	std::vector<stmt_var_t *> params;
+	stmt_var_t *var = nullptr;
+	std::unordered_set<std::string> argnames;
+	bool found_va	     = false;
+	stmt_type_t *rettype = nullptr;
+	bool comptime	     = false;
 	std::unordered_set<std::string> templnames;
 	lex::Lexeme &start = p.peak();
 
@@ -1132,10 +1108,26 @@ after_templates:
 	}
 	if(p.acceptn(lex::RPAREN)) goto post_args;
 
-	if(!parse_fndecl_params(p, params)) {
-		err::set(p.peak(), "failed to parse function parameters");
-		goto fail;
+	while(true) {
+		if(argnames.find(p.peak().data.s) != argnames.end()) {
+			err::set(p.peak(), "this argument name is already used "
+					   "before in this function signature");
+			goto fail;
+		}
+		argnames.insert(p.peak().data.s);
+		if(!parse_var(p, var, Occurs::NO, Occurs::YES, Occurs::NO)) {
+			goto fail;
+		}
+		if(var->vtype->info & TypeInfoMask::VARIADIC) found_va = true;
+		params.push_back(var);
+		var = nullptr;
+		if(!p.acceptn(lex::COMMA)) break;
+		if(found_va) {
+			err::set(p.peak(), "no parameter can exist after variadic");
+			goto fail;
+		}
 	}
+
 	if(!p.acceptn(lex::RPAREN)) {
 		err::set(p.peak(), "expected closing parenthesis after function args, found: %s",
 			 p.peak().tok.str().c_str());
@@ -1157,7 +1149,8 @@ post_args:
 	fsig = new stmt_fnsig_t(start.line, start.col_beg, templates, params, rettype, comptime);
 	return true;
 fail:
-	if(params) delete params;
+	if(var) delete var;
+	for(auto &p : params) delete p;
 	if(rettype) delete rettype;
 	return false;
 }

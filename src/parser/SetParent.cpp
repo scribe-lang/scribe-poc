@@ -90,22 +90,8 @@ void stmt_var_t::set_parent(stmt_base_t *parent)
 {
 	this->parent = parent;
 	if(this->vtyp) this->vtyp->parent = parent;
-	if(in) in->set_parent(this);
 	if(val) val->set_parent(this);
 	if(vtype) vtype->set_parent(this);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////// stmt_fndecl_params_t ////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-void stmt_fndecl_params_t::set_parent(stmt_base_t *parent)
-{
-	this->parent = parent;
-	if(this->vtyp) this->vtyp->parent = parent;
-	for(auto &p : params) {
-		p->set_parent(this);
-	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -116,7 +102,9 @@ void stmt_fnsig_t::set_parent(stmt_base_t *parent)
 {
 	this->parent = parent;
 	if(this->vtyp) this->vtyp->parent = parent;
-	if(params) params->set_parent(this);
+	for(auto &p : params) {
+		p->set_parent(this);
+	}
 	if(rettype) rettype->set_parent(this);
 }
 

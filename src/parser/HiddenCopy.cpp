@@ -107,27 +107,10 @@ stmt_base_t *stmt_expr_t::hidden_copy()
 
 stmt_base_t *stmt_var_t::hidden_copy()
 {
-	stmt_type_t *newin    = in ? static_cast<stmt_type_t *>(in->hidden_copy()) : nullptr;
 	stmt_type_t *newvtype = vtype ? static_cast<stmt_type_t *>(vtype->hidden_copy()) : nullptr;
 	stmt_base_t *newval   = val ? val->hidden_copy() : nullptr;
 
-	stmt_base_t *res = new stmt_var_t(line, col, name, newin, newvtype, newval);
-	res->vtyp	 = vtyp ? vtyp->copy() : nullptr;
-	res->is_intrin	 = is_intrin;
-	return res;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////// stmt_fndecl_params_t ////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-stmt_base_t *stmt_fndecl_params_t::hidden_copy()
-{
-	std::vector<stmt_var_t *> newparams;
-	for(auto &p : params) {
-		newparams.push_back(static_cast<stmt_var_t *>(p->hidden_copy()));
-	}
-	stmt_base_t *res = new stmt_fndecl_params_t(line, col, newparams);
+	stmt_base_t *res = new stmt_var_t(line, col, name, newvtype, newval);
 	res->vtyp	 = vtyp ? vtyp->copy() : nullptr;
 	res->is_intrin	 = is_intrin;
 	return res;
@@ -139,8 +122,10 @@ stmt_base_t *stmt_fndecl_params_t::hidden_copy()
 
 stmt_base_t *stmt_fnsig_t::hidden_copy()
 {
-	stmt_fndecl_params_t *newparams =
-	params ? static_cast<stmt_fndecl_params_t *>(params->hidden_copy()) : nullptr;
+	std::vector<stmt_var_t *> newparams;
+	for(auto &p : params) {
+		newparams.push_back(static_cast<stmt_var_t *>(p->hidden_copy()));
+	}
 	stmt_type_t *newrettype =
 	rettype ? static_cast<stmt_type_t *>(rettype->hidden_copy()) : nullptr;
 

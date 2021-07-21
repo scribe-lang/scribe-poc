@@ -32,8 +32,7 @@ enum StmtType
 	SIMPLE,
 	EXPR,
 	FNCALLINFO,
-	VAR, // Var and (Type or Val) (<var> : <type> = <value>)
-	FNPARAMS,
+	VAR,   // Var and (Type or Val) (<var> : <type> = <value>)
 	FNSIG, // function signature
 	FNDEF,
 	HEADER, // header format for extern
@@ -184,29 +183,12 @@ struct stmt_expr_t : public stmt_base_t
 struct stmt_var_t : public stmt_base_t
 {
 	lex::Lexeme name;
-	stmt_type_t *in;
 	stmt_type_t *vtype;
 	stmt_base_t *val; // either of expr, funcdef, enumdef, or structdef
 	// at least one of type or val must be present
-	stmt_var_t(const size_t &line, const size_t &col, const lex::Lexeme &name, stmt_type_t *in,
+	stmt_var_t(const size_t &line, const size_t &col, const lex::Lexeme &name,
 		   stmt_type_t *vtype, stmt_base_t *val);
 	~stmt_var_t();
-
-	stmt_base_t *hidden_copy();
-	void disp(const bool &has_next);
-	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool specialize(const std::vector<type_base_t *> &templs);
-	bool call_intrinsic(VarMgr &vars);
-};
-
-struct stmt_fndecl_params_t : public stmt_base_t
-{
-	std::vector<stmt_var_t *> params;
-	// stmt_var_t contains only type here, no val
-	stmt_fndecl_params_t(const size_t &line, const size_t &col,
-			     const std::vector<stmt_var_t *> &params);
-	~stmt_fndecl_params_t();
 
 	stmt_base_t *hidden_copy();
 	void disp(const bool &has_next);
@@ -219,11 +201,12 @@ struct stmt_fndecl_params_t : public stmt_base_t
 struct stmt_fnsig_t : public stmt_base_t
 {
 	std::vector<lex::Lexeme> templates;
-	stmt_fndecl_params_t *params;
+	// stmt_var_t contains only type here, no val
+	std::vector<stmt_var_t *> params;
 	stmt_type_t *rettype;
 	bool comptime;
 	stmt_fnsig_t(const size_t &line, const size_t &col,
-		     const std::vector<lex::Lexeme> &templates, stmt_fndecl_params_t *params,
+		     const std::vector<lex::Lexeme> &templates, std::vector<stmt_var_t *> &params,
 		     stmt_type_t *rettype, const bool &comptime);
 	~stmt_fnsig_t();
 

@@ -16,11 +16,6 @@
 #include "Error.hpp"
 #include "parser/Stmts.hpp"
 
-const char *TypeStrs[] = {
-"simple",
-"struct",
-};
-
 static int64_t gen_id()
 {
 	static int64_t id = 0;
@@ -31,6 +26,15 @@ namespace sc
 {
 namespace parser
 {
+std::unordered_map<std::string, int64_t> name_id_map;
+
+std::vector<std::string> basenumtypes()
+{
+	static std::vector<std::string> basenums = {"i1", "i8",	 "i16", "i32", "i64",
+						    "u8", "u16", "u32", "u64"};
+	return basenums;
+}
+
 type_base_t::type_base_t(const Types &type, stmt_base_t *parent, const size_t &ptr,
 			 const size_t &info)
 	: id(gen_id()), type(type), parent(parent), ptr(ptr), info(info), intrin_fn(nullptr)
@@ -40,31 +44,34 @@ type_base_t::type_base_t(const int64_t &id, const Types &type, stmt_base_t *pare
 	: id(id), type(type), parent(parent), ptr(ptr), info(info), intrin_fn(intrin_fn)
 {}
 type_base_t::~type_base_t() {}
-bool type_base_t::compatible_base(type_base_t *rhs, const size_t &line, const size_t &col)
+bool type_base_t::compatible_base(type_base_t *rhs, const bool &is_templ, const size_t &line,
+				  const size_t &col)
 {
-	size_t rptr  = rhs->ptr;
-	size_t rinfo = rhs->info;
-	if(id != rhs->id) {
-		err::set(line, col, "different type ids, not compatible");
+	const size_t &rptr  = rhs->ptr;
+	const size_t &rinfo = rhs->info;
+	bool num_to_ptr	    = false;
+	if(ptr > 0 && rptr == 0) {
+		for(auto &bn : basenumtypes()) {
+			if(rhs->id == name_id_map[bn]) {
+				num_to_ptr = true;
+			}
+		}
+	}
+	if(!is_templ && !num_to_ptr && id != rhs->id) {
+		err::set(line, col, "different type ids (LHS: %s, RHS: %s), not compatible",
+			 str().c_str(), rhs->str().c_str());
 		return false;
 	}
-	if(rinfo & REF) {
-		rinfo &= ~REF;
-		++rptr;
+	// something with REF?
+	if(ptr == 0 && rptr > 0) {
+		err::set(line, col, "cannot use a pointer type (RHS: %s) for non pointer (LHS: %s)",
+			 rhs->str().c_str(), str().c_str());
+		return false;
 	}
-	if(ptr == 0) {
-		if(rptr > 0) {
-			err::set(line, col,
-				 "cannot use a pointer type (RHS) for non pointer (LHS)");
-			return false;
-		}
-	}
-	if(rptr == 0) {
-		if(ptr > 0) {
-			err::set(line, col,
-				 "non pointer type (RHS) cannot be assigned to pointer type (LHS)");
-			return false;
-		}
+	if(rptr == 0 && !num_to_ptr && ptr > 0) {
+		err::set(line, col,
+			 "non pointer type (RHS) cannot be assigned to pointer type (LHS)");
+		return false;
 	}
 	if(rptr != ptr) {
 		err::setw(line, col, "inequal pointer assignment here, continuing...");
@@ -87,70 +94,48 @@ std::string type_base_t::str_base()
 	if(info & VARIADIC) tname = "..." + tname + " ";
 	return tname;
 }
-
-type_template_t::type_template_t(stmt_base_t *parent, const size_t &count)
-	: type_base_t(TTEMPLATE, parent, 0, 0), count(count)
-{}
-type_template_t::type_template_t(const int64_t &id, stmt_base_t *parent, const size_t &count)
-	: type_base_t(id, TTEMPLATE, parent, 0, 0, nullptr), count(count)
-{}
-type_base_t *type_template_t::copy()
+std::string type_base_t::mangled_name_base()
 {
-	return new type_template_t(id, parent, count);
+	std::string tname(ptr, '*');
+	if(info & REF) tname += "&";
+	if(info & VARIADIC) tname = "..." + tname;
+	if(!tname.empty()) tname = "_" + tname;
+	return tname;
 }
-bool type_template_t::compatible(type_base_t *rhs, const size_t &line, const size_t &col)
-{
-	return compatible_base(rhs, line, col);
-}
-std::string type_template_t::str()
-{
-	return "<template: " + std::to_string(count) + ">";
-}
-
-// std::string type_base_t::mangled_name_base()
-// {
-// 	std::string tname(ptr, '*');
-// 	if(info & REF) tname += "&";
-// 	if(info & VARIADIC) tname = "..." + tname;
-// 	if(!tname.empty()) tname = "_" + tname;
-// 	return tname;
-// }
-// std::string type_base_t::mangled_name()
-// {
-// 	return "";
-// }
 
 type_simple_t::type_simple_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
 			     const std::string &name)
 	: type_base_t(TSIMPLE, parent, ptr, info), name(name)
-{}
+{
+	name_id_map[name] = id;
+}
 type_simple_t::type_simple_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr,
 			     const size_t &info, intrinsic_fn_t intrin_fn, const std::string &name)
 	: type_base_t(id, TSIMPLE, parent, ptr, info, intrin_fn), name(name)
 {}
-std::string type_simple_t::str()
-{
-	return str_base() + name;
-}
-// std::string type_simple_t::mangled_name()
-// {
-// 	std::string tname = mangled_name_base();
-// 	return tname.empty() ? "_" + name : tname + name;
-// }
 type_base_t *type_simple_t::copy()
 {
 	return new type_simple_t(id, parent, ptr, info, intrin_fn, name);
 }
+type_base_t *type_simple_t::specialize(const std::vector<type_base_t *> &templates)
+{
+	if(name[0] != '@') return copy();
+	return templates[std::stoi(name.substr(1))]->copy();
+}
 bool type_simple_t::compatible(type_base_t *rhs, const size_t &line, const size_t &col)
 {
-	if(!compatible_base(rhs, line, col)) return false;
+	if(!compatible_base(rhs, name[0] == '@', line, col)) return false;
 	type_simple_t *r = static_cast<type_simple_t *>(rhs);
-	if(name != r->name) {
-		err::set(line, col, "invalid types (LHS: %s, RHS: %s)", str().c_str(),
-			 rhs->str().c_str());
-		return false;
-	}
 	return true;
+}
+std::string type_simple_t::str()
+{
+	return str_base() + name;
+}
+std::string type_simple_t::mangled_name()
+{
+	std::string tname = mangled_name_base();
+	return tname.empty() ? "_" + name : tname + name;
 }
 
 type_struct_t::type_struct_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
@@ -158,15 +143,15 @@ type_struct_t::type_struct_t(stmt_base_t *parent, const size_t &ptr, const size_
 			     const std::vector<std::string> &field_order,
 			     const std::unordered_map<std::string, type_base_t *> &fields)
 	: type_base_t(TSTRUCT, parent, ptr, info), is_decl_only(false), is_ref(is_ref),
-	  templ(templ), field_order(field_order), fields(fields)
+	  is_def(true), templ(templ), field_order(field_order), fields(fields)
 {}
 type_struct_t::type_struct_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr,
-			     const size_t &info, const bool &is_ref, intrinsic_fn_t intrin_fn,
-			     const std::vector<std::string> &templ,
+			     const size_t &info, const bool &is_ref, const bool &is_def,
+			     intrinsic_fn_t intrin_fn, const std::vector<std::string> &templ,
 			     const std::vector<std::string> &field_order,
 			     const std::unordered_map<std::string, type_base_t *> &fields)
 	: type_base_t(id, TSTRUCT, parent, ptr, info, intrin_fn), is_decl_only(false),
-	  is_ref(is_ref), templ(templ), field_order(field_order), fields(fields)
+	  is_ref(is_ref), is_def(is_def), templ(templ), field_order(field_order), fields(fields)
 {}
 type_struct_t::~type_struct_t()
 {
@@ -180,12 +165,21 @@ type_base_t *type_struct_t::copy()
 	for(auto &f : fields) {
 		newfields[f.first] = is_ref ? f.second : f.second->copy();
 	}
-	return new type_struct_t(id, parent, ptr, info, is_ref, intrin_fn, templ, field_order,
-				 newfields);
+	return new type_struct_t(id, parent, ptr, info, is_ref, is_def, intrin_fn, templ,
+				 field_order, newfields);
+}
+type_base_t *type_struct_t::specialize(const std::vector<type_base_t *> &templates)
+{
+	std::unordered_map<std::string, type_base_t *> newfields;
+	for(auto &f : fields) {
+		newfields[f.first] = f.second->specialize(templates);
+	}
+	return new type_struct_t(id, parent, ptr, info, is_ref, is_def, intrin_fn, templ,
+				 field_order, newfields);
 }
 bool type_struct_t::compatible(type_base_t *rhs, const size_t &line, const size_t &col)
 {
-	if(!compatible_base(rhs, line, col)) return false;
+	if(!compatible_base(rhs, false, line, col)) return false;
 	type_struct_t *r = static_cast<type_struct_t *>(rhs);
 	if(is_decl_only && templ.empty()) return true;
 	if(templ.size() != r->templ.size()) {
@@ -213,11 +207,54 @@ bool type_struct_t::compatible(type_base_t *rhs, const size_t &line, const size_
 	}
 	return true;
 }
+type_struct_t *type_struct_t::specialize_compatible_call(stmt_fncallinfo_t *callinfo)
+{
+	if(this->templ.size() < callinfo->templates.size()) return nullptr;
+	if(this->fields.size() != callinfo->args.size()) return nullptr;
+	std::vector<type_base_t *> templates;
+	for(auto &t : callinfo->templates) {
+		templates.push_back(t->vtyp);
+	}
+	size_t inferred_templates = this->templ.size() - templates.size();
+	if(callinfo->args.size() < inferred_templates) return nullptr;
+	for(size_t i = 0; i < inferred_templates; ++i) {
+		templates.push_back(callinfo->args[i]->vtyp);
+	}
+	bool is_field_compatible = true;
+	for(size_t i = 0; i < this->fields.size(); ++i) {
+		type_base_t *ffield = this->fields[field_order[i]];
+		stmt_base_t *fciarg = callinfo->args[i];
+		if(ffield->type == TSIMPLE) {
+			type_simple_t *fargsim = static_cast<type_simple_t *>(ffield);
+			if(fargsim->name[0] == '@') {
+				std::string idstr = fargsim->name.substr(1);
+				ffield		  = templates[std::stoi(idstr)]->copy();
+				ffield->ptr += fargsim->ptr;
+				ffield->info |= fargsim->info;
+			} else {
+				ffield = ffield->copy();
+			}
+		} else {
+			ffield = ffield->copy();
+		}
+		if(!ffield->compatible(fciarg->vtyp, fciarg->line, fciarg->col)) {
+			is_field_compatible = false;
+			delete ffield;
+			break;
+		}
+		if(ffield) delete ffield;
+	}
+	if(!is_field_compatible) return nullptr;
+	type_struct_t *newst = static_cast<type_struct_t *>(specialize(templates));
+	newst->is_def	     = false;
+	return newst;
+}
 std::string type_struct_t::str()
 {
 	std::string tname = str_base() + "struct." + std::to_string(id);
 	tname += "{";
 	for(auto &f : field_order) {
+		// tname += f + ", ";
 		tname += f + ": " + fields[f]->str() + ", ";
 	}
 	if(field_order.size() > 0) {
@@ -225,6 +262,20 @@ std::string type_struct_t::str()
 		tname.pop_back();
 	}
 	tname += "}";
+	return tname;
+}
+std::string type_struct_t::mangled_name()
+{
+	std::string tname = mangled_name_base() + "struct." + std::to_string(id);
+	// tname += "{";
+	// for(auto &f : field_order) {
+	// 	tname += f + ": " + fields[f]->str() + ", ";
+	// }
+	// if(field_order.size() > 0) {
+	// 	tname.pop_back();
+	// 	tname.pop_back();
+	// }
+	// tname += "}";
 	return tname;
 }
 bool type_struct_t::add_field(const std::string &name, type_base_t *val)
@@ -266,8 +317,14 @@ void type_struct_t::set_fields_copy(const std::vector<std::string> &order,
 type_base_t *type_struct_t::get_field(const std::string &name)
 {
 	auto res = fields.find(name);
-	if(res == fields.end()) return nullptr;
-	return res->second;
+	if(res != fields.end()) return res->second->copy();
+	std::unordered_map<std::string, type_func_t *> funcs;
+	for(auto &f : fields) {
+		if(startswith(f.first, name) && f.second->type == TFUNC) {
+			funcs[f.first] = static_cast<type_func_t *>(f.second);
+		}
+	}
+	return funcs.size() > 0 ? new type_funcmap_t(parent, 0, 0, funcs) : nullptr;
 }
 
 type_func_t::type_func_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
@@ -295,9 +352,18 @@ type_base_t *type_func_t::copy()
 	}
 	return new type_func_t(id, parent, ptr, info, intrin_fn, templ, newargs, rettype->copy());
 }
+type_base_t *type_func_t::specialize(const std::vector<type_base_t *> &templates)
+{
+	std::vector<type_base_t *> newargs;
+	type_base_t *newret = rettype->specialize(templates);
+	for(auto &a : args) {
+		newargs.push_back(a->specialize(templates));
+	}
+	return new type_func_t(id, parent, ptr, info, intrin_fn, templ, newargs, newret);
+}
 bool type_func_t::compatible(type_base_t *rhs, const size_t &line, const size_t &col)
 {
-	if(!compatible_base(rhs, line, col)) return false;
+	if(!compatible_base(rhs, false, line, col)) return false;
 	type_func_t *r = static_cast<type_func_t *>(rhs);
 	if(templ.size() != r->templ.size()) {
 		err::set(line, col, "type mismatch (LHS templates: %zu, RHS templates: %zu",
@@ -323,6 +389,46 @@ bool type_func_t::compatible(type_base_t *rhs, const size_t &line, const size_t 
 	}
 	return true;
 }
+type_func_t *type_func_t::specialize_compatible_call(stmt_fncallinfo_t *callinfo)
+{
+	if(this->templ.size() < callinfo->templates.size()) return nullptr;
+	if(this->args.size() != callinfo->args.size()) return nullptr;
+	std::vector<type_base_t *> templates;
+	for(auto &t : callinfo->templates) {
+		templates.push_back(t->vtyp);
+	}
+	size_t inferred_templates = this->templ.size() - templates.size();
+	if(callinfo->args.size() < inferred_templates) return nullptr;
+	for(size_t i = 0; i < inferred_templates; ++i) {
+		templates.push_back(callinfo->args[i]->vtyp);
+	}
+	bool is_arg_compatible = true;
+	for(size_t i = 0; i < this->args.size(); ++i) {
+		type_base_t *farg   = this->args[i];
+		stmt_base_t *fciarg = callinfo->args[i];
+		if(farg->type == TSIMPLE) {
+			type_simple_t *fargsim = static_cast<type_simple_t *>(farg);
+			if(fargsim->name[0] == '@') {
+				std::string idstr = fargsim->name.substr(1);
+				farg		  = templates[std::stoi(idstr)]->copy();
+				farg->ptr += fargsim->ptr;
+				farg->info |= fargsim->info;
+			} else {
+				farg = farg->copy();
+			}
+		} else {
+			farg = farg->copy();
+		}
+		if(!farg->compatible(fciarg->vtyp, fciarg->line, fciarg->col)) {
+			is_arg_compatible = false;
+			delete farg;
+			break;
+		}
+		if(farg) delete farg;
+	}
+	if(!is_arg_compatible) return nullptr;
+	return static_cast<type_func_t *>(specialize(templates));
+}
 std::string type_func_t::str()
 {
 	std::string tname = str_base() + "fn." + std::to_string(id);
@@ -337,101 +443,61 @@ std::string type_func_t::str()
 	tname += "): " + rettype->str();
 	return tname;
 }
-// std::string type_func_t::mangled_name()
-// {
-// 	std::string tname = mangled_name_base();
-// 	for(auto &a : args) {
-// 		std::string mn = a->mangled_name();
-// 		if(mn.empty()) continue;
-// 		tname += mn;
-// 	}
-// 	return tname;
-// }
-
-bool type_func_t::add_arg(type_base_t *arg)
+std::string type_func_t::mangled_name()
 {
-	args.push_back(arg);
-	return true;
-}
-bool type_func_t::add_arg_copy(type_base_t *arg)
-{
-	args.push_back(arg->copy());
-	return true;
-}
-
-void type_func_t::set_args(const std::vector<type_base_t *> &args)
-{
-	for(auto &a : this->args) {
-		delete a;
-	}
-	this->args = args;
-}
-void type_func_t::set_args_copy(const std::vector<type_base_t *> &args)
-{
-	for(auto &a : this->args) {
-		delete a;
-	}
-	this->args.clear();
+	std::string tname = mangled_name_base() + "fn";
 	for(auto &a : args) {
-		this->args.push_back(a->copy());
+		std::string mn = a->mangled_name();
+		if(mn.empty()) continue;
+		tname += mn;
 	}
+	return tname;
 }
 
-type_base_t *type_func_t::get_arg(const size_t &index)
+type_funcmap_t::type_funcmap_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
+			       const std::unordered_map<std::string, type_func_t *> &funcs)
+	: type_base_t(TFUNCMAP, parent, ptr, info), funcs(funcs)
+{}
+type_funcmap_t::type_funcmap_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr,
+			       const size_t &info,
+			       const std::unordered_map<std::string, type_func_t *> &funcs)
+	: type_base_t(id, TFUNCMAP, parent, ptr, info, nullptr), funcs(funcs)
+{}
+type_base_t *type_funcmap_t::copy()
 {
-	return args[index];
+	return new type_funcmap_t(id, parent, ptr, info, funcs);
 }
-
-bool update_fncall_types(type_func_t *ft, stmt_base_t *fc, stmt_fncallinfo_t *fci,
-			 stmt_fndef_t *&specializedfn)
+type_base_t *type_funcmap_t::specialize(const std::vector<type_base_t *> &templates)
 {
-	stmt_fndef_t *fn = nullptr;
-	if(ft->parent && ft->parent->type == FNDEF) {
-		fn = static_cast<stmt_fndef_t *>(ft->parent);
-	}
-	if(ft->templ.size() < fci->templates.size()) {
-		err::set(fci->line, fci->col,
-			 "function call contains more templates than exist in definition");
-		return false;
-	}
-	if(ft->args.size() != fci->args.size()) {
-		err::set(fci->line, fci->col, "function call has %zu args, expected: %zu",
-			 fci->args.size(), ft->args.size());
-		return false;
-	}
-	std::vector<type_base_t *> templates;
-	for(auto &t : fci->templates) {
-		templates.push_back(t->vtyp->copy());
-	}
-	size_t inferred_templates = ft->templ.size() - templates.size();
-	if(fci->args.size() < inferred_templates) {
-		err::set(fci->line, fci->col, "expected template count: %zu, found: %zu",
-			 ft->templ.size(), fci->templates.size() + fci->args.size());
-		goto fail;
-	}
-	for(size_t i = 0; i < inferred_templates; ++i) {
-		templates.push_back(fci->args[i]->vtyp->copy());
-	}
-	if(!fci->specialize(templates)) {
-		err::set(fci->line, fci->col, "failed to specialize function call info");
-		return false;
-	}
-	if(fc && !fc->specialize(templates)) {
-		err::set(fci->line, fci->col, "failed to specialize function call");
-		return false;
-	}
-	// TODO: copy function before specialization (original must never be specialized)
-	if(fn && !fn->specialize(templates)) {
-		err::set(fn->line, fn->col, "failed to specialize function");
-		return false;
-	}
-	if(fn) fn->disp(false);
-done:
-	for(auto &t : templates) delete t;
-	return true;
-fail:
-	for(auto &t : templates) delete t;
+	return copy();
+}
+bool type_funcmap_t::compatible(type_base_t *rhs, const size_t &line, const size_t &col)
+{
 	return false;
+}
+std::string type_funcmap_t::str()
+{
+	return "<function map (" + std::to_string(funcs.size()) + ")>";
+}
+std::string type_funcmap_t::mangled_name()
+{
+	return "<function map>";
+}
+type_func_t *type_funcmap_t::decide_func(stmt_fncallinfo_t *callinfo)
+{
+	for(auto &fn : funcs) {
+		printf("option: %s -> %s\n", fn.first.c_str(), fn.second->str().c_str());
+		type_func_t *f = fn.second;
+		err::reset();
+		if(!(f = f->specialize_compatible_call(callinfo))) continue;
+		printf("matched: %s -> %s\n", fn.first.c_str(), f->str().c_str());
+		return f;
+	}
+	return nullptr;
+}
+type_func_t *type_funcmap_t::decide_func(type_base_t *vartype)
+{
+	return nullptr;
 }
 } // namespace parser
 } // namespace sc

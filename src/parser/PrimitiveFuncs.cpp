@@ -26,52 +26,50 @@ void add_primitive_integer_funcs(const std::string &typname, VarMgr &vars)
 	std::vector<std::string> alltypes = {"i1",  "i8",  "i16", "i32", "i64", "u8",
 					     "u16", "u32", "u64", "f32", "f64"};
 
-	type_simple_t *type = static_cast<type_simple_t *>(vars.get(typname));
+	type_simple_t *type = static_cast<type_simple_t *>(vars.get(typname, nullptr));
+	// TODO: make logical operators & (!, ~) return correct types
 	for(auto &t : alltypes) {
-		type_simple_t *type2		= static_cast<type_simple_t *>(vars.get(t));
-		const std::vector<int64_t> tids = {type->id, type2->id};
+		type_simple_t *type2 = static_cast<type_simple_t *>(vars.get(t, nullptr));
 
-		vars.add_type_func(tids, "=", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "+", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "-", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "*", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "/", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "%", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "+=", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "-=", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "*=", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "/=", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "%=", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "&&", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "||", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "==", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "<", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, ">", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "<=", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, ">=", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "!=", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "&", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "|", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "^", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "&=", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "|=", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "~=", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "^=", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "<<", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, ">>", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, "<<=", func({type->copy(), type2->copy()}, type->copy()));
-		vars.add_type_func(tids, ">>=", func({type->copy(), type2->copy()}, type->copy()));
+		vars.add_func("=", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("+", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("-", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("*", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("/", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("%", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("+=", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("-=", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("*=", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("/=", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("%=", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("&&", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("||", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("==", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("<", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func(">", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("<=", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func(">=", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("!=", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("&", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("|", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("^", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("&=", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("|=", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("~=", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("^=", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("<<", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func(">>", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func("<<=", func({type->copy(), type2->copy()}, type->copy()), true);
+		vars.add_func(">>=", func({type->copy(), type2->copy()}, type->copy()), true);
 	}
-	vars.add_type_func({type->id}, "x++", func({type->copy()}, type->copy()));
-	vars.add_type_func({type->id}, "++x", func({type->copy()}, type->copy()));
-	vars.add_type_func({type->id}, "x--", func({type->copy()}, type->copy()));
-	vars.add_type_func({type->id}, "--x", func({type->copy()}, type->copy()));
-	vars.add_type_func({type->id}, "u+", func({type->copy()}, type->copy()));
-	vars.add_type_func({type->id}, "u-", func({type->copy()}, type->copy()));
-	vars.add_type_func({type->id}, "u&", func({type->copy()}, type->copy()));
-	vars.add_type_func({type->id}, "u*", func({type->copy()}, type->copy()));
-	vars.add_type_func({type->id}, "!", func({type->copy()}, type->copy()));
-	vars.add_type_func({type->id}, "~", func({type->copy()}, type->copy()));
+	vars.add_func("x++", func({type->copy()}, type->copy()), true);
+	vars.add_func("++x", func({type->copy()}, type->copy()), true);
+	vars.add_func("x--", func({type->copy()}, type->copy()), true);
+	vars.add_func("--x", func({type->copy()}, type->copy()), true);
+	vars.add_func("u+", func({type->copy()}, type->copy()), true);
+	vars.add_func("u-", func({type->copy()}, type->copy()), true);
+	vars.add_func("!", func({type->copy()}, type->copy()), true);
+	vars.add_func("~", func({type->copy()}, type->copy()), true);
 }
 } // namespace parser
 } // namespace sc

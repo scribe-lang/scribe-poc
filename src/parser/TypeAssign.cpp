@@ -58,7 +58,7 @@ bool stmt_type_t::assign_type(VarMgr &vars)
 		vtyp = fn->vtyp->copy();
 		return true;
 	}
-	type_base_t *res = vars.get(name.front().data.s);
+	type_base_t *res = vars.get(name.front().data.s, this);
 	if(res == nullptr) {
 		err::set(name.front(), "variable '%s' does not exist", name.front().data.s.c_str());
 		return false;
@@ -95,16 +95,16 @@ bool stmt_type_t::assign_type(VarMgr &vars)
 bool stmt_simple_t::assign_type(VarMgr &vars)
 {
 	switch(val.tok.val) {
-	case lex::VOID: vtyp = vars.get_copy("void"); break;
+	case lex::VOID: vtyp = vars.get_copy("void", this); break;
 	case lex::TRUE:	 // fallthrough
 	case lex::FALSE: // fallthrough
-	case lex::NIL: vtyp = vars.get_copy("i1"); break;
-	case lex::INT: vtyp = vars.get_copy("i32"); break;
-	case lex::FLT: vtyp = vars.get_copy("f32"); break;
-	case lex::CHAR: vtyp = vars.get_copy("u8"); break;
-	case lex::STR: vtyp = vars.get_copy("*const u8"); break;
+	case lex::NIL: vtyp = vars.get_copy("i1", this); break;
+	case lex::INT: vtyp = vars.get_copy("i32", this); break;
+	case lex::FLT: vtyp = vars.get_copy("f32", this); break;
+	case lex::CHAR: vtyp = vars.get_copy("u8", this); break;
+	case lex::STR: vtyp = vars.get_copy("*const u8", this); break;
 	case lex::IDEN:
-		vtyp = vars.get_copy(val.data.s);
+		vtyp = vars.get_copy(val.data.s, this);
 		if(vtyp == nullptr) return false;
 		break;
 	default: return false;
@@ -152,60 +152,102 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 	}
 	// TODO: or-var & or-blk
 	switch(oper.tok.val) {
-	case lex::DOT:
+	case lex::DOT: {
 		assert(rhs->type == SIMPLE && "RHS for dot MUST be a simple type");
 		if(lhs->vtyp->type != TSTRUCT) {
 			err::set(line, col,
-				 "LHS must be a structure to use the dot operator, found: ",
+				 "LHS must be a structure to use the dot operator, found: %s",
 				 lhs->vtyp->str().c_str());
 			return false;
 		}
-		{ // just for declarations between cases
-			// TODO: this does not work for templates
-			stmt_simple_t *rsim = static_cast<stmt_simple_t *>(rhs);
-			type_struct_t *lst  = static_cast<type_struct_t *>(lhs->vtyp);
-			type_base_t *res    = lst->get_field(rsim->val.data.s);
-			if(!res) {
-				err::set(line, col, "no field named '%s' in struct: %s",
-					 rsim->val.data.s.c_str(), lst->str().c_str());
-				return false;
-			}
-			rhs->vtyp = res->copy();
-			vtyp	  = res->copy();
+		type_struct_t *lst  = static_cast<type_struct_t *>(lhs->vtyp);
+		stmt_simple_t *rsim = static_cast<stmt_simple_t *>(rhs);
+		type_base_t *res    = lst->get_field(rsim->val.data.s);
+		if(!res && !(res = vars.get_funcmap_copy(rsim->val.data.s, this))) {
+			err::set(line, col, "no function or struct (%s) field named '%s' exists",
+				 lst->str().c_str(), rsim->val.data.s.c_str());
+			return false;
 		}
+		rhs->vtyp	  = res;
+		rhs->vtyp->parent = rhs;
+		vtyp		  = res->copy();
+		vtyp->parent	  = this;
 		break;
-	case lex::FNCALL:
+	}
+	case lex::FNCALL: {
 		assert(rhs && rhs->type == FNCALLINFO &&
 		       "RHS for function call must be a call info (compiler failure)");
-		if(lhs->vtyp->type != TFUNC && lhs->vtyp->type != TSTRUCT) {
+		stmt_fncallinfo_t *finfo = static_cast<stmt_fncallinfo_t *>(rhs);
+		if(lhs->vtyp->type != TFUNC && lhs->vtyp->type != TSTRUCT &&
+		   lhs->vtyp->type != TFUNCMAP) {
 			err::set(lhs->line, lhs->col,
-				 "function call can be done only on a function or struct type");
+				 "function call can be performed "
+				 "only on a function or struct type, attempted on: %s",
+				 lhs->vtyp->str().c_str());
 			return false;
 		}
-		if(lhs->vtyp->type == TFUNC) {
-			stmt_fndef_t *specialized_fn = nullptr;
-			if(!update_fncall_types(static_cast<type_func_t *>(lhs->vtyp), lhs,
-						static_cast<stmt_fncallinfo_t *>(rhs),
-						specialized_fn))
-			{
-				err::set(line, col, "failed to perform type check on function");
+		if(lhs->vtyp->type == TFUNCMAP) {
+			type_funcmap_t *fmap = static_cast<type_funcmap_t *>(lhs->vtyp);
+			if(!(vtyp = fmap->decide_func(finfo))) {
+				err::set(line, col,
+					 "failed to decide the function "
+					 "to execute, need more info");
 				return false;
 			}
-			if(lhs->vtyp->intrin_fn && !lhs->vtyp->call_intrinsic(vars, this)) {
-				err::set(
-				line, col,
-				"failed to call intrinsic function during type assignment");
+		} else if(lhs->vtyp->type == TFUNC) {
+			type_func_t *oldfn = static_cast<type_func_t *>(lhs->vtyp);
+			type_func_t *fn	   = nullptr;
+			if(!(fn = oldfn->specialize_compatible_call(finfo))) {
+				err::set(line, col,
+					 "function '%s' incompatible with call arguments",
+					 oldfn->str().c_str());
 				return false;
 			}
+			delete oldfn;
+			lhs->vtyp = fn;
+			if(!fn->intrin_fn) vtyp = fn->rettype->copy();
+			if(fn->intrin_fn && !fn->call_intrinsic(vars, this)) {
+				err::set(line, col,
+					 "failed to call intrinsic "
+					 "function during type assignment");
+				return false;
+			}
+			if(!vtyp) vtyp = fn->rettype->copy();
 		} else if(lhs->vtyp->type == TSTRUCT) {
-			// call the <struct>.init() function
-			err::set(line, col, "unimplemented struct call");
+			type_struct_t *st = static_cast<type_struct_t *>(lhs->vtyp);
+			if(!st->is_def) {
+				err::set(line, col,
+					 "only structure definitions can be called (instantiated)");
+				return false;
+			}
+			// call the <struct>() function
+			// maybe <struct>.init() in future if required
+			if(!(vtyp = st->specialize_compatible_call(finfo))) {
+				err::set(line, col,
+					 "failed to instantiate struct with given arguments");
+				return false;
+			}
+		}
+		break;
+	}
+	case lex::SUBS: err::set(line, col, "unimplemented subscript"); return false;
+	// address of
+	case lex::UAND: {
+		vtyp = lhs->vtyp->copy();
+		++vtyp->ptr;
+		break;
+	}
+	// dereference
+	case lex::UMUL: {
+		if(lhs->vtyp->ptr == 0) {
+			err::set(line, col, "cannot dereference non pointer type: %s",
+				 lhs->vtyp->str().c_str());
 			return false;
 		}
-		// TODO: check type
 		vtyp = lhs->vtyp->copy();
+		--vtyp->ptr;
 		break;
-	case lex::SUBS: err::set(line, col, "unimplemented subscript"); return false;
+	}
 	case lex::ASSN: {
 		stmt_base_t *tmp = lhs;
 		lhs		 = rhs;
@@ -230,8 +272,6 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 	// Unary
 	case lex::UADD:
 	case lex::USUB:
-	case lex::UAND: // address of
-	case lex::UMUL: // dereference
 	// Logic
 	case lex::LAND:
 	case lex::LOR:
@@ -256,36 +296,30 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 	case lex::LSHIFT:
 	case lex::RSHIFT:
 	case lex::LSHIFT_ASSN:
-	case lex::RSHIFT_ASSN:
-		assert(lhs && rhs && "assignment requires both LHS and RHS to exist");
+	case lex::RSHIFT_ASSN: {
 		if(lhs->vtyp->type != TSIMPLE && lhs->vtyp->type != TSTRUCT) {
 			err::set(line, col,
 				 "operators are only usable on primitive types or structs");
 			return false;
 		}
-		{
-			std::vector<int64_t> typeids = {lhs->vtyp->id};
-			if(rhs) typeids.push_back(rhs->vtyp->id);
-			// TODO: this does not work for templates
-			type_func_t *fn = vars.get_type_func(typeids, oper.tok.str());
-			if(!fn) {
-				err::set(line, col, "function '%s' does not exist for type: %s",
-					 oper.tok.str().c_str(), lhs->vtyp->str().c_str());
-				return false;
-			}
-			stmt_fndef_t *specialized_fn = nullptr;
-			stmt_fncallinfo_t *fci = new stmt_fncallinfo_t(line, col, {}, {lhs, rhs});
-			if(!update_fncall_types(fn, nullptr, fci, specialized_fn)) {
-				err::set(line, col, "failed to perform type check on function");
-				fci->args.clear();
-				delete fci;
-				return false;
-			}
-			fci->args.clear();
-			delete fci;
-			vtyp = fn->rettype->copy();
+		type_funcmap_t *fn = vars.get_funcmap(oper.tok.str(), this);
+		if(!fn) {
+			err::set(line, col, "function '%s' does not exist", oper.tok.str().c_str());
+			return false;
 		}
+		stmt_fncallinfo_t *fci = new stmt_fncallinfo_t(line, col, {}, {lhs});
+		if(rhs) fci->args.push_back(rhs);
+		if(!(vtyp = fn->decide_func(fci))) {
+			fci->disp(false);
+			err::set(line, col, "function '%s' does not exist for type: %s",
+				 oper.tok.str().c_str(), lhs->vtyp->str().c_str());
+			delete fci;
+			return false;
+		}
+		fci->args.clear();
+		delete fci;
 		break;
+	}
 	default: err::set(oper, "nonexistent operator"); return false;
 	}
 	if(commas > 0) {
@@ -301,93 +335,28 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 
 bool stmt_var_t::assign_type(VarMgr &vars)
 {
-	vars.pushlayer();
-	if(in && !in->assign_type(vars)) {
-		err::set(name, "unable to determine type of 'in'");
-		return false;
-	}
-	if(in && in->vtyp->type != TSTRUCT) {
-		err::set(line, col, "'in' type must be a struct to declare functions within");
-		return false;
-	}
-	if(in && in->vtyp->type != TSIMPLE && in->vtyp->type != TSTRUCT && in->vtyp->type != TENUM)
-	{
-		err::set(name, "'in' only works for primitives, structures, and enums");
-		return false;
-	}
-	if(!in && vars.exists(name.data.s, true, false)) {
+	if(vars.exists(name.data.s, true, false)) {
 		err::set(name, "variable '%s' already exists in scope", name.data.s.c_str());
 		return false;
 	}
-	if(in && in->templates.empty()) {
-		for(size_t i = 0; i < in->templates.size(); ++i) {
-			std::string tname = "@" + std::to_string(i);
-			if(vars.exists(in->templates[i].data.s, false, false)) continue;
-			vars.add(in->templates[i].data.s, new type_simple_t(0, 0, true, tname));
-		}
-		type_base_t *t = in->vtyp->copy();
-		t->info |= REF;
-		if(vars.exists("self", true, false)) {
-			err::set(line, col, "'self' variable exists in this scope, it mustn't");
-			return false;
-		}
-		vars.add("self", t);
-	}
-	if(!in || in->templates.empty()) {
-		if(val && !val->assign_type(vars)) {
-			err::set(name, "unable to determine type of value of this variable");
-			return false;
-		}
+	vars.pushlayer();
+	if(val && !val->assign_type(vars)) {
+		err::set(name, "unable to determine type of value of this variable");
+		return false;
 	}
 	if(vtype && !vtype->assign_type(vars)) {
 		err::set(name, "unable to determine type from the given type of this variable");
 		return false;
 	}
 	// TODO: if(val && vtype && !val->vtyp->supports_init(vtype->vtyp)) return false;
-	if(in && in->templates.size() > 0) {
-		stmt_fndef_t *fn = static_cast<stmt_fndef_t *>(val);
-		val->vtyp =
-		new type_template_t(vtype, in->templates.size() + fn->sig->templates.size());
-		vtyp	     = val->vtyp->copy();
-		vtyp->parent = this;
-	} else if(vtype) {
+	if(vtype) {
 		vtyp = vtype->vtyp->copy();
 	} else if(val) {
 		vtyp = val->vtyp->copy();
 	}
 	vars.poplayer();
-
-	std::string fullname = name.data.s; // includes mangling, if a function is present
-	// if(vtyp->type == TFUNC) {
-	// 	fullname += vtyp->mangled_name();
-	// 	printf("storing as: %s\n", fullname.c_str());
-	// }
-	if(!in) return vars.add_copy(fullname, vtyp);
-
-	type_struct_t *tst = static_cast<type_struct_t *>(in->vtyp);
-	printf("adding field: %s\n", fullname.c_str());
-	if(!tst->add_field_copy(fullname, vtyp)) {
-		err::set(line, col, "function '%s' already exists in type: %s", fullname.c_str(),
-			 tst->str().c_str());
-		return false;
-	}
-	printf("TST: %s\n", tst->str().c_str());
-	return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////// stmt_fndecl_params_t ////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-bool stmt_fndecl_params_t::assign_type(VarMgr &vars)
-{
-	for(auto &p : params) {
-		if(!p->assign_type(vars)) {
-			err::set(p->line, p->col, "failed to assign type of this function param");
-			return false;
-		}
-	}
-	return true;
+	if(val && val->type == FNDEF) return vars.add_func_copy(name.data.s, vtyp);
+	return vars.add_copy(name.data.s, vtyp);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -402,19 +371,19 @@ bool stmt_fnsig_t::assign_type(VarMgr &vars)
 		vars.add(templates[i].data.s, new type_simple_t(parent, 0, 0, tname));
 		templs.push_back(tname);
 	}
-	if(params && !params->assign_type(vars)) {
-		err::set(params->line, params->col, "failed to assign type of the function params");
-		return false;
+	for(auto &p : params) {
+		if(!p->assign_type(vars)) {
+			err::set(p->line, p->col, "failed to assign type of this function param");
+			return false;
+		}
 	}
 	if(!rettype->assign_type(vars)) {
 		err::set(rettype->line, rettype->col, "failed to assign function return type");
 		return false;
 	}
 	std::vector<type_base_t *> args;
-	if(params) {
-		for(auto &p : params->params) {
-			args.push_back(p->vtyp->copy());
-		}
+	for(auto &p : params) {
+		args.push_back(p->vtyp->copy());
 	}
 	vtyp = new type_func_t(this, 0, 0, templs, args, rettype->vtyp->copy());
 	return true;
@@ -645,7 +614,7 @@ bool stmt_ret_t::assign_type(VarMgr &vars)
 		err::set(val->line, val->col, "failed to determine type of the return argument");
 		return false;
 	}
-	vtyp = val ? val->vtyp->copy() : vars.get_copy("void");
+	vtyp = val ? val->vtyp->copy() : vars.get_copy("void", this);
 	return true;
 }
 

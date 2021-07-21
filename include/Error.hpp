@@ -37,6 +37,7 @@ void setw(const size_t &line, const size_t &col_beg, const size_t &col_end, cons
 	  va_list args);
 bool present();
 void show(FILE *f, const std::string &data, const std::string &filename);
+void reset();
 } // namespace err
 } // namespace sc
 

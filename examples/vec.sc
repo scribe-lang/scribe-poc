@@ -8,6 +8,13 @@ let new = fn<T>(): Vec<T> {
 	return Vec(:T, 1, 0, nil); // nil is an i1 with value = 0
 };
 
+let deinit in Vec<T> = fn() {
+	for d in self.data {
+		d.deinit();
+	}
+	free(data);
+};
+
 let push in Vec<T> = fn(e: T) {
 	if self.len == self.cap { self.cap *= 2; }
 	self.data[self.len++] = e;

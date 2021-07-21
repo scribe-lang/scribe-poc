@@ -70,14 +70,18 @@ public:
 	{
 		return stack.empty() ? nullptr : stack.back();
 	}
+
+	inline std::vector<VarLayer *> &get_layers()
+	{
+		return stack;
+	}
 };
 class VarMgr
 {
 	std::unordered_map<std::string, type_base_t *> globals;
 	std::unordered_map<std::string, VarSrc *> srcs;
-	// amalgamated ids as string -> function name -> function type
-	std::unordered_map<std::string, std::unordered_map<std::string, type_func_t *>> typefns;
 	std::vector<VarSrc *> srcstack;
+	std::vector<type_funcmap_t *> managedfnmaps;
 
 public:
 	VarMgr();
@@ -109,17 +113,13 @@ public:
 	bool add(const std::string &name, type_base_t *val, const bool &global = false);
 	bool add_copy(const std::string &name, type_base_t *val, const bool &global = false);
 	bool exists(const std::string &name, const bool &top_only, const bool &with_globals);
-	type_base_t *get(const std::string &name);
-	type_base_t *get_copy(const std::string &name);
+	type_base_t *get(const std::string &name, stmt_base_t *parent);
+	type_base_t *get_copy(const std::string &name, stmt_base_t *parent);
 
-	bool add_type_func(const std::vector<int64_t> &argtypeids, const std::string &name,
-			   type_func_t *val);
-	bool add_type_func_copy(const std::vector<int64_t> &argtypeids, const std::string &name,
-				type_func_t *val);
-	type_func_t *get_type_func(const std::vector<int64_t> &argtypeids, const std::string &name);
-	bool has_type_func(const std::vector<int64_t> &argtypeids, const std::string &name);
-
-	std::string get_func_type_id(const std::vector<int64_t> &argtypeids);
+	bool add_func(const std::string &name, type_base_t *vtyp, const bool &global = false);
+	bool add_func_copy(const std::string &name, type_base_t *vtyp, const bool &global = false);
+	type_funcmap_t *get_funcmap(const std::string &name, stmt_base_t *parent);
+	type_funcmap_t *get_funcmap_copy(const std::string &name, stmt_base_t *parent);
 };
 } // namespace parser
 } // namespace sc

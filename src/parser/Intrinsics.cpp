@@ -24,7 +24,6 @@ namespace parser
 {
 INTRINSIC(import)
 {
-	printf("called import intrinsic\n");
 	size_t &line = stmt->line;
 	size_t &col  = stmt->col;
 
@@ -86,8 +85,8 @@ gen_struct:
 	for(auto &i : items) {
 		src_st->add_field(i.first, i.second);
 	}
-	if(fncall->lhs->vtyp) delete fncall->lhs->vtyp;
-	fncall->lhs->vtyp = src_st;
+	if(fncall->vtyp) delete fncall->vtyp;
+	fncall->vtyp = src_st;
 	delete ptree;
 	return true;
 }

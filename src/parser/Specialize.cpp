@@ -202,10 +202,6 @@ bool stmt_expr_t::specialize(const std::vector<type_base_t *> &templs)
 bool stmt_var_t::specialize(const std::vector<type_base_t *> &templs)
 {
 	if(is_specialized) return true;
-	if(in && !in->specialize(templs)) {
-		err::set(name, "unable to specialize type of 'in'");
-		return false;
-	}
 	if(val && !val->specialize(templs)) {
 		err::set(name, "unable to specialize type of value of this variable");
 		return false;
@@ -219,10 +215,10 @@ bool stmt_var_t::specialize(const std::vector<type_base_t *> &templs)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////// stmt_fndecl_params_t ////////////////////////////////////////
+///////////////////////////////////////// stmt_fnsig_t ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool stmt_fndecl_params_t::specialize(const std::vector<type_base_t *> &templs)
+bool stmt_fnsig_t::specialize(const std::vector<type_base_t *> &templs)
 {
 	if(is_specialized) return true;
 	for(auto &p : params) {
@@ -231,22 +227,6 @@ bool stmt_fndecl_params_t::specialize(const std::vector<type_base_t *> &templs)
 				 "failed to specialize type of this function param");
 			return false;
 		}
-	}
-	is_specialized = true;
-	return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////// stmt_fnsig_t ////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-bool stmt_fnsig_t::specialize(const std::vector<type_base_t *> &templs)
-{
-	if(is_specialized) return true;
-	if(params && !params->specialize(templs)) {
-		err::set(params->line, params->col,
-			 "failed to specialize type of the function params");
-		return false;
 	}
 	if(!rettype->specialize(templs)) {
 		err::set(rettype->line, rettype->col, "failed to specialize function return type");
