@@ -88,6 +88,25 @@ std::string type_base_t::str_base()
 	return tname;
 }
 
+type_template_t::type_template_t(stmt_base_t *parent, const size_t &count)
+	: type_base_t(TTEMPLATE, parent, 0, 0), count(count)
+{}
+type_template_t::type_template_t(const int64_t &id, stmt_base_t *parent, const size_t &count)
+	: type_base_t(id, TTEMPLATE, parent, 0, 0, nullptr), count(count)
+{}
+type_base_t *type_template_t::copy()
+{
+	return new type_template_t(id, parent, count);
+}
+bool type_template_t::compatible(type_base_t *rhs, const size_t &line, const size_t &col)
+{
+	return compatible_base(rhs, line, col);
+}
+std::string type_template_t::str()
+{
+	return "<template: " + std::to_string(count) + ">";
+}
+
 // std::string type_base_t::mangled_name_base()
 // {
 // 	std::string tname(ptr, '*');
@@ -135,31 +154,34 @@ bool type_simple_t::compatible(type_base_t *rhs, const size_t &line, const size_
 }
 
 type_struct_t::type_struct_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
-			     const std::vector<std::string> &templ,
+			     const bool &is_ref, const std::vector<std::string> &templ,
 			     const std::vector<std::string> &field_order,
 			     const std::unordered_map<std::string, type_base_t *> &fields)
-	: type_base_t(TSTRUCT, parent, ptr, info), is_decl_only(false), templ(templ),
-	  field_order(field_order), fields(fields)
+	: type_base_t(TSTRUCT, parent, ptr, info), is_decl_only(false), is_ref(is_ref),
+	  templ(templ), field_order(field_order), fields(fields)
 {}
 type_struct_t::type_struct_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr,
-			     const size_t &info, intrinsic_fn_t intrin_fn,
+			     const size_t &info, const bool &is_ref, intrinsic_fn_t intrin_fn,
 			     const std::vector<std::string> &templ,
 			     const std::vector<std::string> &field_order,
 			     const std::unordered_map<std::string, type_base_t *> &fields)
-	: type_base_t(id, TSTRUCT, parent, ptr, info, intrin_fn), is_decl_only(false), templ(templ),
-	  field_order(field_order), fields(fields)
+	: type_base_t(id, TSTRUCT, parent, ptr, info, intrin_fn), is_decl_only(false),
+	  is_ref(is_ref), templ(templ), field_order(field_order), fields(fields)
 {}
 type_struct_t::~type_struct_t()
 {
-	for(auto &f : fields) delete f.second;
+	if(!is_ref) {
+		for(auto &f : fields) delete f.second;
+	}
 }
 type_base_t *type_struct_t::copy()
 {
 	std::unordered_map<std::string, type_base_t *> newfields;
 	for(auto &f : fields) {
-		newfields[f.first] = f.second->copy();
+		newfields[f.first] = is_ref ? f.second : f.second->copy();
 	}
-	return new type_struct_t(id, parent, ptr, info, intrin_fn, templ, field_order, newfields);
+	return new type_struct_t(id, parent, ptr, info, is_ref, intrin_fn, templ, field_order,
+				 newfields);
 }
 bool type_struct_t::compatible(type_base_t *rhs, const size_t &line, const size_t &col)
 {
@@ -196,7 +218,7 @@ std::string type_struct_t::str()
 	std::string tname = str_base() + "struct." + std::to_string(id);
 	tname += "{";
 	for(auto &f : field_order) {
-		tname += fields[f]->str() + ", ";
+		tname += f + ": " + fields[f]->str() + ", ";
 	}
 	if(field_order.size() > 0) {
 		tname.pop_back();

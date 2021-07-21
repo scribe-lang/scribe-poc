@@ -27,14 +27,15 @@ namespace parser
 {
 enum Types
 {
+	TTEMPLATE,
 	TSIMPLE,
 	TSTRUCT,
 	TENUM,
 	TFUNC,
 };
 
-typedef bool (*intrinsic_fn_t)(stmt_base_t *stmt, type_base_t *type);
-#define INTRINSIC(name) bool intrinsic_##name(stmt_base_t *stmt, type_base_t *type)
+typedef bool (*intrinsic_fn_t)(VarMgr &vars, stmt_base_t *stmt);
+#define INTRINSIC(name) bool intrinsic_##name(VarMgr &vars, stmt_base_t *stmt)
 
 struct type_base_t
 {
@@ -64,15 +65,26 @@ struct type_base_t
 	{
 		intrin_fn = intrinsic;
 	}
-	inline bool call_intrinsic(stmt_base_t *stmt, type_base_t *type)
+	inline bool call_intrinsic(VarMgr &vars, stmt_base_t *stmt)
 	{
-		return intrin_fn ? intrin_fn(stmt, type) : true;
+		return intrin_fn ? intrin_fn(vars, stmt) : true;
 	}
 
 	std::string str_base();
 	virtual std::string str() = 0;
 	// std::string mangled_name_base();
 	// virtual std::string mangled_name();
+};
+struct type_template_t : public type_base_t
+{
+	size_t count;
+	type_template_t(stmt_base_t *parent, const size_t &count);
+	type_template_t(const int64_t &id, stmt_base_t *parent, const size_t &count);
+
+	virtual type_base_t *copy();
+	virtual bool compatible(type_base_t *rhs, const size_t &line, const size_t &col);
+
+	std::string str();
 };
 
 struct type_simple_t : public type_base_t
@@ -95,16 +107,18 @@ struct type_simple_t : public type_base_t
 struct type_struct_t : public type_base_t
 {
 	bool is_decl_only;
+	bool is_ref; // does not delete stored fields (intended to prevent unnecessary copies)
 	std::vector<std::string> templ;
 	std::vector<std::string> field_order;
 	std::unordered_map<std::string, type_base_t *> fields;
 
 	type_struct_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
-		      const std::vector<std::string> &templ,
+		      const bool &is_ref, const std::vector<std::string> &templ,
 		      const std::vector<std::string> &field_order,
 		      const std::unordered_map<std::string, type_base_t *> &fields);
 	type_struct_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
-		      intrinsic_fn_t intrin_fn, const std::vector<std::string> &templ,
+		      const bool &is_ref, intrinsic_fn_t intrin_fn,
+		      const std::vector<std::string> &templ,
 		      const std::vector<std::string> &field_order,
 		      const std::unordered_map<std::string, type_base_t *> &fields);
 	~type_struct_t();

@@ -43,6 +43,10 @@ public:
 	{
 		return items.find(name) == items.end() ? nullptr : items[name];
 	}
+	inline std::unordered_map<std::string, type_base_t *> &get_items()
+	{
+		return items;
+	}
 };
 class VarSrc
 {
@@ -62,6 +66,10 @@ public:
 	bool add(const std::string &name, type_base_t *val);
 	bool exists(const std::string &name, const bool &top_only);
 	type_base_t *get(const std::string &name);
+	inline VarLayer *get_top()
+	{
+		return stack.empty() ? nullptr : stack.back();
+	}
 };
 class VarMgr
 {
@@ -94,7 +102,10 @@ public:
 	{
 		return srcs.find(src_path) != srcs.end();
 	}
-	// creates a copy of val
+	inline VarSrc *get_src(const std::string &src_path)
+	{
+		return srcs[src_path];
+	}
 	bool add(const std::string &name, type_base_t *val, const bool &global = false);
 	bool add_copy(const std::string &name, type_base_t *val, const bool &global = false);
 	bool exists(const std::string &name, const bool &top_only, const bool &with_globals);

@@ -88,10 +88,6 @@ int main(int argc, char **argv)
 		err::show(stderr, data, file);
 		return 1;
 	}
-	if(!ptree->call_intrinsic()) {
-		err::show(stderr, data, file);
-		return 1;
-	}
 	vartypes.popsrc();
 
 	if(args.has("semantic")) {

@@ -71,7 +71,7 @@ VarMgr::VarMgr()
 	// intrinsics
 	type_simple_t *templ0ptr    = new type_simple_t(nullptr, 1, 0, "@0");
 	type_simple_t *templ1ptr    = new type_simple_t(nullptr, 1, 0, "@1");
-	type_struct_t *empty_struct = new type_struct_t(nullptr, 0, 0, {}, {}, {});
+	type_struct_t *empty_struct = new type_struct_t(nullptr, 0, 0, false, {}, {}, {});
 	type_base_t *cstr	    = globals["*const u8"]->copy();
 
 	type_func_t *importfn = new type_func_t(nullptr, 0, 0, {}, {cstr}, empty_struct);
@@ -126,7 +126,7 @@ bool VarMgr::add(const std::string &name, type_base_t *val, const bool &global)
 {
 	if(global) {
 		if(globals.find(name) != globals.end()) return false;
-		globals[name] = val->copy();
+		globals[name] = val;
 		return true;
 	}
 	return srcstack.back()->add(name, val);
