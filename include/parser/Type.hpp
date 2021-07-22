@@ -143,7 +143,8 @@ struct type_struct_t : public type_base_t
 	bool compatible(type_base_t *rhs, const size_t &line, const size_t &col);
 	// checks if instantiation is viable with callinfo, returns specialized instance of struct
 	// if true; nullptr if false
-	type_struct_t *specialize_compatible_call(stmt_fncallinfo_t *callinfo);
+	type_struct_t *specialize_compatible_call(stmt_fncallinfo_t *callinfo,
+						  std::vector<type_base_t *> &templates);
 
 	std::string str();
 	std::string mangled_name();
@@ -182,7 +183,8 @@ struct type_func_t : public type_base_t
 	type_base_t *specialize(const std::vector<type_base_t *> &templates);
 	bool compatible(type_base_t *rhs, const size_t &line, const size_t &col);
 	// checks for compatibility and specializes the signature (for templates)
-	type_func_t *specialize_compatible_call(stmt_fncallinfo_t *callinfo);
+	type_func_t *specialize_compatible_call(stmt_fncallinfo_t *callinfo,
+						std::vector<type_base_t *> &templates);
 
 	std::string str();
 	std::string mangled_name();
@@ -204,7 +206,8 @@ struct type_funcmap_t : public type_base_t
 	std::string str();
 	std::string mangled_name();
 
-	type_func_t *decide_func(stmt_fncallinfo_t *callinfo);
+	type_func_t *decide_func(stmt_fncallinfo_t *callinfo,
+				 std::vector<type_base_t *> &templates);
 	type_func_t *decide_func(type_base_t *vartype);
 };
 } // namespace parser

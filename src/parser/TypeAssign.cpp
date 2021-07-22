@@ -21,6 +21,40 @@ namespace sc
 {
 namespace parser
 {
+static bool init_templ_func(stmt_base_t *lhs, const std::vector<type_base_t *> &calltemplates)
+{
+	if(calltemplates.empty()) return true;
+	stmt_base_t *templfnparent = lhs->vtyp->parent;
+	while(templfnparent && templfnparent->type != BLOCK) {
+		templfnparent = templfnparent->parent;
+	}
+	if(!templfnparent) {
+		err::set(lhs->line, lhs->col,
+			 "function definition for specialization is not in a block!");
+		return false;
+	}
+	stmt_base_t *tmp = lhs->vtyp->parent;
+	while(tmp && tmp->type != VAR) {
+		tmp = tmp->parent;
+	}
+	if(!tmp) {
+		err::set(lhs->line, lhs->col,
+			 "could not find function definition's variable declaration!");
+		return false;
+	}
+	tmp = tmp->copy();
+	if(!tmp->specialize(calltemplates)) {
+		err::set(lhs->line, lhs->col,
+			 "failed to specialize template function definition: %s",
+			 lhs->vtyp->str().c_str());
+		return false;
+	}
+	lhs->vtyp->parent = tmp;
+	printf("here's the all new template deduced function\n");
+	stmt_block_t *tfnparent = static_cast<stmt_block_t *>(templfnparent);
+	tfnparent->stmts.push_back(tmp);
+	return true;
+}
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////// stmt_block_t ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -28,7 +62,9 @@ namespace parser
 bool stmt_block_t::assign_type(VarMgr &vars)
 {
 	vars.pushlayer();
-	for(auto &s : stmts) {
+	for(size_t i = 0; i < stmts.size(); ++i) {
+		auto &s = stmts[i];
+		if(s->is_specialized) continue;
 		if(!s->assign_type(vars)) {
 			err::set(s->line, s->col,
 				 "failed to perform type analysis on this statement");
@@ -160,7 +196,13 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 				 lhs->vtyp->str().c_str());
 			return false;
 		}
-		type_struct_t *lst  = static_cast<type_struct_t *>(lhs->vtyp);
+		type_struct_t *lst = static_cast<type_struct_t *>(lhs->vtyp);
+		if(lst->is_def) {
+			err::set(line, col,
+				 "cannot use dot operator on a struct"
+				 " definition; instantiate it first");
+			return false;
+		}
 		stmt_simple_t *rsim = static_cast<stmt_simple_t *>(rhs);
 		type_base_t *res    = lst->get_field(rsim->val.data.s);
 		if(!res && !(res = vars.get_funcmap_copy(rsim->val.data.s, this))) {
@@ -178,6 +220,7 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 		assert(rhs && rhs->type == FNCALLINFO &&
 		       "RHS for function call must be a call info (compiler failure)");
 		stmt_fncallinfo_t *finfo = static_cast<stmt_fncallinfo_t *>(rhs);
+		std::vector<type_base_t *> calltemplates;
 		if(lhs->vtyp->type != TFUNC && lhs->vtyp->type != TSTRUCT &&
 		   lhs->vtyp->type != TFUNCMAP) {
 			err::set(lhs->line, lhs->col,
@@ -188,16 +231,19 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 		}
 		if(lhs->vtyp->type == TFUNCMAP) {
 			type_funcmap_t *fmap = static_cast<type_funcmap_t *>(lhs->vtyp);
-			if(!(vtyp = fmap->decide_func(finfo))) {
+			if(!(vtyp = fmap->decide_func(finfo, calltemplates))) {
 				err::set(line, col,
 					 "failed to decide the function "
 					 "to execute, need more info");
 				return false;
 			}
+			delete lhs->vtyp;
+			lhs->vtyp = vtyp;
+			vtyp	  = static_cast<type_func_t *>(lhs->vtyp)->rettype->copy();
 		} else if(lhs->vtyp->type == TFUNC) {
 			type_func_t *oldfn = static_cast<type_func_t *>(lhs->vtyp);
 			type_func_t *fn	   = nullptr;
-			if(!(fn = oldfn->specialize_compatible_call(finfo))) {
+			if(!(fn = oldfn->specialize_compatible_call(finfo, calltemplates))) {
 				err::set(line, col,
 					 "function '%s' incompatible with call arguments",
 					 oldfn->str().c_str());
@@ -222,12 +268,15 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 			}
 			// call the <struct>() function
 			// maybe <struct>.init() in future if required
-			if(!(vtyp = st->specialize_compatible_call(finfo))) {
+			if(!(vtyp = st->specialize_compatible_call(finfo, calltemplates))) {
 				err::set(line, col,
 					 "failed to instantiate struct with given arguments");
 				return false;
 			}
+			break; // no need to clone the struct
 		}
+		// apply stmt template specialization
+		if(!init_templ_func(lhs, calltemplates)) return false;
 		break;
 	}
 	case lex::SUBS: err::set(line, col, "unimplemented subscript"); return false;
@@ -309,14 +358,15 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 		}
 		stmt_fncallinfo_t *fci = new stmt_fncallinfo_t(line, col, {}, {lhs});
 		if(rhs) fci->args.push_back(rhs);
-		type_func_t *tmp = fn->decide_func(fci);
+		std::vector<type_base_t *> calltemplates;
+		type_func_t *tmp = fn->decide_func(fci, calltemplates);
 		if(!tmp) {
-			fci->disp(false);
 			err::set(line, col, "function '%s' does not exist for type: %s",
 				 oper.tok.str().c_str(), lhs->vtyp->str().c_str());
 			delete fci;
 			return false;
 		}
+		if(!init_templ_func(lhs, calltemplates)) return false;
 		fci->args.clear();
 		vtyp = static_cast<type_func_t *>(tmp)->rettype->copy();
 		delete fci;
@@ -501,7 +551,7 @@ bool stmt_struct_t::assign_type(VarMgr &vars)
 	for(size_t i = 0; i < field_type_orders.size(); ++i) {
 		field_types[field_type_orders[i]] = fields[i]->vtyp->copy();
 	}
-	vtyp = new type_struct_t(parent, 0, 0, false, templs, field_type_orders, field_types);
+	vtyp = new type_struct_t(this, 0, 0, false, templs, field_type_orders, field_types);
 	vars.poplayer();
 	return true;
 }

@@ -20,7 +20,6 @@
 #include "FS.hpp"
 #include "Lex.hpp"
 #include "Parser.hpp"
-#include "parser/VarMgr.hpp"
 
 int main(int argc, char **argv)
 {
@@ -71,33 +70,19 @@ int main(int argc, char **argv)
 	}
 
 	parser::stmt_block_t *ptree = nullptr;
-	if(!parser::parse(toks, ptree)) {
+	if(!parser::parse(file, toks, ptree)) {
 		err::show(stderr, data, file);
-		return 1;
-	}
-	if(args.has("parse")) {
-		printf("AST:\n");
-		ptree->disp(false);
+		goto fail;
 	}
 
-	parser::VarMgr vartypes;
-	vartypes.addsrc(file);
-	vartypes.pushsrc(file);
-	vartypes.init_typefns();
-	if(!ptree->assign_type(vartypes)) {
-		err::show(stderr, data, file);
-		return 1;
-	}
-	vartypes.popsrc();
-
-	if(args.has("semantic")) {
+	if(args.has("parse") || args.has("semantic")) {
 		printf("Semantic Tree:\n");
 		ptree->disp(false);
 	}
 
-	delete ptree;
+	if(ptree) delete ptree;
 	return 0;
 fail:
-	delete ptree;
+	if(ptree) delete ptree;
 	return 1;
 }

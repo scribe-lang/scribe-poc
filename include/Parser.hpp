@@ -17,14 +17,14 @@
 #include <cstddef>
 
 #include "Lex.hpp"
-#include "parser/Stmts.hpp"
+#include "parser/Parse.hpp"
 
 namespace sc
 {
 namespace parser
 {
 // on successful parse, returns true, and tree is allocated
-bool parse(std::vector<lex::Lexeme> &toks, stmt_block_t *&tree);
+bool parse(const std::string &file, std::vector<lex::Lexeme> &toks, stmt_block_t *&tree);
 } // namespace parser
 } // namespace sc
 

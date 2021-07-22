@@ -97,6 +97,7 @@ stmt_base_t *stmt_expr_t::hidden_copy()
 	stmt_expr_t *res    = new stmt_expr_t(line, col, newlhs, oper, newrhs);
 	if(or_blk) res->or_blk = static_cast<stmt_block_t *>(or_blk->hidden_copy());
 	res->or_blk_var = or_blk_var;
+	res->vtyp	= vtyp ? vtyp->copy() : nullptr;
 	res->is_intrin	= is_intrin;
 	return res;
 }

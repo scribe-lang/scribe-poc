@@ -58,18 +58,11 @@ INTRINSIC(import)
 		return false;
 	}
 
-	if(!parser::parse(toks, ptree)) {
+	if(!parser::parse(file, toks, ptree)) {
 		err::show(stderr, data, file);
+		if(ptree) delete ptree;
 		return false;
 	}
-
-	vars.addsrc(file);
-	vars.pushsrc(file);
-	if(!ptree->assign_type(vars)) {
-		err::show(stderr, data, file);
-		return false;
-	}
-	vars.popsrc();
 
 gen_struct:
 	VarSrc *src   = vars.get_src(file);

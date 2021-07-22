@@ -207,11 +207,11 @@ bool type_struct_t::compatible(type_base_t *rhs, const size_t &line, const size_
 	}
 	return true;
 }
-type_struct_t *type_struct_t::specialize_compatible_call(stmt_fncallinfo_t *callinfo)
+type_struct_t *type_struct_t::specialize_compatible_call(stmt_fncallinfo_t *callinfo,
+							 std::vector<type_base_t *> &templates)
 {
 	if(this->templ.size() < callinfo->templates.size()) return nullptr;
 	if(this->fields.size() != callinfo->args.size()) return nullptr;
-	std::vector<type_base_t *> templates;
 	for(auto &t : callinfo->templates) {
 		templates.push_back(t->vtyp);
 	}
@@ -389,11 +389,11 @@ bool type_func_t::compatible(type_base_t *rhs, const size_t &line, const size_t 
 	}
 	return true;
 }
-type_func_t *type_func_t::specialize_compatible_call(stmt_fncallinfo_t *callinfo)
+type_func_t *type_func_t::specialize_compatible_call(stmt_fncallinfo_t *callinfo,
+						     std::vector<type_base_t *> &templates)
 {
 	if(this->templ.size() < callinfo->templates.size()) return nullptr;
 	if(this->args.size() != callinfo->args.size()) return nullptr;
-	std::vector<type_base_t *> templates;
 	for(auto &t : callinfo->templates) {
 		templates.push_back(t->vtyp);
 	}
@@ -483,13 +483,15 @@ std::string type_funcmap_t::mangled_name()
 {
 	return "<function map>";
 }
-type_func_t *type_funcmap_t::decide_func(stmt_fncallinfo_t *callinfo)
+type_func_t *type_funcmap_t::decide_func(stmt_fncallinfo_t *callinfo,
+					 std::vector<type_base_t *> &templates)
 {
 	for(auto &fn : funcs) {
+		templates.clear();
 		printf("option: %s -> %s\n", fn.first.c_str(), fn.second->str().c_str());
 		type_func_t *f = fn.second;
 		err::reset();
-		if(!(f = f->specialize_compatible_call(callinfo))) continue;
+		if(!(f = f->specialize_compatible_call(callinfo, templates))) continue;
 		printf("matched: %s -> %s\n", fn.first.c_str(), f->str().c_str());
 		return f;
 	}
