@@ -118,18 +118,17 @@ struct type_struct_t : public type_base_t
 	bool is_decl_only;
 	bool is_ref; // does not delete stored fields (intended to prevent unnecessary copies)
 	bool is_def;
-	std::vector<std::string> templ;
+	size_t templ;
 	std::vector<std::string> field_order;
 	std::unordered_map<std::string, type_base_t *> fields;
 
 	type_struct_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
-		      const bool &is_ref, const std::vector<std::string> &templ,
+		      const bool &is_ref, const size_t &templ,
 		      const std::vector<std::string> &field_order,
 		      const std::unordered_map<std::string, type_base_t *> &fields);
 	type_struct_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
 		      const bool &is_ref, const bool &is_def, intrinsic_fn_t intrin_fn,
-		      const std::vector<std::string> &templ,
-		      const std::vector<std::string> &field_order,
+		      const size_t &templ, const std::vector<std::string> &field_order,
 		      const std::unordered_map<std::string, type_base_t *> &fields);
 	~type_struct_t();
 
@@ -167,15 +166,14 @@ struct type_struct_t : public type_base_t
 
 struct type_func_t : public type_base_t
 {
-	std::vector<std::string> templ;
+	size_t templ;
 	std::vector<type_base_t *> args;
 	type_base_t *rettype;
 
-	type_func_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
-		    const std::vector<std::string> &templ, const std::vector<type_base_t *> &args,
-		    type_base_t *rettype);
+	type_func_t(stmt_base_t *parent, const size_t &ptr, const size_t &info, const size_t &templ,
+		    const std::vector<type_base_t *> &args, type_base_t *rettype);
 	type_func_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
-		    intrinsic_fn_t intrin_fn, const std::vector<std::string> &templ,
+		    intrinsic_fn_t intrin_fn, const size_t &templ,
 		    const std::vector<type_base_t *> &args, type_base_t *rettype);
 	~type_func_t();
 

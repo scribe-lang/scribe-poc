@@ -78,15 +78,15 @@ VarMgr::VarMgr()
 	importfn->intrin_fn   = intrinsic_import;
 	globals["import"]     = importfn;
 
-	type_func_t *asfn = new type_func_t(nullptr, 0, 0, {"@0", "@1"}, {templ1}, templ0);
+	type_func_t *asfn = new type_func_t(nullptr, 0, 0, 2, {templ1}, templ0);
 	asfn->intrin_fn	  = intrinsic_as;
 	globals["as"]	  = asfn;
 
-	type_func_t *szfn = new type_func_t(nullptr, 0, 0, {"@0"}, {}, globals["i32"]->copy());
+	type_func_t *szfn = new type_func_t(nullptr, 0, 0, 1, {}, globals["i32"]->copy());
 	szfn->intrin_fn	  = intrinsic_szof;
 	globals["sizeof"] = szfn;
 
-	type_func_t *typeidfn = new type_func_t(nullptr, 0, 0, {"@0"}, {}, globals["i32"]->copy());
+	type_func_t *typeidfn = new type_func_t(nullptr, 0, 0, 1, {}, globals["i32"]->copy());
 	typeidfn->intrin_fn   = intrinsic_typid;
 	globals["typeid"]     = typeidfn;
 }

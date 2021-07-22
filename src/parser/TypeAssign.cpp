@@ -49,7 +49,6 @@ static bool init_templ_func(stmt_base_t *lhs, const std::vector<type_base_t *> &
 			 lhs->vtyp->str().c_str());
 		return false;
 	}
-	lhs->vtyp->parent = tmp;
 	printf("here's the all new template deduced function\n");
 	stmt_block_t *tfnparent = static_cast<stmt_block_t *>(templfnparent);
 	tfnparent->stmts.push_back(tmp);
@@ -418,11 +417,9 @@ bool stmt_var_t::assign_type(VarMgr &vars)
 
 bool stmt_fnsig_t::assign_type(VarMgr &vars)
 {
-	std::vector<std::string> templs;
 	for(size_t i = 0; i < templates.size(); ++i) {
 		std::string tname = "@" + std::to_string(i);
-		vars.add(templates[i].data.s, new type_simple_t(parent, 0, 0, tname));
-		templs.push_back(tname);
+		vars.add(templates[i].data.s, new type_simple_t(0, 0, true, tname));
 	}
 	for(auto &p : params) {
 		if(!p->assign_type(vars)) {
@@ -438,7 +435,7 @@ bool stmt_fnsig_t::assign_type(VarMgr &vars)
 	for(auto &p : params) {
 		args.push_back(p->vtyp->copy());
 	}
-	vtyp = new type_func_t(this, 0, 0, templs, args, rettype->vtyp->copy());
+	vtyp = new type_func_t(this, 0, 0, templates.size(), args, rettype->vtyp->copy());
 	return true;
 }
 
@@ -533,11 +530,9 @@ bool stmt_enumdef_t::assign_type(VarMgr &vars)
 bool stmt_struct_t::assign_type(VarMgr &vars)
 {
 	vars.pushlayer();
-	std::vector<std::string> templs;
 	for(size_t i = 0; i < templates.size(); ++i) {
 		std::string tname = "@" + std::to_string(i);
 		vars.add(templates[i].data.s, new type_simple_t(0, 0, true, tname));
-		templs.push_back(tname);
 	}
 	std::vector<std::string> field_type_orders;
 	for(auto &f : fields) {
@@ -551,7 +546,8 @@ bool stmt_struct_t::assign_type(VarMgr &vars)
 	for(size_t i = 0; i < field_type_orders.size(); ++i) {
 		field_types[field_type_orders[i]] = fields[i]->vtyp->copy();
 	}
-	vtyp = new type_struct_t(this, 0, 0, false, templs, field_type_orders, field_types);
+	vtyp = new type_struct_t(this, 0, 0, false, templates.size(), field_type_orders,
+				 field_types); // comment for correct auto formatting of this
 	vars.poplayer();
 	return true;
 }

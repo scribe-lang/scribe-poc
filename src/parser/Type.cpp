@@ -139,7 +139,7 @@ std::string type_simple_t::mangled_name()
 }
 
 type_struct_t::type_struct_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
-			     const bool &is_ref, const std::vector<std::string> &templ,
+			     const bool &is_ref, const size_t &templ,
 			     const std::vector<std::string> &field_order,
 			     const std::unordered_map<std::string, type_base_t *> &fields)
 	: type_base_t(TSTRUCT, parent, ptr, info), is_decl_only(false), is_ref(is_ref),
@@ -147,7 +147,7 @@ type_struct_t::type_struct_t(stmt_base_t *parent, const size_t &ptr, const size_
 {}
 type_struct_t::type_struct_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr,
 			     const size_t &info, const bool &is_ref, const bool &is_def,
-			     intrinsic_fn_t intrin_fn, const std::vector<std::string> &templ,
+			     intrinsic_fn_t intrin_fn, const size_t &templ,
 			     const std::vector<std::string> &field_order,
 			     const std::unordered_map<std::string, type_base_t *> &fields)
 	: type_base_t(id, TSTRUCT, parent, ptr, info, intrin_fn), is_decl_only(false),
@@ -181,10 +181,10 @@ bool type_struct_t::compatible(type_base_t *rhs, const size_t &line, const size_
 {
 	if(!compatible_base(rhs, false, line, col)) return false;
 	type_struct_t *r = static_cast<type_struct_t *>(rhs);
-	if(is_decl_only && templ.empty()) return true;
-	if(templ.size() != r->templ.size()) {
-		err::set(line, col, "type mismatch (LHS templates: %zu, RHS templates: %zu",
-			 templ.size(), r->templ.size());
+	if(is_decl_only && !templ) return true;
+	if(templ != r->templ) {
+		err::set(line, col, "type mismatch (LHS templates: %zu, RHS templates: %zu", templ,
+			 r->templ);
 		return false;
 	}
 	if(fields.size() != r->fields.size()) {
@@ -210,12 +210,12 @@ bool type_struct_t::compatible(type_base_t *rhs, const size_t &line, const size_
 type_struct_t *type_struct_t::specialize_compatible_call(stmt_fncallinfo_t *callinfo,
 							 std::vector<type_base_t *> &templates)
 {
-	if(this->templ.size() < callinfo->templates.size()) return nullptr;
+	if(this->templ < callinfo->templates.size()) return nullptr;
 	if(this->fields.size() != callinfo->args.size()) return nullptr;
 	for(auto &t : callinfo->templates) {
 		templates.push_back(t->vtyp);
 	}
-	size_t inferred_templates = this->templ.size() - templates.size();
+	size_t inferred_templates = this->templ - templates.size();
 	if(callinfo->args.size() < inferred_templates) return nullptr;
 	for(size_t i = 0; i < inferred_templates; ++i) {
 		templates.push_back(callinfo->args[i]->vtyp);
@@ -328,13 +328,12 @@ type_base_t *type_struct_t::get_field(const std::string &name)
 }
 
 type_func_t::type_func_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
-			 const std::vector<std::string> &templ,
-			 const std::vector<type_base_t *> &args, type_base_t *rettype)
+			 const size_t &templ, const std::vector<type_base_t *> &args,
+			 type_base_t *rettype)
 	: type_base_t(TFUNC, parent, ptr, info), templ(templ), args(args), rettype(rettype)
 {}
 type_func_t::type_func_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr,
-			 const size_t &info, intrinsic_fn_t intrin_fn,
-			 const std::vector<std::string> &templ,
+			 const size_t &info, intrinsic_fn_t intrin_fn, const size_t &templ,
 			 const std::vector<type_base_t *> &args, type_base_t *rettype)
 	: type_base_t(id, TFUNC, parent, ptr, info, intrin_fn), templ(templ), args(args),
 	  rettype(rettype)
@@ -365,9 +364,9 @@ bool type_func_t::compatible(type_base_t *rhs, const size_t &line, const size_t 
 {
 	if(!compatible_base(rhs, false, line, col)) return false;
 	type_func_t *r = static_cast<type_func_t *>(rhs);
-	if(templ.size() != r->templ.size()) {
-		err::set(line, col, "type mismatch (LHS templates: %zu, RHS templates: %zu",
-			 templ.size(), r->templ.size());
+	if(templ != r->templ) {
+		err::set(line, col, "type mismatch (LHS templates: %zu, RHS templates: %zu", templ,
+			 r->templ);
 		return false;
 	}
 	if(args.size() != r->args.size()) {
@@ -392,12 +391,12 @@ bool type_func_t::compatible(type_base_t *rhs, const size_t &line, const size_t 
 type_func_t *type_func_t::specialize_compatible_call(stmt_fncallinfo_t *callinfo,
 						     std::vector<type_base_t *> &templates)
 {
-	if(this->templ.size() < callinfo->templates.size()) return nullptr;
+	if(this->templ < callinfo->templates.size()) return nullptr;
 	if(this->args.size() != callinfo->args.size()) return nullptr;
 	for(auto &t : callinfo->templates) {
 		templates.push_back(t->vtyp);
 	}
-	size_t inferred_templates = this->templ.size() - templates.size();
+	size_t inferred_templates = this->templ - templates.size();
 	if(callinfo->args.size() < inferred_templates) return nullptr;
 	for(size_t i = 0; i < inferred_templates; ++i) {
 		templates.push_back(callinfo->args[i]->vtyp);
