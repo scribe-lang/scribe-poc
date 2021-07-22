@@ -82,6 +82,8 @@ class VarMgr
 	std::unordered_map<std::string, VarSrc *> srcs;
 	std::vector<VarSrc *> srcstack;
 	std::vector<type_funcmap_t *> managedfnmaps;
+	// types that function returns (for type checking return statement)
+	std::vector<type_base_t *> funcreturns;
 
 public:
 	VarMgr();
@@ -120,6 +122,23 @@ public:
 	bool add_func_copy(const std::string &name, type_base_t *vtyp, const bool &global = false);
 	type_funcmap_t *get_funcmap(const std::string &name, stmt_base_t *parent);
 	type_funcmap_t *get_funcmap_copy(const std::string &name, stmt_base_t *parent);
+
+	inline void pushfret(type_base_t *fnret)
+	{
+		funcreturns.push_back(fnret);
+	}
+	inline void popfret()
+	{
+		funcreturns.pop_back();
+	}
+	inline type_base_t *getfret()
+	{
+		return funcreturns.back();
+	}
+	inline bool hasfret()
+	{
+		return !funcreturns.empty();
+	}
 };
 } // namespace parser
 } // namespace sc

@@ -184,7 +184,7 @@ type_funcmap_t *VarMgr::get_funcmap_copy(const std::string &name, stmt_base_t *p
 			VarLayer *l					      = *li;
 			std::unordered_map<std::string, type_base_t *> &items = l->get_items();
 			for(auto &i : items) {
-				if(startswith(i.first, name) && i.second->type == TFUNC) {
+				if(startswith(i.first, name + "_fn") && i.second->type == TFUNC) {
 					if(funcs.find(i.first) != funcs.end()) continue;
 					funcs[i.first] = static_cast<type_func_t *>(i.second);
 				}
@@ -192,7 +192,7 @@ type_funcmap_t *VarMgr::get_funcmap_copy(const std::string &name, stmt_base_t *p
 		}
 	}
 	for(auto &i : globals) {
-		if(startswith(i.first, name) && i.second->type == TFUNC) {
+		if(startswith(i.first, name + "_fn") && i.second->type == TFUNC) {
 			if(funcs.find(i.first) != funcs.end()) continue;
 			funcs[i.first] = static_cast<type_func_t *>(i.second);
 		}

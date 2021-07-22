@@ -320,7 +320,7 @@ type_base_t *type_struct_t::get_field(const std::string &name)
 	if(res != fields.end()) return res->second->copy();
 	std::unordered_map<std::string, type_func_t *> funcs;
 	for(auto &f : fields) {
-		if(startswith(f.first, name) && f.second->type == TFUNC) {
+		if(startswith(f.first, name + "_fn") && f.second->type == TFUNC) {
 			funcs[f.first] = static_cast<type_func_t *>(f.second);
 		}
 	}

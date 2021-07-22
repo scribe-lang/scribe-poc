@@ -309,7 +309,8 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 		}
 		stmt_fncallinfo_t *fci = new stmt_fncallinfo_t(line, col, {}, {lhs});
 		if(rhs) fci->args.push_back(rhs);
-		if(!(vtyp = fn->decide_func(fci))) {
+		type_func_t *tmp = fn->decide_func(fci);
+		if(!tmp) {
 			fci->disp(false);
 			err::set(line, col, "function '%s' does not exist for type: %s",
 				 oper.tok.str().c_str(), lhs->vtyp->str().c_str());
@@ -317,7 +318,9 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 			return false;
 		}
 		fci->args.clear();
+		vtyp = static_cast<type_func_t *>(tmp)->rettype->copy();
 		delete fci;
+		delete tmp;
 		break;
 	}
 	default: err::set(oper, "nonexistent operator"); return false;
@@ -400,9 +403,13 @@ bool stmt_fndef_t::assign_type(VarMgr &vars)
 		err::set(sig->line, sig->col, "failed to assign type to function signature");
 		return false;
 	}
-	if(sig->templates.empty() && blk && !blk->assign_type(vars)) {
-		err::set(blk->line, blk->col, "failed to assign type in function block");
-		return false;
+	if(sig->templates.empty() && blk) {
+		vars.pushfret(sig->rettype->vtyp);
+		if(!blk->assign_type(vars)) {
+			err::set(blk->line, blk->col, "failed to assign type in function block");
+			return false;
+		}
+		vars.popfret();
 	}
 	vtyp	     = sig->vtyp->copy();
 	vtyp->parent = this;
@@ -614,7 +621,20 @@ bool stmt_ret_t::assign_type(VarMgr &vars)
 		err::set(val->line, val->col, "failed to determine type of the return argument");
 		return false;
 	}
-	vtyp = val ? val->vtyp->copy() : vars.get_copy("void", this);
+	type_base_t *valtype = val ? val->vtyp->copy() : vars.get_copy("void", parent);
+	if(!vars.hasfret()) {
+		err::set(line, col, "return statements can be in functions only");
+		return false;
+	}
+	if(!vars.getfret()->compatible(valtype, val ? val->line : line, val ? val->col : col)) {
+		err::set(val ? val->line : line, val ? val->col : col,
+			 "function return type and deduced return type are"
+			 " incompatible (function return type: %s, deduced: %s)",
+			 vars.getfret()->str().c_str(), valtype->str().c_str());
+		delete valtype;
+		return false;
+	}
+	vtyp = valtype;
 	return true;
 }
 
