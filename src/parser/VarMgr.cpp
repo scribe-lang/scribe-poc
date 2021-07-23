@@ -68,6 +68,7 @@ type_base_t *VarSrc::get(const std::string &name, const size_t &locked_from)
 
 VarMgr::VarMgr() : init_typefuncs_called(false)
 {
+	globals["any"]	     = new type_simple_t(nullptr, 0, 0, "any");
 	globals["void"]	     = new type_simple_t(nullptr, 0, 0, "void");
 	globals["i1"]	     = new type_simple_t(nullptr, 0, 0, "i1");
 	globals["i8"]	     = new type_simple_t(nullptr, 0, 0, "i8");
@@ -89,21 +90,27 @@ VarMgr::VarMgr() : init_typefuncs_called(false)
 	type_struct_t *empty_struct = new type_struct_t(nullptr, 0, 0, false, {}, {}, {});
 	type_base_t *cstr	    = globals["*const u8"]->copy();
 
-	type_func_t *importfn = new type_func_t(nullptr, 0, 0, 0, {}, {cstr}, empty_struct);
+	type_func_t *importfn = new type_func_t(nullptr, 0, 0, 0, 0, false, {cstr}, empty_struct);
 	importfn->intrin_fn   = intrinsic_import;
 	globals["import"]     = importfn;
 
-	type_func_t *asfn = new type_func_t(nullptr, 0, 0, 0, 2, {templ1}, templ0);
+	type_func_t *asfn = new type_func_t(nullptr, 0, 0, 0, 2, false, {templ1}, templ0);
 	asfn->intrin_fn	  = intrinsic_as;
 	globals["as"]	  = asfn;
 
-	type_func_t *szfn = new type_func_t(nullptr, 0, 0, 0, 1, {}, globals["i32"]->copy());
+	type_func_t *szfn = new type_func_t(nullptr, 0, 0, 0, 1, false, {}, globals["i32"]->copy());
 	szfn->intrin_fn	  = intrinsic_szof;
 	globals["sizeof"] = szfn;
 
-	type_func_t *typeidfn = new type_func_t(nullptr, 0, 0, 0, 1, {}, globals["i32"]->copy());
-	typeidfn->intrin_fn   = intrinsic_typid;
-	globals["typeid"]     = typeidfn;
+	type_func_t *typeidfn =
+	new type_func_t(nullptr, 0, 0, 0, 1, false, {}, globals["i32"]->copy());
+	typeidfn->intrin_fn = intrinsic_typid;
+	globals["typeid"]   = typeidfn;
+
+	type_func_t *valenfn =
+	new type_func_t(nullptr, 0, 0, 0, 0, false, {}, globals["i32"]->copy());
+	valenfn->intrin_fn = intrinsic_va_len;
+	globals["va_len"]  = valenfn;
 }
 VarMgr::~VarMgr()
 {

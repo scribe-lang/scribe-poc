@@ -36,10 +36,19 @@ stmt_base_t::~stmt_base_t()
 
 stmt_base_t *stmt_base_t::copy(const bool &copy_vtyp)
 {
-	stmt_base_t *cp = hidden_copy(copy_vtyp);
+	stmt_base_t *cp = hidden_copy(copy_vtyp, this);
 	if(!cp) return nullptr;
 	cp->set_parent(cp->parent); // no change for top level parent
 	return cp;
+}
+
+stmt_base_t *stmt_base_t::get_parent_with_type(const StmtType &typ)
+{
+	stmt_base_t *res = this->parent;
+	while(res && res->type != typ) {
+		res = res->parent;
+	}
+	return res;
 }
 
 std::string stmt_base_t::typestr()

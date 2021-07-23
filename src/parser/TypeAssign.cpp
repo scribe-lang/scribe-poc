@@ -22,35 +22,30 @@ namespace sc
 namespace parser
 {
 static bool init_templ_func(VarMgr &vars, stmt_base_t *lhs,
-			    const std::vector<type_base_t *> &calltemplates)
+			    const std::vector<type_base_t *> &calltemplates, const bool &comptime)
 {
-	if(calltemplates.empty()) return true;
-	stmt_base_t *templfnparent = lhs->vtyp->parent;
+	if(calltemplates.empty() && !comptime) return true;
+	// TODO: handle comptime
+	stmt_base_t *templfnparent = lhs->vtyp->parent->get_parent_with_type(BLOCK);
 	type_func_t *origsig	   = static_cast<type_func_t *>(lhs->vtyp);
-	while(templfnparent && templfnparent->type != BLOCK) {
-		templfnparent = templfnparent->parent;
-	}
 	if(!templfnparent) {
 		err::set(lhs->line, lhs->col,
 			 "function definition for specialization is not in a block!");
 		return false;
 	}
-	stmt_base_t *tmp = lhs->vtyp->parent;
-	while(tmp && tmp->type != VAR) {
-		tmp = tmp->parent;
-	}
-	if(!tmp) {
+	stmt_base_t *fndefvar = lhs->vtyp->parent->get_parent_with_type(VAR);
+	if(!fndefvar) {
 		err::set(lhs->line, lhs->col,
 			 "could not find function definition's variable declaration!");
 		return false;
 	}
-	tmp		= tmp->copy(false);
-	stmt_var_t *var = as<stmt_var_t>(tmp);
+	fndefvar	= fndefvar->copy(false);
+	stmt_var_t *var = as<stmt_var_t>(fndefvar);
 	assert(var->val && var->val->type == FNDEF && var->val &&
 	       "expected function definition as variable value for template initialization");
 	stmt_fndef_t *fn = as<stmt_fndef_t>(var->val);
 	if(!fn->blk) {
-		delete tmp;
+		delete fndefvar;
 		return false;
 	}
 	if(vars.current_src() == fn->src_id) {
@@ -65,17 +60,46 @@ static bool init_templ_func(VarMgr &vars, stmt_base_t *lhs,
 		const std::string &t = fn->sig->templates[i].data.s;
 		vars.add_copy(t, calltemplates[i]);
 	}
-	for(size_t i = 0; i < fn->sig->params.size(); ++i) {
-		const std::string &v = fn->sig->params[i]->name.data.s;
-		vars.add_copy(v, origsig->args[i]);
-	}
 	fn->sig->templates.clear();
+	bool applied_variadic_name = false;
+	size_t variadic_id	   = 0;
+	for(size_t i = 0, j = 0; i < origsig->args.size() && j < fn->sig->params.size(); ++i, ++j) {
+		type_base_t *o = origsig->args[i];
+		std::string v  = fn->sig->params[j]->name.data.s;
+		if(!(o->info & VARIADIC)) continue;
+		--j;
+		v += "." + std::to_string(variadic_id++);
+		o = o->copy();
+		o->info &= ~VARIADIC;
+		vars.add(v, o);
+	}
+	fn->sig->comptime = false; // because body of function is not read if comptime is true
 	if(!fn->assign_type(vars)) {
 		err::set(lhs->line, lhs->col,
 			 "failed to specialize template function definition: %s",
 			 lhs->vtyp->str().c_str());
-		delete tmp;
+		delete fndefvar;
 		return false;
+	}
+	fn->sig->comptime = comptime;
+	if(fn->sig->vtyp) delete fn->sig->vtyp;
+	if(fn->vtyp) delete fn->vtyp;
+	if(var->vtyp) delete var->vtyp;
+	fn->sig->vtyp = origsig->copy();
+	fn->vtyp      = fn->sig->vtyp->copy();
+	var->vtyp     = fn->vtyp->copy();
+	if(comptime) {
+		// TODO: make executecomptime independent, rename it to const folding or something
+		// add the comptime resolved argument list to the function definition argument list
+		// to break the need of executecomptime to be with assign_type
+		stmt_fndef_t *res = static_cast<stmt_fndef_t *>(fn->executecomptime(vars));
+		if(!res) {
+			err::set(lhs->line, lhs->col, "failed to execute comptime function");
+			return false;
+		}
+		delete fn;
+		fn	 = res;
+		var->val = fn;
 	}
 	vars.popfret();
 	vars.poplayer();
@@ -83,8 +107,7 @@ static bool init_templ_func(VarMgr &vars, stmt_base_t *lhs,
 		vars.unlock_scope();
 	}
 	var->is_specialized = true;
-	if(var->vtyp) delete var->vtyp;
-	var->vtyp		= fn->vtyp->copy();
+
 	stmt_block_t *tfnparent = static_cast<stmt_block_t *>(templfnparent);
 	tfnparent->stmts.push_back(var);
 	return true;
@@ -218,14 +241,20 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 		err::set(lhs->line, lhs->col, "failed to determine type of LHS");
 		return false;
 	}
-	if(oper.tok.val != lex::DOT && rhs && !rhs->assign_type(vars)) {
+	if(oper.tok.val != lex::DOT && oper.tok.val != lex::ARROW && rhs && !rhs->assign_type(vars))
+	{
 		err::set(rhs->line, rhs->col, "failed to determine type of RHS");
 		return false;
 	}
 	// TODO: or-var & or-blk
 	switch(oper.tok.val) {
+	case lex::ARROW:
+		if(lhs->vtyp->ptr == 0) {
+			err::set(line, col, "arrow operator only works for pointer types");
+			return false;
+		}
 	case lex::DOT: {
-		assert(rhs->type == SIMPLE && "RHS for dot MUST be a simple type");
+		assert(rhs->type == SIMPLE && "RHS for dot/arrow MUST be a simple type");
 		if(lhs->vtyp->type != TSTRUCT) {
 			err::set(line, col,
 				 "LHS must be a structure to use the dot operator, found: %s",
@@ -240,9 +269,12 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 			return false;
 		}
 		stmt_simple_t *rsim = static_cast<stmt_simple_t *>(rhs);
-		type_base_t *res    = lst->get_field(rsim->val.data.s);
+		size_t ptr	    = lst->ptr;
+		if(oper.tok.val == lex::ARROW) --ptr;
+		type_base_t *res = ptr == 0 ? lst->get_field(rsim->val.data.s) : nullptr;
 		if(!res && !(res = vars.get_funcmap_copy(rsim->val.data.s, this))) {
-			err::set(line, col, "no function or struct (%s) field named '%s' exists",
+			err::set(line, col,
+				 "no function or struct field (in '%s') named '%s' exists",
 				 lst->str().c_str(), rsim->val.data.s.c_str());
 			return false;
 		}
@@ -257,6 +289,7 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 		       "RHS for function call must be a call info (compiler failure)");
 		stmt_fncallinfo_t *finfo = static_cast<stmt_fncallinfo_t *>(rhs);
 		std::vector<type_base_t *> calltemplates;
+		bool comptime = false;
 		if(lhs->vtyp->type != TFUNC && lhs->vtyp->type != TSTRUCT &&
 		   lhs->vtyp->type != TFUNCMAP) {
 			err::set(lhs->line, lhs->col,
@@ -275,6 +308,7 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 			}
 			delete lhs->vtyp;
 			lhs->vtyp = vtyp;
+			comptime  = static_cast<type_func_t *>(vtyp)->comptime;
 			vtyp	  = static_cast<type_func_t *>(lhs->vtyp)->rettype->copy();
 		} else if(lhs->vtyp->type == TFUNC) {
 			type_func_t *oldfn = static_cast<type_func_t *>(lhs->vtyp);
@@ -294,6 +328,7 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 					 "function during type assignment");
 				return false;
 			}
+			comptime = fn->comptime;
 			if(!vtyp) vtyp = fn->rettype->copy();
 		} else if(lhs->vtyp->type == TSTRUCT) {
 			type_struct_t *st = static_cast<type_struct_t *>(lhs->vtyp);
@@ -315,7 +350,7 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 			break; // no need to clone the struct
 		}
 		// apply stmt template specialization
-		if(!init_templ_func(vars, lhs, calltemplates)) return false;
+		if(!init_templ_func(vars, lhs, calltemplates, comptime)) return false;
 		break;
 	}
 	case lex::SUBS: {
@@ -330,15 +365,36 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 			if(!found_compat) {
 				err::set(line, col,
 					 "variadics can only take one of the "
-					 "primitive numeric types as index, found: %s",
+					 "primitive numeric types (as index), found: %s",
 					 rhs->vtyp->str().c_str());
 				return false;
 			}
+			err::reset();
 			vtyp = lhs->vtyp->copy();
 			vtyp->info &= ~VARIADIC;
 			break;
 		}
-		err::set(line, col, "unimplemented subscript");
+		if(lhs->vtyp->ptr > 0) {
+			bool found_compat = false;
+			for(auto &bn : basenumtypes()) {
+				if(rhs->vtyp->compatible(vars.get(bn, this), line, col)) {
+					found_compat = true;
+					break;
+				}
+			}
+			if(!found_compat) {
+				err::set(line, col,
+					 "pointer subscript can only take one of the "
+					 "primitive numeric types (as index), found: %s",
+					 rhs->vtyp->str().c_str());
+				return false;
+			}
+			vtyp = lhs->vtyp->copy();
+			--vtyp->ptr;
+			break;
+		}
+		err::set(line, col, "unimplemented subscript for type: %s",
+			 lhs->vtyp->str().c_str());
 		return false;
 	}
 	// address of
@@ -359,9 +415,9 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 		break;
 	}
 	case lex::ASSN: {
-		stmt_base_t *tmp = lhs;
-		lhs		 = rhs;
-		rhs		 = tmp;
+		stmt_base_t *store = lhs;
+		lhs		   = rhs;
+		rhs		   = store;
 	}
 	// Arithmetic
 	case lex::ADD:
@@ -420,19 +476,19 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 		stmt_fncallinfo_t *fci = new stmt_fncallinfo_t(src_id, line, col, {}, {lhs});
 		if(rhs) fci->args.push_back(rhs);
 		std::vector<type_base_t *> calltemplates;
-		type_func_t *tmp = fn->decide_func(fci, calltemplates);
-		if(!tmp) {
+		type_func_t *decidedfn = fn->decide_func(fci, calltemplates);
+		if(!decidedfn) {
 			err::set(line, col, "function '%s' does not exist for type: %s",
 				 oper.tok.str().c_str(), lhs->vtyp->str().c_str());
 			fci->args.clear();
 			delete fci;
 			return false;
 		}
-		if(!init_templ_func(vars, lhs, calltemplates)) return false;
+		if(!init_templ_func(vars, lhs, calltemplates, false)) return false;
 		fci->args.clear();
-		vtyp = static_cast<type_func_t *>(tmp)->rettype->copy();
+		vtyp = static_cast<type_func_t *>(decidedfn)->rettype->copy();
 		delete fci;
-		delete tmp;
+		delete decidedfn;
 		break;
 	}
 	default: err::set(oper, "nonexistent operator"); return false;
@@ -498,7 +554,8 @@ bool stmt_fnsig_t::assign_type(VarMgr &vars)
 	}
 	size_t layer = vars.getlayer() - 1;
 	if(parent && parent->type == FNDEF) --layer;
-	vtyp = new type_func_t(this, 0, 0, layer, templates.size(), args, rettype->vtyp->copy());
+	vtyp =
+	new type_func_t(this, 0, 0, layer, templates.size(), comptime, args, rettype->vtyp->copy());
 	return true;
 }
 
@@ -513,7 +570,7 @@ bool stmt_fndef_t::assign_type(VarMgr &vars)
 		err::set(sig->line, sig->col, "failed to assign type to function signature");
 		return false;
 	}
-	if(sig->templates.empty() && blk) {
+	if(sig->templates.empty() && !sig->comptime && blk) {
 		vars.pushfret(sig->rettype->vtyp);
 		if(!blk->assign_type(vars)) {
 			err::set(blk->line, blk->col, "failed to assign type in function block");

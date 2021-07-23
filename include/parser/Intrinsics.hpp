@@ -24,6 +24,7 @@ INTRINSIC(import);
 INTRINSIC(as);
 INTRINSIC(szof);
 INTRINSIC(typid);
+INTRINSIC(va_len);
 } // namespace parser
 } // namespace sc
 

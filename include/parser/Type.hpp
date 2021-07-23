@@ -47,6 +47,7 @@ enum Types
 	TENUM,
 	TFUNC,
 	TFUNCMAP,
+	TVARIADIC,
 };
 
 typedef bool (*intrinsic_fn_t)(VarMgr &vars, stmt_base_t *stmt);
@@ -167,15 +168,17 @@ struct type_func_t : public type_base_t
 {
 	size_t scope;
 	size_t templ;
+	bool comptime;
 	std::vector<type_base_t *> args;
 	type_base_t *rettype;
 
 	type_func_t(stmt_base_t *parent, const size_t &ptr, const size_t &info, const size_t &scope,
-		    const size_t &templ, const std::vector<type_base_t *> &args,
-		    type_base_t *rettype);
+		    const size_t &templ, const bool &comptime,
+		    const std::vector<type_base_t *> &args, type_base_t *rettype);
 	type_func_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
 		    intrinsic_fn_t intrin_fn, const size_t &scope, const size_t &templ,
-		    const std::vector<type_base_t *> &args, type_base_t *rettype);
+		    const bool &comptime, const std::vector<type_base_t *> &args,
+		    type_base_t *rettype);
 	~type_func_t();
 
 	type_base_t *copy();
@@ -208,6 +211,22 @@ struct type_funcmap_t : public type_base_t
 	type_func_t *decide_func(stmt_fncallinfo_t *callinfo,
 				 std::vector<type_base_t *> &templates);
 	type_func_t *decide_func(type_base_t *vartype);
+};
+
+struct type_variadic_t : public type_base_t
+{
+	std::vector<type_base_t *> args;
+	type_variadic_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
+			const std::vector<type_base_t *> &args);
+	type_variadic_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr,
+			const size_t &info, const std::vector<type_base_t *> &args);
+
+	type_base_t *copy();
+	type_base_t *specialize(const std::vector<type_base_t *> &templates);
+	bool compatible(type_base_t *rhs, const size_t &line, const size_t &col);
+
+	std::string str();
+	std::string mangled_name();
 };
 } // namespace parser
 } // namespace sc

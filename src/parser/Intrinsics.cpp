@@ -98,5 +98,27 @@ INTRINSIC(typid)
 	printf("called typid intrinsic\n");
 	return true;
 }
+INTRINSIC(va_len)
+{
+	printf("called va_len intrinsic\n");
+	// stmt_fndef_t *fn = static_cast<stmt_fndef_t *>(stmt->get_parent_with_type(FNDEF));
+	// if(!fn) {
+	// 	err::set(stmt->line, stmt->col, "this function must be called within a function");
+	// 	return false;
+	// }
+	// if(!fn->vtyp) {
+	// 	err::set(stmt->line, stmt->col,
+	// 		 "the function enclosing this intrinsic is not a variadic function");
+	// 	return false;
+	// }
+	// size_t variadics = 0;
+	// for(auto &a : static_cast<type_func_t *>(fn->sig->vtyp)->args) {
+	// 	if(a->info & VARIADIC) ++variadics;
+	// }
+	// printf("function contains %zu variadics\n", variadics);
+	if(stmt->vtyp) delete stmt->vtyp;
+	stmt->vtyp = vars.get_copy("i32", stmt->parent);
+	return true;
+}
 } // namespace parser
 } // namespace sc
