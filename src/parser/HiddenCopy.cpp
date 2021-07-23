@@ -42,14 +42,12 @@ stmt_base_t *stmt_type_t::hidden_copy(const bool &copy_vtyp)
 {
 	stmt_base_t *newfn = fn ? fn->hidden_copy(copy_vtyp) : nullptr;
 	std::vector<stmt_base_t *> newcounts;
-	for(auto &c : counts) newcounts.push_back(c->hidden_copy(copy_vtyp));
 	if(fn) {
 		stmt_base_t *res = new stmt_type_t(src_id, line, col, fn);
 		if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
 		return res;
 	}
-	stmt_base_t *res =
-	new stmt_type_t(src_id, line, col, ptr, info, name, templates, newcounts);
+	stmt_base_t *res = new stmt_type_t(src_id, line, col, ptr, info, name, templates);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
 	res->is_intrin = is_intrin;
 	return res;

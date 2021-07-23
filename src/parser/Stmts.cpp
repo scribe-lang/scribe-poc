@@ -100,19 +100,16 @@ void stmt_block_t::stmt_block_t::disp(const bool &has_next)
 stmt_type_t::stmt_type_t(const size_t &src_id, const size_t &line, const size_t &col,
 			 const size_t &ptr, const size_t &info,
 			 const std::vector<lex::Lexeme> &name,
-			 const std::vector<lex::Lexeme> &templates,
-			 const std::vector<stmt_base_t *> &counts)
+			 const std::vector<lex::Lexeme> &templates)
 	: stmt_base_t(TYPE, src_id, line, col), func(false), ptr(ptr), info(info), name(name),
-	  templates(templates), fn(nullptr), counts(counts)
+	  templates(templates), fn(nullptr)
 {}
 stmt_type_t::stmt_type_t(const size_t &src_id, const size_t &line, const size_t &col,
 			 stmt_base_t *fn)
-	: stmt_base_t(TYPE, src_id, line, col), func(true), ptr(0), info(0), name({}), fn(fn),
-	  counts()
+	: stmt_base_t(TYPE, src_id, line, col), func(true), ptr(0), info(0), name({}), fn(fn)
 {}
 stmt_type_t::~stmt_type_t()
 {
-	for(auto &c : counts) delete c;
 	if(fn) delete fn;
 }
 
@@ -143,16 +140,8 @@ void stmt_type_t::disp(const bool &has_next)
 		tname += ">";
 	}
 	tio::taba(has_next);
-	tio::print(!counts.empty(), "Type: %s%s\n", tname.c_str(),
+	tio::print(false, "Type: %s%s\n", tname.c_str(),
 		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
-	if(!counts.empty()) {
-		tio::print(false, "Array counts:\n");
-		tio::taba(false);
-		for(size_t i = 0; i < counts.size(); ++i) {
-			counts[i]->disp(i != counts.size() - 1);
-		}
-		tio::tabr();
-	}
 	tio::tabr();
 }
 
@@ -166,9 +155,6 @@ std::string stmt_type_t::getname()
 	if(info & CONST) tname += "const ";
 	if(info & VOLATILE) tname += "volatile ";
 	if(info & VARIADIC) tname = "..." + tname;
-	for(auto &c : counts) {
-		tname = "[" + c->typestr() + "]";
-	}
 	for(auto &n : name) tname += n.data.s.empty() ? n.tok.cstr() : n.data.s;
 	return tname;
 }

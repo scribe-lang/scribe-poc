@@ -51,12 +51,6 @@ bool stmt_type_t::call_intrinsic(VarMgr &vars)
 		err::set(line, col, "failed to call intrinsic for function type");
 		return false;
 	}
-	for(auto &c : counts) {
-		if(!c->call_intrinsic(vars)) {
-			err::set(line, col, "failed to call intrinsic for array subscript");
-			return false;
-		}
-	}
 	return true;
 }
 

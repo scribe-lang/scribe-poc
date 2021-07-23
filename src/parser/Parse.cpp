@@ -102,7 +102,6 @@ bool parse_type(ParseHelper &p, stmt_type_t *&type)
 	size_t info = 0;
 	std::vector<lex::Lexeme> name;
 	std::vector<lex::Lexeme> templates;
-	std::vector<stmt_base_t *> counts;
 	stmt_base_t *count = nullptr;
 	stmt_base_t *fn	   = nullptr;
 	bool dot_turn	   = false; // to ensure type name is in the form <name><dot><name>...
@@ -124,25 +123,6 @@ bool parse_type(ParseHelper &p, stmt_type_t *&type)
 	if(p.acceptn(lex::STATIC)) info |= TypeInfoMask::STATIC;
 	if(p.acceptn(lex::CONST)) info |= TypeInfoMask::CONST;
 	if(p.acceptn(lex::VOLATILE)) info |= TypeInfoMask::VOLATILE;
-
-begin_brack:
-	if(p.acceptn(lex::LBRACK)) {
-		if(p.accept(lex::INT)) {
-			count =
-			new stmt_simple_t(p.get_src(), p.peak().line, p.peak().col_beg, p.peak());
-			p.next();
-		} else if(!parse_expr(p, count)) {
-			return false;
-		}
-		if(!p.acceptn(lex::RBRACK)) {
-			err::set(p.peak(), "expected closing bracket ']' for array size, found: %s",
-				 p.peak().tok.str().c_str());
-			goto fail;
-		}
-		counts.insert(counts.begin(), count);
-		count = nullptr;
-		if(p.accept(lex::LBRACK)) goto begin_brack;
-	}
 
 	while(p.accept(lex::IDEN, lex::DOT)) {
 		if(!dot_turn && !p.accept(lex::IDEN)) {
@@ -186,12 +166,10 @@ begin_brack:
 		return false;
 	}
 after_templates:
-	type =
-	new stmt_type_t(p.get_src(), start.line, start.col_beg, ptr, info, name, templates, counts);
+	type = new stmt_type_t(p.get_src(), start.line, start.col_beg, ptr, info, name, templates);
 	return true;
 fail:
 	if(count) delete count;
-	for(auto &c : counts) delete c;
 	if(fn) delete fn;
 	return false;
 }
@@ -1148,7 +1126,7 @@ post_args:
 		size_t line = p.peak(-1).line;
 		size_t col  = p.peak(-1).col_beg;
 		rettype	    = new stmt_type_t(p.get_src(), line, col, 0, 0,
-					      {lex::Lexeme(line, col, col, lex::VOID, "void")}, {}, {});
+					      {lex::Lexeme(line, col, col, lex::VOID, "void")}, {});
 	}
 
 	fsig = new stmt_fnsig_t(p.get_src(), start.line, start.col_beg, templates, params, rettype,

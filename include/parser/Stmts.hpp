@@ -96,12 +96,10 @@ struct stmt_type_t : public stmt_base_t
 	size_t info; // all from TypeInfoMask
 	std::vector<lex::Lexeme> name;
 	std::vector<lex::Lexeme> templates;
-	std::vector<stmt_base_t *> counts; // array counts (expr or int)
 	stmt_base_t *fn;
 	stmt_type_t(const size_t &src_id, const size_t &line, const size_t &col, const size_t &ptr,
 		    const size_t &info, const std::vector<lex::Lexeme> &name,
-		    const std::vector<lex::Lexeme> &templates,
-		    const std::vector<stmt_base_t *> &counts);
+		    const std::vector<lex::Lexeme> &templates);
 	stmt_type_t(const size_t &src_id, const size_t &line, const size_t &col, stmt_base_t *fn);
 	~stmt_type_t();
 

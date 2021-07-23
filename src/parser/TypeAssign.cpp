@@ -155,13 +155,6 @@ bool stmt_type_t::assign_type(VarMgr &vars)
 	} else {
 		vtyp = res->specialize(resolvabletemplates);
 	}
-	for(auto &c : counts) {
-		if(!c->assign_type(vars)) {
-			err::set(c->line, c->col, "failed to determine type of this statement");
-			return false;
-		}
-		vtyp->counts.push_back(c->vtyp->copy());
-	}
 	vtyp->info = info;
 	vtyp->ptr += ptr;
 	return true;

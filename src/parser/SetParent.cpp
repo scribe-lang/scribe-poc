@@ -40,7 +40,6 @@ void stmt_type_t::set_parent(stmt_base_t *parent)
 	this->parent = parent;
 	if(this->vtyp) this->vtyp->parent = parent;
 	if(fn) fn->set_parent(this);
-	for(auto &c : counts) c->set_parent(this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
