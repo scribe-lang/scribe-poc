@@ -45,7 +45,6 @@ INTRINSIC(import)
 	file = fs::abs_path(file);
 	std::string data;
 	std::vector<lex::Lexeme> toks;
-	parser::stmt_block_t *ptree = nullptr;
 
 	size_t src_id = vars.get_src_id(file);
 
@@ -60,9 +59,8 @@ INTRINSIC(import)
 		return false;
 	}
 
-	if(!parser::parse(file, toks, ptree)) {
+	if(!parser::parse(file, toks, vars)) {
 		err::show(stderr, data, file);
-		if(ptree) delete ptree;
 		return false;
 	}
 
@@ -77,12 +75,12 @@ gen_struct:
 	std::unordered_map<std::string, type_base_t *> &items = top->get_items();
 	if(items.empty()) return true;
 	type_struct_t *src_st = new type_struct_t(stmt, 0, 0, true, {}, {}, {});
+	src_st->is_def	      = false;
 	for(auto &i : items) {
 		src_st->add_field(i.first, i.second);
 	}
 	if(fncall->vtyp) delete fncall->vtyp;
 	fncall->vtyp = src_st;
-	delete ptree;
 	return true;
 }
 INTRINSIC(as)

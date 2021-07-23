@@ -69,20 +69,20 @@ int main(int argc, char **argv)
 		}
 	}
 
-	parser::stmt_block_t *ptree = nullptr;
-	if(!parser::parse(file, toks, ptree)) {
+	sc::parser::VarMgr vars;
+
+	if(!parser::parse(file, toks, vars)) {
 		err::show(stderr, data, file);
-		goto fail;
+		return 1;
 	}
 
 	if(args.has("parse") || args.has("semantic")) {
-		printf("Semantic Tree:\n");
-		ptree->disp(false);
+		printf("-------------------------------------------------- Semantic Tree(s) "
+		       "--------------------------------------------------\n");
+		for(auto &ptree : vars.get_managed_ptrees()) {
+			printf("\n\nSource: %s\n", vars.get_src_path(ptree.first).c_str());
+			ptree.second->disp(false);
+		}
 	}
-
-	if(ptree) delete ptree;
 	return 0;
-fail:
-	if(ptree) delete ptree;
-	return 1;
 }

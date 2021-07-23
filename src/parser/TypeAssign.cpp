@@ -53,11 +53,8 @@ static bool init_templ_func(VarMgr &vars, stmt_base_t *lhs,
 		delete tmp;
 		return false;
 	}
-	var->disp(false);
-	printf("Sig: %s\n", lhs->vtyp->str().c_str());
 	if(vars.current_src() == fn->src_id) {
-		type_func_t *ft = static_cast<type_func_t *>(lhs->vtyp);
-		vars.lock_scopes_before(ft->scope);
+		vars.lock_scopes_before(origsig->scope);
 	} else {
 		vars.pushsrc(fn->src_id);
 	}
@@ -66,13 +63,11 @@ static bool init_templ_func(VarMgr &vars, stmt_base_t *lhs,
 	// for each vars add signature variables
 	for(size_t i = 0; i < fn->sig->templates.size(); ++i) {
 		const std::string &t = fn->sig->templates[i].data.s;
-		printf("addingt: %s -> %s\n", t.c_str(), calltemplates[i]->str().c_str());
 		vars.add_copy(t, calltemplates[i]);
 	}
 	for(size_t i = 0; i < fn->sig->params.size(); ++i) {
-		printf("addingv: %s -> %s\n", fn->sig->params[i]->name.data.s.c_str(),
-		       origsig->args[i]->str().c_str());
-		vars.add_copy(fn->sig->params[i]->name.data.s, origsig->args[i]);
+		const std::string &v = fn->sig->params[i]->name.data.s;
+		vars.add_copy(v, origsig->args[i]);
 	}
 	fn->sig->templates.clear();
 	if(!fn->assign_type(vars)) {
@@ -88,9 +83,7 @@ static bool init_templ_func(VarMgr &vars, stmt_base_t *lhs,
 		vars.unlock_scope();
 	}
 	var->is_specialized = true;
-	if(fn->vtyp) delete fn->vtyp;
 	if(var->vtyp) delete var->vtyp;
-	fn->vtyp		= fn->sig->vtyp->copy();
 	var->vtyp		= fn->vtyp->copy();
 	stmt_block_t *tfnparent = static_cast<stmt_block_t *>(templfnparent);
 	tfnparent->stmts.push_back(var);

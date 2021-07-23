@@ -66,7 +66,7 @@ type_base_t *VarSrc::get(const std::string &name, const size_t &locked_from)
 	return nullptr;
 }
 
-VarMgr::VarMgr()
+VarMgr::VarMgr() : init_typefuncs_called(false)
 {
 	globals["void"]	     = new type_simple_t(nullptr, 0, 0, "void");
 	globals["i1"]	     = new type_simple_t(nullptr, 0, 0, "i1");
@@ -110,6 +110,10 @@ VarMgr::~VarMgr()
 	for(auto &g : globals) delete g.second;
 	for(auto &s : srcs) delete s.second;
 	for(auto &mfn : managedfnmaps) delete mfn;
+	for(auto &mpt : managedptrees) {
+		if(!mpt.second) continue;
+		delete mpt.second;
+	}
 }
 void VarMgr::init_typefns()
 {
@@ -124,6 +128,8 @@ void VarMgr::init_typefns()
 	add_primitive_integer_funcs("u64", *this);
 	add_primitive_integer_funcs("f32", *this);
 	add_primitive_integer_funcs("f64", *this);
+
+	init_typefuncs_called = true;
 }
 bool VarMgr::pushsrc(const size_t &src_id)
 {

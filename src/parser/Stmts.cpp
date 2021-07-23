@@ -143,7 +143,7 @@ void stmt_type_t::disp(const bool &has_next)
 		tname += ">";
 	}
 	tio::taba(has_next);
-	tio::print(has_next, "Type: %s%s\n", tname.c_str(),
+	tio::print(!counts.empty(), "Type: %s%s\n", tname.c_str(),
 		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
 	if(!counts.empty()) {
 		tio::print(false, "Array counts:\n");

@@ -14,6 +14,7 @@
 #ifndef PARSER_VAR_MGR_HPP
 #define PARSER_VAR_MGR_HPP
 
+#include <map>
 #include <string>
 #include <unordered_map>
 
@@ -82,18 +83,24 @@ class VarMgr
 	std::unordered_map<size_t, std::string> srcfiles;
 	std::unordered_map<std::string, type_base_t *> globals;
 	std::unordered_map<size_t, VarSrc *> srcs;
+	std::map<size_t, stmt_base_t *> managedptrees;
 	std::vector<VarSrc *> srcstack;
 	std::vector<size_t> srcidstack;
 	std::vector<type_funcmap_t *> managedfnmaps;
 	// types that function returns (for type checking return statement)
 	std::vector<type_base_t *> funcreturns;
 	std::vector<size_t> lockedlayers;
+	bool init_typefuncs_called; // init_typefns() has been called or not
 
 public:
 	VarMgr();
 	~VarMgr();
 	// MUST be called after at least one src has been pushed (pushsrc())
 	void init_typefns();
+	inline bool init_typefns_called()
+	{
+		return init_typefuncs_called;
+	}
 	inline void pushlayer()
 	{
 		srcstack.back()->pushlayer();
@@ -118,7 +125,7 @@ public:
 	}
 	inline bool src_exists(const size_t &src_id)
 	{
-		return srcfiles.find(src_id) != srcfiles.end();
+		return srcs.find(src_id) != srcs.end();
 	}
 	inline VarSrc *get_src(const size_t &src_id)
 	{
@@ -158,6 +165,20 @@ public:
 	inline bool hasfret()
 	{
 		return !funcreturns.empty();
+	}
+
+	inline void manage_ptree(const size_t &src_id, stmt_base_t *tree)
+	{
+		managedptrees[src_id] = tree;
+	}
+	inline std::map<size_t, stmt_base_t *> &get_managed_ptrees()
+	{
+		return managedptrees;
+	}
+	inline stmt_base_t *get_managed_ptree(const size_t &src_id)
+	{
+		if(managedptrees.find(src_id) == managedptrees.end()) return nullptr;
+		return managedptrees[src_id];
 	}
 
 	size_t get_src_id(const std::string &src_path);

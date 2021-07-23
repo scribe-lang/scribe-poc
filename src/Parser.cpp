@@ -21,16 +21,17 @@ namespace sc
 namespace parser
 {
 // on successful parse, returns true, and tree is allocated
-bool parse(const std::string &file, std::vector<lex::Lexeme> &toks, stmt_block_t *&tree)
+bool parse(const std::string &file, std::vector<lex::Lexeme> &toks, VarMgr &vars)
 {
-	parser::VarMgr vars;
 	size_t src_id = vars.get_src_id(file);
 	ParseHelper p(toks, src_id);
+	stmt_block_t *tree = nullptr;
 	if(!parse_block(p, tree, false)) return false;
+	vars.manage_ptree(src_id, tree);
 	tree->set_parent(nullptr);
 	vars.addsrc(src_id);
 	vars.pushsrc(src_id);
-	vars.init_typefns();
+	if(!vars.init_typefns_called()) vars.init_typefns();
 	if(!tree->assign_type(vars)) {
 		err::set(tree->line, tree->col, "failed to assign types while parsing");
 		return false;

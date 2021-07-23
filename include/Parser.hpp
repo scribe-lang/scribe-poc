@@ -18,13 +18,14 @@
 
 #include "Lex.hpp"
 #include "parser/Parse.hpp"
+#include "parser/VarMgr.hpp"
 
 namespace sc
 {
 namespace parser
 {
 // on successful parse, returns true, and tree is allocated
-bool parse(const std::string &file, std::vector<lex::Lexeme> &toks, stmt_block_t *&tree);
+bool parse(const std::string &file, std::vector<lex::Lexeme> &toks, VarMgr &vars);
 } // namespace parser
 } // namespace sc
 
