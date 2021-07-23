@@ -75,10 +75,6 @@ bool specialize_type(type_base_t *&src, const std::vector<type_base_t *> &templs
 			err::set(line, col, "failed to specialize function return type");
 			return false;
 		}
-		if(tfn->parent && !tfn->parent->specialize(templs)) {
-			err::set(line, col, "failed to specialize function definition");
-			return false;
-		}
 		delete src;
 		src = copy;
 		break;
@@ -130,7 +126,6 @@ bool stmt_type_t::specialize(const std::vector<type_base_t *> &templs)
 		}
 		return update_type(vtyp, fn->vtyp);
 	}
-	templates.clear();
 	is_specialized = true;
 	return update_type(vtyp, templs, line, col);
 }
@@ -227,7 +222,6 @@ bool stmt_fnsig_t::specialize(const std::vector<type_base_t *> &templs)
 		err::set(rettype->line, rettype->col, "failed to specialize function return type");
 		return false;
 	}
-	templates.clear();
 	is_specialized = true;
 	return update_type(vtyp, templs, line, col);
 }
@@ -312,7 +306,6 @@ bool stmt_struct_t::specialize(const std::vector<type_base_t *> &templs)
 			return false;
 		}
 	}
-	templates.clear();
 	is_specialized = true;
 	return update_type(vtyp, templs, line, col);
 }

@@ -21,10 +21,12 @@ namespace sc
 {
 namespace parser
 {
-static bool init_templ_func(stmt_base_t *lhs, const std::vector<type_base_t *> &calltemplates)
+static bool init_templ_func(VarMgr &vars, stmt_base_t *lhs,
+			    const std::vector<type_base_t *> &calltemplates)
 {
 	if(calltemplates.empty()) return true;
 	stmt_base_t *templfnparent = lhs->vtyp->parent;
+	type_func_t *origsig	   = static_cast<type_func_t *>(lhs->vtyp);
 	while(templfnparent && templfnparent->type != BLOCK) {
 		templfnparent = templfnparent->parent;
 	}
@@ -42,16 +44,56 @@ static bool init_templ_func(stmt_base_t *lhs, const std::vector<type_base_t *> &
 			 "could not find function definition's variable declaration!");
 		return false;
 	}
-	tmp = tmp->copy();
-	if(!tmp->specialize(calltemplates)) {
+	tmp		= tmp->copy(false);
+	stmt_var_t *var = as<stmt_var_t>(tmp);
+	assert(var->val && var->val->type == FNDEF && var->val &&
+	       "expected function definition as variable value for template initialization");
+	stmt_fndef_t *fn = as<stmt_fndef_t>(var->val);
+	if(!fn->blk) {
+		delete tmp;
+		return false;
+	}
+	var->disp(false);
+	printf("Sig: %s\n", lhs->vtyp->str().c_str());
+	if(vars.current_src() == fn->src_id) {
+		type_func_t *ft = static_cast<type_func_t *>(lhs->vtyp);
+		vars.lock_scopes_before(ft->scope);
+	} else {
+		vars.pushsrc(fn->src_id);
+	}
+	vars.pushlayer();
+	vars.pushfret(origsig->rettype);
+	// for each vars add signature variables
+	for(size_t i = 0; i < fn->sig->templates.size(); ++i) {
+		const std::string &t = fn->sig->templates[i].data.s;
+		printf("addingt: %s -> %s\n", t.c_str(), calltemplates[i]->str().c_str());
+		vars.add_copy(t, calltemplates[i]);
+	}
+	for(size_t i = 0; i < fn->sig->params.size(); ++i) {
+		printf("addingv: %s -> %s\n", fn->sig->params[i]->name.data.s.c_str(),
+		       origsig->args[i]->str().c_str());
+		vars.add_copy(fn->sig->params[i]->name.data.s, origsig->args[i]);
+	}
+	fn->sig->templates.clear();
+	if(!fn->assign_type(vars)) {
 		err::set(lhs->line, lhs->col,
 			 "failed to specialize template function definition: %s",
 			 lhs->vtyp->str().c_str());
+		delete tmp;
 		return false;
 	}
-	printf("here's the all new template deduced function\n");
+	vars.popfret();
+	vars.poplayer();
+	if(vars.current_src() == fn->src_id) {
+		vars.unlock_scope();
+	}
+	var->is_specialized = true;
+	if(fn->vtyp) delete fn->vtyp;
+	if(var->vtyp) delete var->vtyp;
+	fn->vtyp		= fn->sig->vtyp->copy();
+	var->vtyp		= fn->vtyp->copy();
 	stmt_block_t *tfnparent = static_cast<stmt_block_t *>(templfnparent);
-	tfnparent->stmts.push_back(tmp);
+	tfnparent->stmts.push_back(var);
 	return true;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -80,9 +122,14 @@ bool stmt_block_t::assign_type(VarMgr &vars)
 
 bool stmt_type_t::assign_type(VarMgr &vars)
 {
+	std::vector<type_base_t *> resolvabletemplates;
 	for(size_t i = 0; i < templates.size(); ++i) {
+		if(vars.exists(templates[i].data.s, false, false)) {
+			type_base_t *v = vars.get(templates[i].data.s, this);
+			resolvabletemplates.push_back(v);
+			continue;
+		}
 		std::string tname = "@" + std::to_string(i);
-		if(vars.exists(templates[i].data.s, false, false)) continue;
 		vars.add(templates[i].data.s, new type_simple_t(0, 0, true, tname));
 	}
 	if(func) {
@@ -110,7 +157,11 @@ bool stmt_type_t::assign_type(VarMgr &vars)
 			return false;
 		}
 	}
-	vtyp = res->copy();
+	if(resolvabletemplates.empty()) {
+		vtyp = res->copy();
+	} else {
+		vtyp = res->specialize(resolvabletemplates);
+	}
 	for(auto &c : counts) {
 		if(!c->assign_type(vars)) {
 			err::set(c->line, c->col, "failed to determine type of this statement");
@@ -272,10 +323,13 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 					 "failed to instantiate struct with given arguments");
 				return false;
 			}
+			delete lhs->vtyp;
+			lhs->vtyp = vtyp;
+			vtyp	  = lhs->vtyp->copy();
 			break; // no need to clone the struct
 		}
 		// apply stmt template specialization
-		if(!init_templ_func(lhs, calltemplates)) return false;
+		if(!init_templ_func(vars, lhs, calltemplates)) return false;
 		break;
 	}
 	case lex::SUBS: err::set(line, col, "unimplemented subscript"); return false;
@@ -355,7 +409,7 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 			err::set(line, col, "function '%s' does not exist", oper.tok.str().c_str());
 			return false;
 		}
-		stmt_fncallinfo_t *fci = new stmt_fncallinfo_t(line, col, {}, {lhs});
+		stmt_fncallinfo_t *fci = new stmt_fncallinfo_t(src_id, line, col, {}, {lhs});
 		if(rhs) fci->args.push_back(rhs);
 		std::vector<type_base_t *> calltemplates;
 		type_func_t *tmp = fn->decide_func(fci, calltemplates);
@@ -365,7 +419,7 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 			delete fci;
 			return false;
 		}
-		if(!init_templ_func(lhs, calltemplates)) return false;
+		if(!init_templ_func(vars, lhs, calltemplates)) return false;
 		fci->args.clear();
 		vtyp = static_cast<type_func_t *>(tmp)->rettype->copy();
 		delete fci;
@@ -391,7 +445,6 @@ bool stmt_var_t::assign_type(VarMgr &vars)
 		err::set(name, "variable '%s' already exists in scope", name.data.s.c_str());
 		return false;
 	}
-	vars.pushlayer();
 	if(val && !val->assign_type(vars)) {
 		err::set(name, "unable to determine type of value of this variable");
 		return false;
@@ -406,7 +459,6 @@ bool stmt_var_t::assign_type(VarMgr &vars)
 	} else if(val) {
 		vtyp = val->vtyp->copy();
 	}
-	vars.poplayer();
 	if(val && val->type == FNDEF) return vars.add_func_copy(name.data.s, vtyp);
 	return vars.add_copy(name.data.s, vtyp);
 }
@@ -418,6 +470,7 @@ bool stmt_var_t::assign_type(VarMgr &vars)
 bool stmt_fnsig_t::assign_type(VarMgr &vars)
 {
 	for(size_t i = 0; i < templates.size(); ++i) {
+		if(vars.exists(templates[i].data.s, false, false)) continue;
 		std::string tname = "@" + std::to_string(i);
 		vars.add(templates[i].data.s, new type_simple_t(0, 0, true, tname));
 	}
@@ -435,7 +488,9 @@ bool stmt_fnsig_t::assign_type(VarMgr &vars)
 	for(auto &p : params) {
 		args.push_back(p->vtyp->copy());
 	}
-	vtyp = new type_func_t(this, 0, 0, templates.size(), args, rettype->vtyp->copy());
+	size_t layer = vars.getlayer() - 1;
+	if(parent && parent->type == FNDEF) --layer;
+	vtyp = new type_func_t(this, 0, 0, layer, templates.size(), args, rettype->vtyp->copy());
 	return true;
 }
 
@@ -531,6 +586,7 @@ bool stmt_struct_t::assign_type(VarMgr &vars)
 {
 	vars.pushlayer();
 	for(size_t i = 0; i < templates.size(); ++i) {
+		if(vars.exists(templates[i].data.s, false, false)) continue;
 		std::string tname = "@" + std::to_string(i);
 		vars.add(templates[i].data.s, new type_simple_t(0, 0, true, tname));
 	}

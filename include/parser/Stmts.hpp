@@ -54,17 +54,19 @@ struct stmt_base_t
 {
 	StmtType type;
 	stmt_base_t *parent;
+	size_t src_id;
 	size_t line;
 	size_t col;
 	type_base_t *vtyp;
 	bool is_specialized; // to prevent cycles (fn -> type_fn -> fn ...)
 	bool is_intrin;	     // if this is an intrinsic function call
-	stmt_base_t(const StmtType &type, const size_t &line, const size_t &col);
+	stmt_base_t(const StmtType &type, const size_t &src_id, const size_t &line,
+		    const size_t &col);
 	virtual ~stmt_base_t();
 
-	// NEVER use hidden_copy(); instead use copy()
-	stmt_base_t *copy();
-	virtual stmt_base_t *hidden_copy()				  = 0;
+	// NEVER use hidden_copy(const bool &copy_vtyp); instead use copy()
+	stmt_base_t *copy(const bool &copy_vtyp);
+	virtual stmt_base_t *hidden_copy(const bool &copy_vtyp)		  = 0;
 	virtual void disp(const bool &has_next)				  = 0;
 	virtual void set_parent(stmt_base_t *parent)			  = 0;
 	virtual bool assign_type(VarMgr &vars)				  = 0;
@@ -97,13 +99,14 @@ struct stmt_type_t : public stmt_base_t
 	std::vector<lex::Lexeme> templates;
 	std::vector<stmt_base_t *> counts; // array counts (expr or int)
 	stmt_base_t *fn;
-	stmt_type_t(const size_t &line, const size_t &col, const size_t &ptr, const size_t &info,
-		    const std::vector<lex::Lexeme> &name, const std::vector<lex::Lexeme> &templates,
+	stmt_type_t(const size_t &src_id, const size_t &line, const size_t &col, const size_t &ptr,
+		    const size_t &info, const std::vector<lex::Lexeme> &name,
+		    const std::vector<lex::Lexeme> &templates,
 		    const std::vector<stmt_base_t *> &counts);
-	stmt_type_t(const size_t &line, const size_t &col, stmt_base_t *fn);
+	stmt_type_t(const size_t &src_id, const size_t &line, const size_t &col, stmt_base_t *fn);
 	~stmt_type_t();
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -116,11 +119,11 @@ struct stmt_type_t : public stmt_base_t
 struct stmt_block_t : public stmt_base_t
 {
 	std::vector<stmt_base_t *> stmts;
-	stmt_block_t(const size_t &line, const size_t &col,
+	stmt_block_t(const size_t &src_id, const size_t &line, const size_t &col,
 		     const std::vector<stmt_base_t *> &stmts);
 	~stmt_block_t();
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -131,10 +134,11 @@ struct stmt_block_t : public stmt_base_t
 struct stmt_simple_t : public stmt_base_t
 {
 	lex::Lexeme val;
-	stmt_simple_t(const size_t &line, const size_t &col, const lex::Lexeme &val);
+	stmt_simple_t(const size_t &src_id, const size_t &line, const size_t &col,
+		      const lex::Lexeme &val);
 	~stmt_simple_t();
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -146,12 +150,12 @@ struct stmt_fncallinfo_t : public stmt_base_t
 {
 	std::vector<stmt_type_t *> templates;
 	std::vector<stmt_base_t *> args;
-	stmt_fncallinfo_t(const size_t &line, const size_t &col,
+	stmt_fncallinfo_t(const size_t &src_id, const size_t &line, const size_t &col,
 			  const std::vector<stmt_type_t *> &templates,
 			  const std::vector<stmt_base_t *> &args);
 	~stmt_fncallinfo_t();
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -168,11 +172,11 @@ struct stmt_expr_t : public stmt_base_t
 	stmt_block_t *or_blk;
 	lex::Lexeme or_blk_var;
 	// or_blk and or_blk_var can be set separately - nullptr/INVALID by default
-	stmt_expr_t(const size_t &line, const size_t &col, stmt_base_t *lhs,
+	stmt_expr_t(const size_t &src_id, const size_t &line, const size_t &col, stmt_base_t *lhs,
 		    const lex::Lexeme &oper, stmt_base_t *rhs);
 	~stmt_expr_t();
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -186,11 +190,11 @@ struct stmt_var_t : public stmt_base_t
 	stmt_type_t *vtype;
 	stmt_base_t *val; // either of expr, funcdef, enumdef, or structdef
 	// at least one of type or val must be present
-	stmt_var_t(const size_t &line, const size_t &col, const lex::Lexeme &name,
-		   stmt_type_t *vtype, stmt_base_t *val);
+	stmt_var_t(const size_t &src_id, const size_t &line, const size_t &col,
+		   const lex::Lexeme &name, stmt_type_t *vtype, stmt_base_t *val);
 	~stmt_var_t();
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -205,12 +209,12 @@ struct stmt_fnsig_t : public stmt_base_t
 	std::vector<stmt_var_t *> params;
 	stmt_type_t *rettype;
 	bool comptime;
-	stmt_fnsig_t(const size_t &line, const size_t &col,
+	stmt_fnsig_t(const size_t &src_id, const size_t &line, const size_t &col,
 		     const std::vector<lex::Lexeme> &templates, std::vector<stmt_var_t *> &params,
 		     stmt_type_t *rettype, const bool &comptime);
 	~stmt_fnsig_t();
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -222,10 +226,11 @@ struct stmt_fndef_t : public stmt_base_t
 {
 	stmt_fnsig_t *sig;
 	stmt_block_t *blk;
-	stmt_fndef_t(const size_t &line, const size_t &col, stmt_fnsig_t *sig, stmt_block_t *blk);
+	stmt_fndef_t(const size_t &src_id, const size_t &line, const size_t &col, stmt_fnsig_t *sig,
+		     stmt_block_t *blk);
 	~stmt_fndef_t();
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -238,10 +243,10 @@ struct stmt_header_t : public stmt_base_t
 	// name is comma separated list of include files - along with bracket/quotes to be used,
 	// flags is (optional) include cli parameters (space separated)
 	lex::Lexeme names, flags;
-	stmt_header_t(const size_t &line, const size_t &col, const lex::Lexeme &names,
-		      const lex::Lexeme &flags);
+	stmt_header_t(const size_t &src_id, const size_t &line, const size_t &col,
+		      const lex::Lexeme &names, const lex::Lexeme &flags);
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -253,9 +258,10 @@ struct stmt_lib_t : public stmt_base_t
 {
 	// flags is the space separated list of lib flags
 	lex::Lexeme flags;
-	stmt_lib_t(const size_t &line, const size_t &col, const lex::Lexeme &flags);
+	stmt_lib_t(const size_t &src_id, const size_t &line, const size_t &col,
+		   const lex::Lexeme &flags);
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -270,11 +276,12 @@ struct stmt_extern_t : public stmt_base_t
 	stmt_lib_t *libs;
 	stmt_fnsig_t *sig;
 	// headers and libs can be set separately - by default nullptr
-	stmt_extern_t(const size_t &line, const size_t &col, const lex::Lexeme &fname,
-		      stmt_header_t *headers, stmt_lib_t *libs, stmt_fnsig_t *sig);
+	stmt_extern_t(const size_t &src_id, const size_t &line, const size_t &col,
+		      const lex::Lexeme &fname, stmt_header_t *headers, stmt_lib_t *libs,
+		      stmt_fnsig_t *sig);
 	~stmt_extern_t();
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -286,11 +293,11 @@ struct stmt_enumdef_t : public stmt_base_t
 {
 	std::vector<stmt_var_t *> items;
 	// stmt_var_t contains only val(expr) here, no type
-	stmt_enumdef_t(const size_t &line, const size_t &col,
+	stmt_enumdef_t(const size_t &src_id, const size_t &line, const size_t &col,
 		       const std::vector<stmt_var_t *> &items);
 	~stmt_enumdef_t();
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -305,12 +312,12 @@ struct stmt_struct_t : public stmt_base_t
 	std::vector<lex::Lexeme> templates;
 	std::vector<stmt_var_t *> fields;
 	// stmt_var_t contains only type here, no val
-	stmt_struct_t(const size_t &line, const size_t &col, const bool &decl,
+	stmt_struct_t(const size_t &src_id, const size_t &line, const size_t &col, const bool &decl,
 		      const std::vector<lex::Lexeme> &templates,
 		      const std::vector<stmt_var_t *> &fields);
 	~stmt_struct_t();
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -322,11 +329,11 @@ struct stmt_vardecl_t : public stmt_base_t
 {
 	std::vector<stmt_var_t *> decls;
 	// stmt_var_t can contain any combination of type, in, val(any), or all three
-	stmt_vardecl_t(const size_t &line, const size_t &col,
+	stmt_vardecl_t(const size_t &src_id, const size_t &line, const size_t &col,
 		       const std::vector<stmt_var_t *> &decls);
 	~stmt_vardecl_t();
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -343,10 +350,11 @@ struct cond_t
 struct stmt_cond_t : public stmt_base_t
 {
 	std::vector<cond_t> conds;
-	stmt_cond_t(const size_t &line, const size_t &col, const std::vector<cond_t> &conds);
+	stmt_cond_t(const size_t &src_id, const size_t &line, const size_t &col,
+		    const std::vector<cond_t> &conds);
 	~stmt_cond_t();
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -359,11 +367,11 @@ struct stmt_forin_t : public stmt_base_t
 	lex::Lexeme iter;
 	stmt_base_t *in; // L01
 	stmt_block_t *blk;
-	stmt_forin_t(const size_t &line, const size_t &col, const lex::Lexeme &iter,
-		     stmt_base_t *in, stmt_block_t *blk);
+	stmt_forin_t(const size_t &src_id, const size_t &line, const size_t &col,
+		     const lex::Lexeme &iter, stmt_base_t *in, stmt_block_t *blk);
 	~stmt_forin_t();
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -378,11 +386,11 @@ struct stmt_for_t : public stmt_base_t
 	stmt_base_t *incr;
 	stmt_block_t *blk;
 	// init, cond, incr can be nullptr
-	stmt_for_t(const size_t &line, const size_t &col, stmt_base_t *init, stmt_base_t *cond,
-		   stmt_base_t *incr, stmt_block_t *blk);
+	stmt_for_t(const size_t &src_id, const size_t &line, const size_t &col, stmt_base_t *init,
+		   stmt_base_t *cond, stmt_base_t *incr, stmt_block_t *blk);
 	~stmt_for_t();
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -394,10 +402,11 @@ struct stmt_while_t : public stmt_base_t
 {
 	stmt_base_t *cond;
 	stmt_block_t *blk;
-	stmt_while_t(const size_t &line, const size_t &col, stmt_base_t *cond, stmt_block_t *blk);
+	stmt_while_t(const size_t &src_id, const size_t &line, const size_t &col, stmt_base_t *cond,
+		     stmt_block_t *blk);
 	~stmt_while_t();
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -408,10 +417,10 @@ struct stmt_while_t : public stmt_base_t
 struct stmt_ret_t : public stmt_base_t
 {
 	stmt_base_t *val;
-	stmt_ret_t(const size_t &line, const size_t &col, stmt_base_t *val);
+	stmt_ret_t(const size_t &src_id, const size_t &line, const size_t &col, stmt_base_t *val);
 	~stmt_ret_t();
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -420,9 +429,9 @@ struct stmt_ret_t : public stmt_base_t
 };
 struct stmt_cont_t : public stmt_base_t
 {
-	stmt_cont_t(const size_t &line, const size_t &col);
+	stmt_cont_t(const size_t &src_id, const size_t &line, const size_t &col);
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);
@@ -431,9 +440,9 @@ struct stmt_cont_t : public stmt_base_t
 };
 struct stmt_break_t : public stmt_base_t
 {
-	stmt_break_t(const size_t &line, const size_t &col);
+	stmt_break_t(const size_t &src_id, const size_t &line, const size_t &col);
 
-	stmt_base_t *hidden_copy();
+	stmt_base_t *hidden_copy(const bool &copy_vtyp);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
 	bool assign_type(VarMgr &vars);

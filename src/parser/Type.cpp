@@ -328,15 +328,17 @@ type_base_t *type_struct_t::get_field(const std::string &name)
 }
 
 type_func_t::type_func_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
-			 const size_t &templ, const std::vector<type_base_t *> &args,
-			 type_base_t *rettype)
-	: type_base_t(TFUNC, parent, ptr, info), templ(templ), args(args), rettype(rettype)
+			 const size_t &scope, const size_t &templ,
+			 const std::vector<type_base_t *> &args, type_base_t *rettype)
+	: type_base_t(TFUNC, parent, ptr, info), scope(scope), templ(templ), args(args),
+	  rettype(rettype)
 {}
 type_func_t::type_func_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr,
-			 const size_t &info, intrinsic_fn_t intrin_fn, const size_t &templ,
-			 const std::vector<type_base_t *> &args, type_base_t *rettype)
-	: type_base_t(id, TFUNC, parent, ptr, info, intrin_fn), templ(templ), args(args),
-	  rettype(rettype)
+			 const size_t &info, intrinsic_fn_t intrin_fn, const size_t &scope,
+			 const size_t &templ, const std::vector<type_base_t *> &args,
+			 type_base_t *rettype)
+	: type_base_t(id, TFUNC, parent, ptr, info, intrin_fn), scope(scope), templ(templ),
+	  args(args), rettype(rettype)
 {}
 type_func_t::~type_func_t()
 {
@@ -349,7 +351,8 @@ type_base_t *type_func_t::copy()
 	for(auto &a : args) {
 		newargs.push_back(a->copy());
 	}
-	return new type_func_t(id, parent, ptr, info, intrin_fn, templ, newargs, rettype->copy());
+	return new type_func_t(id, parent, ptr, info, intrin_fn, scope, templ, newargs,
+			       rettype->copy());
 }
 type_base_t *type_func_t::specialize(const std::vector<type_base_t *> &templates)
 {
@@ -358,7 +361,7 @@ type_base_t *type_func_t::specialize(const std::vector<type_base_t *> &templates
 	for(auto &a : args) {
 		newargs.push_back(a->specialize(templates));
 	}
-	return new type_func_t(id, parent, ptr, info, intrin_fn, templ, newargs, newret);
+	return new type_func_t(id, parent, ptr, info, intrin_fn, scope, templ, newargs, newret);
 }
 bool type_func_t::compatible(type_base_t *rhs, const size_t &line, const size_t &col)
 {
@@ -487,11 +490,11 @@ type_func_t *type_funcmap_t::decide_func(stmt_fncallinfo_t *callinfo,
 {
 	for(auto &fn : funcs) {
 		templates.clear();
-		printf("option: %s -> %s\n", fn.first.c_str(), fn.second->str().c_str());
+		// printf("option: %s -> %s\n", fn.first.c_str(), fn.second->str().c_str());
 		type_func_t *f = fn.second;
 		err::reset();
 		if(!(f = f->specialize_compatible_call(callinfo, templates))) continue;
-		printf("matched: %s -> %s\n", fn.first.c_str(), f->str().c_str());
+		// printf("matched: %s -> %s\n", fn.first.c_str(), f->str().c_str());
 		return f;
 	}
 	return nullptr;

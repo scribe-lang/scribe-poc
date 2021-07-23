@@ -17,6 +17,12 @@
 #include "parser/PrimitiveFuncs.hpp"
 #include "parser/Stmts.hpp"
 
+static size_t gen_src_id()
+{
+	static size_t id = 0;
+	return ++id;
+}
+
 namespace sc
 {
 namespace parser
@@ -34,19 +40,28 @@ bool VarSrc::add(const std::string &name, type_base_t *val)
 {
 	return stack.back()->add(name, val);
 }
-bool VarSrc::exists(const std::string &name, const bool &top_only)
+bool VarSrc::exists(const std::string &name, const size_t &locked_from, const bool &top_only)
 {
 	if(top_only) return stack.back()->exists(name);
+	for(size_t i = 0; i < stack.size(); ++i) {
+		if(i < locked_from) continue;
+	}
+	size_t i = stack.size() - 1;
 	for(auto rit = stack.rbegin(); rit != stack.rend(); ++rit) {
+		if(locked_from != size_t(-1) && i <= locked_from) break;
 		if((*rit)->exists(name)) return true;
+		--i;
 	}
 	return false;
 }
-type_base_t *VarSrc::get(const std::string &name)
+type_base_t *VarSrc::get(const std::string &name, const size_t &locked_from)
 {
+	size_t i = stack.size() - 1;
 	for(auto rit = stack.rbegin(); rit != stack.rend(); ++rit) {
+		if(locked_from != size_t(-1) && i <= locked_from) break;
 		type_base_t *res = (*rit)->get(name);
 		if(res) return res;
+		--i;
 	}
 	return nullptr;
 }
@@ -74,19 +89,19 @@ VarMgr::VarMgr()
 	type_struct_t *empty_struct = new type_struct_t(nullptr, 0, 0, false, {}, {}, {});
 	type_base_t *cstr	    = globals["*const u8"]->copy();
 
-	type_func_t *importfn = new type_func_t(nullptr, 0, 0, {}, {cstr}, empty_struct);
+	type_func_t *importfn = new type_func_t(nullptr, 0, 0, 0, {}, {cstr}, empty_struct);
 	importfn->intrin_fn   = intrinsic_import;
 	globals["import"]     = importfn;
 
-	type_func_t *asfn = new type_func_t(nullptr, 0, 0, 2, {templ1}, templ0);
+	type_func_t *asfn = new type_func_t(nullptr, 0, 0, 0, 2, {templ1}, templ0);
 	asfn->intrin_fn	  = intrinsic_as;
 	globals["as"]	  = asfn;
 
-	type_func_t *szfn = new type_func_t(nullptr, 0, 0, 1, {}, globals["i32"]->copy());
+	type_func_t *szfn = new type_func_t(nullptr, 0, 0, 0, 1, {}, globals["i32"]->copy());
 	szfn->intrin_fn	  = intrinsic_szof;
 	globals["sizeof"] = szfn;
 
-	type_func_t *typeidfn = new type_func_t(nullptr, 0, 0, 1, {}, globals["i32"]->copy());
+	type_func_t *typeidfn = new type_func_t(nullptr, 0, 0, 0, 1, {}, globals["i32"]->copy());
 	typeidfn->intrin_fn   = intrinsic_typid;
 	globals["typeid"]     = typeidfn;
 }
@@ -110,15 +125,17 @@ void VarMgr::init_typefns()
 	add_primitive_integer_funcs("f32", *this);
 	add_primitive_integer_funcs("f64", *this);
 }
-bool VarMgr::pushsrc(const std::string &path)
+bool VarMgr::pushsrc(const size_t &src_id)
 {
-	if(!src_exists(path)) return false;
-	srcstack.push_back(srcs[path]);
+	if(!src_exists(src_id)) return false;
+	srcstack.push_back(srcs[src_id]);
+	srcidstack.push_back(src_id);
 	return true;
 }
 void VarMgr::popsrc()
 {
 	srcstack.pop_back();
+	srcidstack.pop_back();
 }
 bool VarMgr::add(const std::string &name, type_base_t *val, const bool &global)
 {
@@ -140,12 +157,14 @@ bool VarMgr::add_copy(const std::string &name, type_base_t *val, const bool &glo
 }
 bool VarMgr::exists(const std::string &name, const bool &top_only, const bool &with_globals)
 {
-	if(srcstack.back()->exists(name, top_only)) return true;
+	size_t lock_from = lockedlayers.size() > 0 ? lockedlayers.back() : size_t(-1);
+	if(srcstack.back()->exists(name, lock_from, top_only)) return true;
 	return with_globals ? globals.find(name) != globals.end() : false;
 }
 type_base_t *VarMgr::get(const std::string &name, stmt_base_t *parent)
 {
-	type_base_t *res = srcstack.back()->get(name);
+	size_t lock_from = lockedlayers.size() > 0 ? lockedlayers.back() : size_t(-1);
+	type_base_t *res = srcstack.back()->get(name, lock_from);
 	if(res) return res;
 	auto gres = globals.find(name);
 	if(gres != globals.end()) return gres->second;
@@ -199,6 +218,21 @@ type_funcmap_t *VarMgr::get_funcmap_copy(const std::string &name, stmt_base_t *p
 	}
 	if(funcs.empty()) return nullptr;
 	return new type_funcmap_t(parent, 0, 0, funcs);
+}
+
+size_t VarMgr::get_src_id(const std::string &src_path)
+{
+	if(srcids.find(src_path) == srcids.end()) {
+		size_t id	 = gen_src_id();
+		srcids[src_path] = id;
+		srcfiles[id]	 = src_path;
+	}
+	return srcids[src_path];
+}
+std::string VarMgr::get_src_path(const size_t &src_id)
+{
+	if(srcfiles.find(src_id) == srcfiles.end()) return "";
+	return srcfiles[src_id];
 }
 } // namespace parser
 } // namespace sc

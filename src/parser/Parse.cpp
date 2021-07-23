@@ -86,7 +86,7 @@ bool parse_block(ParseHelper &p, stmt_block_t *&tree, const bool &with_brace)
 		}
 	}
 
-	tree = new stmt_block_t(start.line, start.col_beg, stmts);
+	tree = new stmt_block_t(p.get_src(), start.line, start.col_beg, stmts);
 	return true;
 fail:
 	for(auto &stmt : stmts) delete stmt;
@@ -112,7 +112,7 @@ bool parse_type(ParseHelper &p, stmt_type_t *&type)
 
 	if(p.accept(lex::COMPTIME, lex::FN)) {
 		if(!parse_fnsig(p, fn)) goto fail;
-		type = new stmt_type_t(start.line, start.col_beg, fn);
+		type = new stmt_type_t(p.get_src(), start.line, start.col_beg, fn);
 		return true;
 	}
 
@@ -128,7 +128,8 @@ bool parse_type(ParseHelper &p, stmt_type_t *&type)
 begin_brack:
 	if(p.acceptn(lex::LBRACK)) {
 		if(p.accept(lex::INT)) {
-			count = new stmt_simple_t(p.peak().line, p.peak().col_beg, p.peak());
+			count =
+			new stmt_simple_t(p.get_src(), p.peak().line, p.peak().col_beg, p.peak());
 			p.next();
 		} else if(!parse_expr(p, count)) {
 			return false;
@@ -185,7 +186,8 @@ begin_brack:
 		return false;
 	}
 after_templates:
-	type = new stmt_type_t(start.line, start.col_beg, ptr, info, name, templates, counts);
+	type =
+	new stmt_type_t(p.get_src(), start.line, start.col_beg, ptr, info, name, templates, counts);
 	return true;
 fail:
 	if(count) delete count;
@@ -206,7 +208,7 @@ bool parse_simple(ParseHelper &p, stmt_base_t *&data)
 	lex::Lexeme &val = p.peak();
 	p.next();
 
-	data = new stmt_simple_t(val.line, val.col_beg, val);
+	data = new stmt_simple_t(p.get_src(), val.line, val.col_beg, val);
 	return true;
 }
 
@@ -241,7 +243,7 @@ bool parse_expr_17(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_16(p, lhs)) {
 			goto fail;
 		}
-		rhs = new stmt_expr_t(start.line, start.col_beg, lhs, oper, rhs);
+		rhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		lhs = nullptr;
 	}
 
@@ -296,11 +298,12 @@ bool parse_expr_16(ParseHelper &p, stmt_base_t *&expr)
 	if(!parse_expr_15(p, lhs_rhs)) {
 		goto fail;
 	}
-	rhs = new stmt_expr_t(oper_inside.line, oper_inside.col_beg, lhs_lhs, oper_inside, lhs_rhs);
+	rhs = new stmt_expr_t(p.get_src(), oper_inside.line, oper_inside.col_beg, lhs_lhs,
+			      oper_inside, lhs_rhs);
 	goto after_quest;
 
 after_quest:
-	expr = new stmt_expr_t(start.line, start.col_beg, lhs, oper, rhs);
+	expr = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 	return true;
 fail:
 	if(lhs_rhs) delete lhs_rhs;
@@ -332,7 +335,7 @@ bool parse_expr_15(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_14(p, lhs)) {
 			goto fail;
 		}
-		rhs = new stmt_expr_t(start.line, start.col_beg, lhs, oper, rhs);
+		rhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		lhs = nullptr;
 	}
 
@@ -375,7 +378,7 @@ bool parse_expr_14(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_13(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -392,7 +395,7 @@ bool parse_expr_14(ParseHelper &p, stmt_base_t *&expr)
 		goto fail;
 	}
 	if(expr->type != EXPR) {
-		expr = new stmt_expr_t(expr->line, expr->col, expr, {}, nullptr);
+		expr = new stmt_expr_t(p.get_src(), expr->line, expr->col, expr, {}, nullptr);
 	}
 	as<stmt_expr_t>(expr)->or_blk	  = or_blk;
 	as<stmt_expr_t>(expr)->or_blk_var = or_blk_var;
@@ -426,7 +429,7 @@ bool parse_expr_13(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_12(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -460,7 +463,7 @@ bool parse_expr_12(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_11(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -494,7 +497,7 @@ bool parse_expr_11(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_10(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -528,7 +531,7 @@ bool parse_expr_10(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_09(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -562,7 +565,7 @@ bool parse_expr_09(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_08(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -596,7 +599,7 @@ bool parse_expr_08(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_07(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -631,7 +634,7 @@ bool parse_expr_07(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_06(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -665,7 +668,7 @@ bool parse_expr_06(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_05(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -699,7 +702,7 @@ bool parse_expr_05(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_04(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -733,7 +736,7 @@ bool parse_expr_04(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_03(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -777,7 +780,7 @@ bool parse_expr_03(ParseHelper &p, stmt_base_t *&expr)
 	}
 
 	for(auto &op : opers) {
-		lhs = new stmt_expr_t(op.line, op.col_beg, lhs, op, nullptr);
+		lhs = new stmt_expr_t(p.get_src(), op.line, op.col_beg, lhs, op, nullptr);
 	}
 
 	expr = lhs;
@@ -805,7 +808,8 @@ bool parse_expr_02(ParseHelper &p, stmt_base_t *&expr)
 
 	if(p.accept(lex::XINC, lex::XDEC, lex::PreVA)) {
 		if(p.peakt() == lex::PreVA) p.sett(lex::PostVA);
-		lhs = new stmt_expr_t(p.peak().line, p.peak().col_beg, lhs, p.peak(), nullptr);
+		lhs = new stmt_expr_t(p.get_src(), p.peak().line, p.peak().col_beg, lhs, p.peak(),
+				      nullptr);
 		p.next();
 	}
 
@@ -852,7 +856,7 @@ begin:
 after_dot:
 	if(!p.acceptd() || !parse_simple(p, rhs)) goto fail;
 	if(lhs && rhs) {
-		lhs = new stmt_expr_t(dot.line, dot.col_beg, lhs, dot, rhs);
+		lhs = new stmt_expr_t(p.get_src(), dot.line, dot.col_beg, lhs, dot, rhs);
 		rhs = nullptr;
 	}
 
@@ -878,7 +882,7 @@ begin_brack:
 				 p.peak().tok.str().c_str());
 			goto fail;
 		}
-		lhs = new stmt_expr_t(oper.line, oper.col_beg, lhs, oper, rhs);
+		lhs = new stmt_expr_t(p.get_src(), oper.line, oper.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 		if(p.accept(lex::LBRACK, lex::LPAREN) ||
 		   (p.peakt() == lex::DOT && p.peakt(1) == lex::LT))
@@ -918,10 +922,10 @@ begin_brack:
 			goto fail;
 		}
 	post_args:
-		rhs	       = new stmt_fncallinfo_t(oper.line, oper.col_beg, templates, args);
-		lhs	       = new stmt_expr_t(oper.line, oper.col_beg, lhs, oper, rhs);
-		rhs	       = nullptr;
-		args	       = {};
+		rhs  = new stmt_fncallinfo_t(p.get_src(), oper.line, oper.col_beg, templates, args);
+		lhs  = new stmt_expr_t(p.get_src(), oper.line, oper.col_beg, lhs, oper, rhs);
+		rhs  = nullptr;
+		args = {};
 		templates      = {};
 		lhs->is_intrin = is_intrin;
 
@@ -931,8 +935,8 @@ begin_brack:
 dot:
 	if(p.acceptn(lex::DOT, lex::ARROW)) {
 		if(lhs && rhs) {
-			lhs =
-			new stmt_expr_t(p.peak(-1).line, p.peak(-1).col_beg, lhs, p.peak(-1), rhs);
+			lhs = new stmt_expr_t(p.get_src(), p.peak(-1).line, p.peak(-1).col_beg, lhs,
+					      p.peak(-1), rhs);
 			rhs = nullptr;
 		}
 		dot = p.peak(-1);
@@ -941,7 +945,7 @@ dot:
 
 done:
 	if(lhs && rhs) {
-		lhs = new stmt_expr_t(dot.line, dot.col_beg, lhs, dot, rhs);
+		lhs = new stmt_expr_t(p.get_src(), dot.line, dot.col_beg, lhs, dot, rhs);
 		rhs = nullptr;
 	}
 	expr = lhs;
@@ -1035,8 +1039,9 @@ done:
 			goto fail;
 		}
 		in->info |= TypeInfoMask::REF;
-		lex::Lexeme selfeme  = lex::Lexeme(in->line, in->col, in->col, lex::IDEN, "self");
-		stmt_var_t *self     = new stmt_var_t(in->line, in->col, selfeme, in, nullptr);
+		lex::Lexeme selfeme = lex::Lexeme(in->line, in->col, in->col, lex::IDEN, "self");
+		stmt_var_t *self =
+		new stmt_var_t(p.get_src(), in->line, in->col, selfeme, in, nullptr);
 		stmt_fnsig_t *valsig = as<stmt_fndef_t>(val)->sig;
 		for(auto &t : in->templates) {
 			valsig->templates.push_back(t);
@@ -1045,7 +1050,7 @@ done:
 		std::vector<stmt_var_t *> &params = valsig->params;
 		params.insert(params.begin(), self);
 	}
-	var = new stmt_var_t(name.line, name.col_beg, name, type, val);
+	var = new stmt_var_t(p.get_src(), name.line, name.col_beg, name, type, val);
 	return true;
 fail:
 	if(in) delete in;
@@ -1142,11 +1147,12 @@ post_args:
 	if(!rettype) {
 		size_t line = p.peak(-1).line;
 		size_t col  = p.peak(-1).col_beg;
-		rettype	    = new stmt_type_t(line, col, 0, 0,
+		rettype	    = new stmt_type_t(p.get_src(), line, col, 0, 0,
 					      {lex::Lexeme(line, col, col, lex::VOID, "void")}, {}, {});
 	}
 
-	fsig = new stmt_fnsig_t(start.line, start.col_beg, templates, params, rettype, comptime);
+	fsig = new stmt_fnsig_t(p.get_src(), start.line, start.col_beg, templates, params, rettype,
+				comptime);
 	return true;
 fail:
 	if(var) delete var;
@@ -1165,7 +1171,7 @@ bool parse_fndef(ParseHelper &p, stmt_base_t *&fndef)
 	if(!parse_fnsig(p, sig)) goto fail;
 	if(!parse_block(p, blk)) goto fail;
 
-	fndef = new stmt_fndef_t(start.line, start.col_beg, (stmt_fnsig_t *)sig, blk);
+	fndef = new stmt_fndef_t(p.get_src(), start.line, start.col_beg, (stmt_fnsig_t *)sig, blk);
 	return true;
 fail:
 	if(sig) delete sig;
@@ -1199,7 +1205,7 @@ bool parse_header(ParseHelper &p, stmt_header_t *&header)
 	p.next();
 
 done:
-	header = new stmt_header_t(names.line, names.col_beg, names, flags);
+	header = new stmt_header_t(p.get_src(), names.line, names.col_beg, names, flags);
 	return true;
 }
 bool parse_lib(ParseHelper &p, stmt_lib_t *&lib)
@@ -1216,7 +1222,7 @@ bool parse_lib(ParseHelper &p, stmt_lib_t *&lib)
 	flags = p.peak();
 	p.next();
 
-	lib = new stmt_lib_t(flags.line, flags.col_beg, flags);
+	lib = new stmt_lib_t(p.get_src(), flags.line, flags.col_beg, flags);
 	return true;
 }
 bool parse_extern(ParseHelper &p, stmt_base_t *&ext)
@@ -1263,7 +1269,8 @@ endinfo:
 
 sig:
 	if(!parse_fnsig(p, sig)) goto fail;
-	ext = new stmt_extern_t(name.line, name.col_beg, name, headers, libs, (stmt_fnsig_t *)sig);
+	ext = new stmt_extern_t(p.get_src(), name.line, name.col_beg, name, headers, libs,
+				(stmt_fnsig_t *)sig);
 	return true;
 fail:
 	if(headers) delete headers;
@@ -1340,7 +1347,7 @@ bool parse_struct(ParseHelper &p, stmt_base_t *&sd)
 	}
 
 done:
-	sd = new stmt_struct_t(start.line, start.col_beg, decl, templates, fields);
+	sd = new stmt_struct_t(p.get_src(), start.line, start.col_beg, decl, templates, fields);
 	return true;
 
 fail:
@@ -1370,7 +1377,7 @@ bool parse_vardecl(ParseHelper &p, stmt_base_t *&vd)
 		if(!p.acceptn(lex::COMMA)) break;
 	}
 
-	vd = new stmt_vardecl_t(start.line, start.col_beg, decls);
+	vd = new stmt_vardecl_t(p.get_src(), start.line, start.col_beg, decls);
 	return true;
 
 fail:
@@ -1413,7 +1420,7 @@ blk:
 		goto blk;
 	}
 
-	conds = new stmt_cond_t(start.line, start.col_beg, cvec);
+	conds = new stmt_cond_t(p.get_src(), start.line, start.col_beg, cvec);
 	return true;
 
 fail:
@@ -1468,7 +1475,7 @@ bool parse_forin(ParseHelper &p, stmt_base_t *&fin)
 		goto fail;
 	}
 
-	fin = new stmt_forin_t(start.line, start.col_beg, iter, in, blk);
+	fin = new stmt_forin_t(p.get_src(), start.line, start.col_beg, iter, in, blk);
 	return true;
 fail:
 	if(in) delete in;
@@ -1530,7 +1537,7 @@ body:
 		goto fail;
 	}
 
-	f = new stmt_for_t(start.line, start.col_beg, init, cond, incr, blk);
+	f = new stmt_for_t(p.get_src(), start.line, start.col_beg, init, cond, incr, blk);
 	return true;
 fail:
 	if(init) delete init;
@@ -1564,7 +1571,7 @@ bool parse_while(ParseHelper &p, stmt_base_t *&w)
 		goto fail;
 	}
 
-	w = new stmt_while_t(start.line, start.col_beg, cond, blk);
+	w = new stmt_while_t(p.get_src(), start.line, start.col_beg, cond, blk);
 	return true;
 fail:
 	if(cond) delete cond;
@@ -1591,7 +1598,7 @@ bool parse_ret(ParseHelper &p, stmt_base_t *&ret)
 	}
 
 done:
-	ret = new stmt_ret_t(start.line, start.col_beg, val);
+	ret = new stmt_ret_t(p.get_src(), start.line, start.col_beg, val);
 	return true;
 fail:
 	if(val) delete val;
@@ -1609,7 +1616,7 @@ bool parse_continue(ParseHelper &p, stmt_base_t *&cont)
 		return false;
 	}
 
-	cont = new stmt_cont_t(start.line, start.col_beg);
+	cont = new stmt_cont_t(p.get_src(), start.line, start.col_beg);
 	return true;
 }
 bool parse_break(ParseHelper &p, stmt_base_t *&brk)
@@ -1623,7 +1630,7 @@ bool parse_break(ParseHelper &p, stmt_base_t *&brk)
 		return false;
 	}
 
-	brk = new stmt_cont_t(start.line, start.col_beg);
+	brk = new stmt_cont_t(p.get_src(), start.line, start.col_beg);
 	return true;
 }
 } // namespace parser

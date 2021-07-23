@@ -24,10 +24,11 @@ class ParseHelper
 {
 	std::vector<lex::Lexeme> &toks; // requires modification at parsing stage
 	lex::Lexeme invalid, eof;
+	size_t src_id;
 	size_t idx;
 
 public:
-	ParseHelper(std::vector<lex::Lexeme> &toks, const size_t begin = 0);
+	ParseHelper(std::vector<lex::Lexeme> &toks, const size_t &src_id, const size_t &begin = 0);
 
 	lex::Lexeme &peak(const int offset = 0);
 	lex::TokType peakt(const int offset = 0) const;
@@ -94,6 +95,11 @@ public:
 	}
 
 	const lex::Lexeme *at(const size_t &idx) const;
+
+	inline const size_t &get_src()
+	{
+		return src_id;
+	}
 
 	inline bool has_next() const
 	{

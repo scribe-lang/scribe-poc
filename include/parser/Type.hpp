@@ -166,14 +166,16 @@ struct type_struct_t : public type_base_t
 
 struct type_func_t : public type_base_t
 {
+	size_t scope;
 	size_t templ;
 	std::vector<type_base_t *> args;
 	type_base_t *rettype;
 
-	type_func_t(stmt_base_t *parent, const size_t &ptr, const size_t &info, const size_t &templ,
-		    const std::vector<type_base_t *> &args, type_base_t *rettype);
+	type_func_t(stmt_base_t *parent, const size_t &ptr, const size_t &info, const size_t &scope,
+		    const size_t &templ, const std::vector<type_base_t *> &args,
+		    type_base_t *rettype);
 	type_func_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
-		    intrinsic_fn_t intrin_fn, const size_t &templ,
+		    intrinsic_fn_t intrin_fn, const size_t &scope, const size_t &templ,
 		    const std::vector<type_base_t *> &args, type_base_t *rettype);
 	~type_func_t();
 

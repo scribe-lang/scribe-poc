@@ -47,7 +47,9 @@ INTRINSIC(import)
 	std::vector<lex::Lexeme> toks;
 	parser::stmt_block_t *ptree = nullptr;
 
-	if(vars.src_exists(file)) {
+	size_t src_id = vars.get_src_id(file);
+
+	if(vars.src_exists(src_id)) {
 		goto gen_struct;
 	}
 
@@ -65,7 +67,7 @@ INTRINSIC(import)
 	}
 
 gen_struct:
-	VarSrc *src   = vars.get_src(file);
+	VarSrc *src   = vars.get_src(src_id);
 	VarLayer *top = src->get_top();
 	if(!top) {
 		err::set(line, col, "module '%s' contains no stack to get items from",

@@ -24,18 +24,19 @@ namespace parser
 ///////////////////////////////////////// stmt_base_t /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_base_t::stmt_base_t(const StmtType &type, const size_t &line, const size_t &col)
-	: type(type), parent(nullptr), line(line), col(col), vtyp(nullptr), is_specialized(false),
-	  is_intrin(false)
+stmt_base_t::stmt_base_t(const StmtType &type, const size_t &src_id, const size_t &line,
+			 const size_t &col)
+	: type(type), parent(nullptr), src_id(src_id), line(line), col(col), vtyp(nullptr),
+	  is_specialized(false), is_intrin(false)
 {}
 stmt_base_t::~stmt_base_t()
 {
 	if(vtyp) delete vtyp;
 }
 
-stmt_base_t *stmt_base_t::copy()
+stmt_base_t *stmt_base_t::copy(const bool &copy_vtyp)
 {
-	stmt_base_t *cp = hidden_copy();
+	stmt_base_t *cp = hidden_copy(copy_vtyp);
 	if(!cp) return nullptr;
 	cp->set_parent(cp->parent); // no change for top level parent
 	return cp;
@@ -73,9 +74,9 @@ std::string stmt_base_t::typestr()
 ///////////////////////////////////////// stmt_block_t ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_block_t::stmt_block_t(const size_t &line, const size_t &col,
+stmt_block_t::stmt_block_t(const size_t &src_id, const size_t &line, const size_t &col,
 			   const std::vector<stmt_base_t *> &stmts)
-	: stmt_base_t(BLOCK, line, col), stmts(stmts)
+	: stmt_base_t(BLOCK, src_id, line, col), stmts(stmts)
 {}
 stmt_block_t::~stmt_block_t()
 {
@@ -96,15 +97,18 @@ void stmt_block_t::stmt_block_t::disp(const bool &has_next)
 ///////////////////////////////////////// stmt_type_t /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_type_t::stmt_type_t(const size_t &line, const size_t &col, const size_t &ptr,
-			 const size_t &info, const std::vector<lex::Lexeme> &name,
+stmt_type_t::stmt_type_t(const size_t &src_id, const size_t &line, const size_t &col,
+			 const size_t &ptr, const size_t &info,
+			 const std::vector<lex::Lexeme> &name,
 			 const std::vector<lex::Lexeme> &templates,
 			 const std::vector<stmt_base_t *> &counts)
-	: stmt_base_t(TYPE, line, col), func(false), ptr(ptr), info(info), name(name),
+	: stmt_base_t(TYPE, src_id, line, col), func(false), ptr(ptr), info(info), name(name),
 	  templates(templates), fn(nullptr), counts(counts)
 {}
-stmt_type_t::stmt_type_t(const size_t &line, const size_t &col, stmt_base_t *fn)
-	: stmt_base_t(TYPE, line, col), func(true), ptr(0), info(0), name({}), fn(fn), counts()
+stmt_type_t::stmt_type_t(const size_t &src_id, const size_t &line, const size_t &col,
+			 stmt_base_t *fn)
+	: stmt_base_t(TYPE, src_id, line, col), func(true), ptr(0), info(0), name({}), fn(fn),
+	  counts()
 {}
 stmt_type_t::~stmt_type_t()
 {
@@ -173,8 +177,9 @@ std::string stmt_type_t::getname()
 //////////////////////////////////////// stmt_simple_t ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_simple_t::stmt_simple_t(const size_t &line, const size_t &col, const lex::Lexeme &val)
-	: stmt_base_t(SIMPLE, line, col), val(val)
+stmt_simple_t::stmt_simple_t(const size_t &src_id, const size_t &line, const size_t &col,
+			     const lex::Lexeme &val)
+	: stmt_base_t(SIMPLE, src_id, line, col), val(val)
 {}
 
 void stmt_simple_t::disp(const bool &has_next)
@@ -191,10 +196,10 @@ stmt_simple_t::~stmt_simple_t() {}
 ////////////////////////////////////// stmt_fncallinfo_t //////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_fncallinfo_t::stmt_fncallinfo_t(const size_t &line, const size_t &col,
+stmt_fncallinfo_t::stmt_fncallinfo_t(const size_t &src_id, const size_t &line, const size_t &col,
 				     const std::vector<stmt_type_t *> &templates,
 				     const std::vector<stmt_base_t *> &args)
-	: stmt_base_t(FNCALLINFO, line, col), templates(templates), args(args)
+	: stmt_base_t(FNCALLINFO, src_id, line, col), templates(templates), args(args)
 {}
 stmt_fncallinfo_t::~stmt_fncallinfo_t()
 {
@@ -230,10 +235,10 @@ void stmt_fncallinfo_t::disp(const bool &has_next)
 ///////////////////////////////////////// stmt_expr_t /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_expr_t::stmt_expr_t(const size_t &line, const size_t &col, stmt_base_t *lhs,
-			 const lex::Lexeme &oper, stmt_base_t *rhs)
-	: stmt_base_t(EXPR, line, col), commas(0), lhs(lhs), oper(oper), rhs(rhs), or_blk(nullptr),
-	  or_blk_var()
+stmt_expr_t::stmt_expr_t(const size_t &src_id, const size_t &line, const size_t &col,
+			 stmt_base_t *lhs, const lex::Lexeme &oper, stmt_base_t *rhs)
+	: stmt_base_t(EXPR, src_id, line, col), commas(0), lhs(lhs), oper(oper), rhs(rhs),
+	  or_blk(nullptr), or_blk_var()
 {}
 stmt_expr_t::~stmt_expr_t()
 {
@@ -278,9 +283,9 @@ void stmt_expr_t::disp(const bool &has_next)
 ///////////////////////////////////////// stmt_var_t //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_var_t::stmt_var_t(const size_t &line, const size_t &col, const lex::Lexeme &name,
-		       stmt_type_t *vtype, stmt_base_t *val)
-	: stmt_base_t(VAR, line, col), name(name), vtype(vtype), val(val)
+stmt_var_t::stmt_var_t(const size_t &src_id, const size_t &line, const size_t &col,
+		       const lex::Lexeme &name, stmt_type_t *vtype, stmt_base_t *val)
+	: stmt_base_t(VAR, src_id, line, col), name(name), vtype(vtype), val(val)
 {}
 stmt_var_t::~stmt_var_t()
 {
@@ -312,12 +317,12 @@ void stmt_var_t::disp(const bool &has_next)
 ///////////////////////////////////////// stmt_fnsig_t ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_fnsig_t::stmt_fnsig_t(const size_t &line, const size_t &col,
+stmt_fnsig_t::stmt_fnsig_t(const size_t &src_id, const size_t &line, const size_t &col,
 			   const std::vector<lex::Lexeme> &templates,
 			   std::vector<stmt_var_t *> &params, stmt_type_t *rettype,
 			   const bool &comptime)
-	: stmt_base_t(FNSIG, line, col), templates(templates), params(params), rettype(rettype),
-	  comptime(comptime)
+	: stmt_base_t(FNSIG, src_id, line, col), templates(templates), params(params),
+	  rettype(rettype), comptime(comptime)
 {}
 stmt_fnsig_t::~stmt_fnsig_t()
 {
@@ -361,9 +366,9 @@ void stmt_fnsig_t::disp(const bool &has_next)
 ///////////////////////////////////////// stmt_fndef_t ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_fndef_t::stmt_fndef_t(const size_t &line, const size_t &col, stmt_fnsig_t *sig,
-			   stmt_block_t *blk)
-	: stmt_base_t(FNDEF, line, col), sig(sig), blk(blk)
+stmt_fndef_t::stmt_fndef_t(const size_t &src_id, const size_t &line, const size_t &col,
+			   stmt_fnsig_t *sig, stmt_block_t *blk)
+	: stmt_base_t(FNDEF, src_id, line, col), sig(sig), blk(blk)
 {}
 stmt_fndef_t::~stmt_fndef_t()
 {
@@ -390,9 +395,9 @@ void stmt_fndef_t::disp(const bool &has_next)
 //////////////////////////////////////// stmt_header_t ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_header_t::stmt_header_t(const size_t &line, const size_t &col, const lex::Lexeme &names,
-			     const lex::Lexeme &flags)
-	: stmt_base_t(HEADER, line, col), names(names), flags(flags)
+stmt_header_t::stmt_header_t(const size_t &src_id, const size_t &line, const size_t &col,
+			     const lex::Lexeme &names, const lex::Lexeme &flags)
+	: stmt_base_t(HEADER, src_id, line, col), names(names), flags(flags)
 {}
 
 void stmt_header_t::disp(const bool &has_next)
@@ -415,8 +420,9 @@ void stmt_header_t::disp(const bool &has_next)
 ///////////////////////////////////////// stmt_lib_t //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_lib_t::stmt_lib_t(const size_t &line, const size_t &col, const lex::Lexeme &flags)
-	: stmt_base_t(LIB, line, col), flags(flags)
+stmt_lib_t::stmt_lib_t(const size_t &src_id, const size_t &line, const size_t &col,
+		       const lex::Lexeme &flags)
+	: stmt_base_t(LIB, src_id, line, col), flags(flags)
 {}
 
 void stmt_lib_t::disp(const bool &has_next)
@@ -432,9 +438,11 @@ void stmt_lib_t::disp(const bool &has_next)
 //////////////////////////////////////// stmt_extern_t ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_extern_t::stmt_extern_t(const size_t &line, const size_t &col, const lex::Lexeme &fname,
-			     stmt_header_t *headers, stmt_lib_t *libs, stmt_fnsig_t *sig)
-	: stmt_base_t(EXTERN, line, col), fname(fname), headers(headers), libs(libs), sig(sig)
+stmt_extern_t::stmt_extern_t(const size_t &src_id, const size_t &line, const size_t &col,
+			     const lex::Lexeme &fname, stmt_header_t *headers, stmt_lib_t *libs,
+			     stmt_fnsig_t *sig)
+	: stmt_base_t(EXTERN, src_id, line, col), fname(fname), headers(headers), libs(libs),
+	  sig(sig)
 {}
 stmt_extern_t::~stmt_extern_t()
 {
@@ -474,9 +482,9 @@ void stmt_extern_t::disp(const bool &has_next)
 //////////////////////////////////////// stmt_enumdef_t ///////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_enumdef_t::stmt_enumdef_t(const size_t &line, const size_t &col,
+stmt_enumdef_t::stmt_enumdef_t(const size_t &src_id, const size_t &line, const size_t &col,
 			       const std::vector<stmt_var_t *> &items)
-	: stmt_base_t(ENUMDEF, line, col), items(items)
+	: stmt_base_t(ENUMDEF, src_id, line, col), items(items)
 {}
 stmt_enumdef_t::~stmt_enumdef_t()
 {
@@ -489,10 +497,11 @@ void stmt_enumdef_t::disp(const bool &has_next) {}
 /////////////////////////////////////// stmt_struct_t //////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_struct_t::stmt_struct_t(const size_t &line, const size_t &col, const bool &decl,
-			     const std::vector<lex::Lexeme> &templates,
+stmt_struct_t::stmt_struct_t(const size_t &src_id, const size_t &line, const size_t &col,
+			     const bool &decl, const std::vector<lex::Lexeme> &templates,
 			     const std::vector<stmt_var_t *> &fields)
-	: stmt_base_t(STRUCTDEF, line, col), decl(decl), templates(templates), fields(fields)
+	: stmt_base_t(STRUCTDEF, src_id, line, col), decl(decl), templates(templates),
+	  fields(fields)
 {}
 stmt_struct_t::~stmt_struct_t()
 {
@@ -532,9 +541,9 @@ void stmt_struct_t::disp(const bool &has_next)
 /////////////////////////////////////// stmt_vardecl_t ///////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_vardecl_t::stmt_vardecl_t(const size_t &line, const size_t &col,
+stmt_vardecl_t::stmt_vardecl_t(const size_t &src_id, const size_t &line, const size_t &col,
 			       const std::vector<stmt_var_t *> &decls)
-	: stmt_base_t(VARDECL, line, col), decls(decls)
+	: stmt_base_t(VARDECL, src_id, line, col), decls(decls)
 {}
 stmt_vardecl_t::~stmt_vardecl_t()
 {
@@ -555,8 +564,9 @@ void stmt_vardecl_t::disp(const bool &has_next)
 ///////////////////////////////////////// stmt_cond_t /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_cond_t::stmt_cond_t(const size_t &line, const size_t &col, const std::vector<cond_t> &conds)
-	: stmt_base_t(COND, line, col), conds(conds)
+stmt_cond_t::stmt_cond_t(const size_t &src_id, const size_t &line, const size_t &col,
+			 const std::vector<cond_t> &conds)
+	: stmt_base_t(COND, src_id, line, col), conds(conds)
 {}
 stmt_cond_t::~stmt_cond_t()
 {
@@ -591,9 +601,9 @@ void stmt_cond_t::disp(const bool &has_next)
 //////////////////////////////////////// stmt_forin_t ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_forin_t::stmt_forin_t(const size_t &line, const size_t &col, const lex::Lexeme &iter,
-			   stmt_base_t *in, stmt_block_t *blk)
-	: stmt_base_t(FORIN, line, col), iter(iter), in(in), blk(blk)
+stmt_forin_t::stmt_forin_t(const size_t &src_id, const size_t &line, const size_t &col,
+			   const lex::Lexeme &iter, stmt_base_t *in, stmt_block_t *blk)
+	: stmt_base_t(FORIN, src_id, line, col), iter(iter), in(in), blk(blk)
 {}
 stmt_forin_t::~stmt_forin_t()
 {
@@ -619,9 +629,9 @@ void stmt_forin_t::disp(const bool &has_next)
 ///////////////////////////////////////// stmt_for_t //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_for_t::stmt_for_t(const size_t &line, const size_t &col, stmt_base_t *init, stmt_base_t *cond,
-		       stmt_base_t *incr, stmt_block_t *blk)
-	: stmt_base_t(FOR, line, col), init(init), cond(cond), incr(incr), blk(blk)
+stmt_for_t::stmt_for_t(const size_t &src_id, const size_t &line, const size_t &col,
+		       stmt_base_t *init, stmt_base_t *cond, stmt_base_t *incr, stmt_block_t *blk)
+	: stmt_base_t(FOR, src_id, line, col), init(init), cond(cond), incr(incr), blk(blk)
 {}
 stmt_for_t::~stmt_for_t()
 {
@@ -666,9 +676,9 @@ void stmt_for_t::disp(const bool &has_next)
 ///////////////////////////////////////// stmt_while_t ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_while_t::stmt_while_t(const size_t &line, const size_t &col, stmt_base_t *cond,
-			   stmt_block_t *blk)
-	: stmt_base_t(WHILE, line, col), cond(cond), blk(blk)
+stmt_while_t::stmt_while_t(const size_t &src_id, const size_t &line, const size_t &col,
+			   stmt_base_t *cond, stmt_block_t *blk)
+	: stmt_base_t(WHILE, src_id, line, col), cond(cond), blk(blk)
 {}
 stmt_while_t::~stmt_while_t()
 {
@@ -694,8 +704,9 @@ void stmt_while_t::disp(const bool &has_next)
 ///////////////////////////////////////// stmt_ret_t //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_ret_t::stmt_ret_t(const size_t &line, const size_t &col, stmt_base_t *val)
-	: stmt_base_t(RET, line, col), val(val)
+stmt_ret_t::stmt_ret_t(const size_t &src_id, const size_t &line, const size_t &col,
+		       stmt_base_t *val)
+	: stmt_base_t(RET, src_id, line, col), val(val)
 {}
 stmt_ret_t::~stmt_ret_t()
 {
@@ -719,7 +730,8 @@ void stmt_ret_t::disp(const bool &has_next)
 ///////////////////////////////////////// stmt_cont_t /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_cont_t::stmt_cont_t(const size_t &line, const size_t &col) : stmt_base_t(CONTINUE, line, col)
+stmt_cont_t::stmt_cont_t(const size_t &src_id, const size_t &line, const size_t &col)
+	: stmt_base_t(CONTINUE, src_id, line, col)
 {}
 
 void stmt_cont_t::disp(const bool &has_next)
@@ -733,7 +745,9 @@ void stmt_cont_t::disp(const bool &has_next)
 ///////////////////////////////////////// stmt_break_t ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_break_t::stmt_break_t(const size_t &line, const size_t &col) : stmt_base_t(BREAK, line, col) {}
+stmt_break_t::stmt_break_t(const size_t &src_id, const size_t &line, const size_t &col)
+	: stmt_base_t(BREAK, src_id, line, col)
+{}
 
 void stmt_break_t::disp(const bool &has_next)
 {

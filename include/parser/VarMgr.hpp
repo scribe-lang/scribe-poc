@@ -64,8 +64,8 @@ public:
 		stack.pop_back();
 	}
 	bool add(const std::string &name, type_base_t *val);
-	bool exists(const std::string &name, const bool &top_only);
-	type_base_t *get(const std::string &name);
+	bool exists(const std::string &name, const size_t &locked_from, const bool &top_only);
+	type_base_t *get(const std::string &name, const size_t &locked_from);
 	inline VarLayer *get_top()
 	{
 		return stack.empty() ? nullptr : stack.back();
@@ -78,12 +78,16 @@ public:
 };
 class VarMgr
 {
+	std::unordered_map<std::string, size_t> srcids;
+	std::unordered_map<size_t, std::string> srcfiles;
 	std::unordered_map<std::string, type_base_t *> globals;
-	std::unordered_map<std::string, VarSrc *> srcs;
+	std::unordered_map<size_t, VarSrc *> srcs;
 	std::vector<VarSrc *> srcstack;
+	std::vector<size_t> srcidstack;
 	std::vector<type_funcmap_t *> managedfnmaps;
 	// types that function returns (for type checking return statement)
 	std::vector<type_base_t *> funcreturns;
+	std::vector<size_t> lockedlayers;
 
 public:
 	VarMgr();
@@ -98,25 +102,41 @@ public:
 	{
 		srcstack.back()->poplayer();
 	}
-	inline void addsrc(const std::string &src_path)
+	inline size_t getlayer()
 	{
-		srcs[src_path] = new VarSrc;
+		return srcstack.back()->get_layers().size() - 1;
 	}
-	bool pushsrc(const std::string &path);
+	inline void addsrc(const size_t &src_id)
+	{
+		srcs[src_id] = new VarSrc;
+	}
+	bool pushsrc(const size_t &src_id);
 	void popsrc();
-	inline bool src_exists(const std::string &src_path)
+	inline size_t current_src()
 	{
-		return srcs.find(src_path) != srcs.end();
+		return srcidstack.back();
 	}
-	inline VarSrc *get_src(const std::string &src_path)
+	inline bool src_exists(const size_t &src_id)
 	{
-		return srcs[src_path];
+		return srcfiles.find(src_id) != srcfiles.end();
+	}
+	inline VarSrc *get_src(const size_t &src_id)
+	{
+		return srcs[src_id];
 	}
 	bool add(const std::string &name, type_base_t *val, const bool &global = false);
 	bool add_copy(const std::string &name, type_base_t *val, const bool &global = false);
 	bool exists(const std::string &name, const bool &top_only, const bool &with_globals);
 	type_base_t *get(const std::string &name, stmt_base_t *parent);
 	type_base_t *get_copy(const std::string &name, stmt_base_t *parent);
+	void lock_scopes_before(const size_t &idx)
+	{
+		lockedlayers.push_back(idx);
+	}
+	inline void unlock_scope()
+	{
+		lockedlayers.pop_back();
+	}
 
 	bool add_func(const std::string &name, type_base_t *vtyp, const bool &global = false);
 	bool add_func_copy(const std::string &name, type_base_t *vtyp, const bool &global = false);
@@ -139,6 +159,9 @@ public:
 	{
 		return !funcreturns.empty();
 	}
+
+	size_t get_src_id(const std::string &src_path);
+	std::string get_src_path(const size_t &src_id);
 };
 } // namespace parser
 } // namespace sc

@@ -19,7 +19,7 @@ namespace parser
 {
 static inline type_func_t *func(const std::vector<type_base_t *> &args, type_base_t *rettype)
 {
-	return new type_func_t(nullptr, 0, 0, {}, args, rettype);
+	return new type_func_t(nullptr, 0, 0, 0, {}, args, rettype);
 }
 void add_primitive_integer_funcs(const std::string &typname, VarMgr &vars)
 {
