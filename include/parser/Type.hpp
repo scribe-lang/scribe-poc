@@ -38,7 +38,6 @@ namespace sc
 {
 namespace parser
 {
-extern std::unordered_map<std::string, int64_t> name_id_mapl;
 std::vector<std::string> basenumtypes();
 
 enum Types

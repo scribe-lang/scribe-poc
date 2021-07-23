@@ -318,7 +318,29 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 		if(!init_templ_func(vars, lhs, calltemplates)) return false;
 		break;
 	}
-	case lex::SUBS: err::set(line, col, "unimplemented subscript"); return false;
+	case lex::SUBS: {
+		if(lhs->vtyp->info & VARIADIC) {
+			bool found_compat = false;
+			for(auto &bn : basenumtypes()) {
+				if(rhs->vtyp->compatible(vars.get(bn, this), line, col)) {
+					found_compat = true;
+					break;
+				}
+			}
+			if(!found_compat) {
+				err::set(line, col,
+					 "variadics can only take one of the "
+					 "primitive numeric types as index, found: %s",
+					 rhs->vtyp->str().c_str());
+				return false;
+			}
+			vtyp = lhs->vtyp->copy();
+			vtyp->info &= ~VARIADIC;
+			break;
+		}
+		err::set(line, col, "unimplemented subscript");
+		return false;
+	}
 	// address of
 	case lex::UAND: {
 		vtyp = lhs->vtyp->copy();
@@ -440,7 +462,6 @@ bool stmt_var_t::assign_type(VarMgr &vars)
 		err::set(name, "unable to determine type from the given type of this variable");
 		return false;
 	}
-	// TODO: if(val && vtype && !val->vtyp->supports_init(vtype->vtyp)) return false;
 	if(vtype) {
 		vtyp = vtype->vtyp->copy();
 	} else if(val) {

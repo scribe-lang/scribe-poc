@@ -443,7 +443,6 @@ type_func_t *type_func_t::specialize_compatible_call(stmt_fncallinfo_t *callinfo
 			farg = farg->copy();
 		}
 		if(!farg->compatible(fciarg->vtyp, fciarg->line, fciarg->col)) {
-			printf("Non compatible\n");
 			is_arg_compatible = false;
 			delete farg;
 			break;
@@ -513,10 +512,10 @@ type_func_t *type_funcmap_t::decide_func(stmt_fncallinfo_t *callinfo,
 	for(auto &fn : funcs) {
 		templates.clear();
 		err::reset();
-		printf("option: %s -> %s\n", fn.first.c_str(), fn.second->str().c_str());
+		// printf("option: %s -> %s\n", fn.first.c_str(), fn.second->str().c_str());
 		type_func_t *f = fn.second;
 		if(!(f = f->specialize_compatible_call(callinfo, templates))) continue;
-		printf("matched: %s -> %s\n", fn.first.c_str(), f->str().c_str());
+		// printf("matched: %s -> %s\n", fn.first.c_str(), f->str().c_str());
 		return f;
 	}
 	templates.clear();
