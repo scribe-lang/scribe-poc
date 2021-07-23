@@ -1091,17 +1091,33 @@ after_templates:
 	}
 	if(p.acceptn(lex::RPAREN)) goto post_args;
 
+	// args
 	while(true) {
 		if(argnames.find(p.peak().data.s) != argnames.end()) {
 			err::set(p.peak(), "this argument name is already used "
 					   "before in this function signature");
 			goto fail;
 		}
+		if(templnames.find(p.peak().data.s) != templnames.end()) {
+			err::set(p.peak(), "this argument name is already used before"
+					   " for a template in this function signature");
+			goto fail;
+		}
 		argnames.insert(p.peak().data.s);
 		if(!parse_var(p, var, Occurs::NO, Occurs::YES, Occurs::NO)) {
 			goto fail;
 		}
-		if(var->vtype->info & TypeInfoMask::VARIADIC) found_va = true;
+		if(var->vtype->info & TypeInfoMask::VARIADIC) {
+			found_va = true;
+			if(!comptime) {
+				err::set(start, "variadic function call must be compile time");
+				goto fail;
+			}
+		}
+		if(var->name.data.s == "any" && !found_va) {
+			err::set(start, "type 'any' can be only used for variadic functions");
+			goto fail;
+		}
 		params.push_back(var);
 		var = nullptr;
 		if(!p.acceptn(lex::COMMA)) break;

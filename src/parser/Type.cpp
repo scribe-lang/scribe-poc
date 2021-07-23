@@ -13,6 +13,8 @@
 
 #include "parser/Type.hpp"
 
+#include <cassert>
+
 #include "Error.hpp"
 #include "parser/Stmts.hpp"
 
@@ -84,7 +86,12 @@ bool type_base_t::compatible_base(type_base_t *rhs, const bool &is_templ, const 
 			 str().c_str(), rhs->str().c_str());
 		return false;
 	}
-	// TODO variadic
+	if(rhs->info & VARIADIC && !(info & VARIADIC)) {
+		err::set(line, col,
+			 "cannot assign variadic type to non variadic (LHS: %s, RHS: %s)",
+			 str().c_str(), rhs->str().c_str());
+		return false;
+	}
 	return true;
 }
 std::string type_base_t::str_base()
@@ -94,7 +101,7 @@ std::string type_base_t::str_base()
 	if(info & STATIC) tname += "static ";
 	if(info & CONST) tname += "const ";
 	if(info & VOLATILE) tname += "volatile ";
-	if(info & VARIADIC) tname = "..." + tname + " ";
+	if(info & VARIADIC) tname = "..." + tname + (!tname.empty() ? " " : "");
 	for(auto &c : counts) {
 		tname += "[" + c->str() + "]";
 	}
@@ -133,7 +140,7 @@ type_base_t *type_simple_t::specialize(const std::vector<type_base_t *> &templat
 }
 bool type_simple_t::compatible(type_base_t *rhs, const size_t &line, const size_t &col)
 {
-	if(!compatible_base(rhs, name[0] == '@', line, col)) return false;
+	if(!compatible_base(rhs, name[0] == '@' || name == "any", line, col)) return false;
 	type_simple_t *r = static_cast<type_simple_t *>(rhs);
 	return true;
 }
@@ -404,7 +411,11 @@ type_func_t *type_func_t::specialize_compatible_call(stmt_fncallinfo_t *callinfo
 						     std::vector<type_base_t *> &templates)
 {
 	if(this->templ < callinfo->templates.size()) return nullptr;
-	if(this->args.size() != callinfo->args.size()) return nullptr;
+	if(this->args.size() > 0 && (this->args.back()->info & TypeInfoMask::VARIADIC)) {
+		if(this->args.size() - 1 > callinfo->args.size()) return nullptr;
+	} else if(this->args.size() != callinfo->args.size()) {
+		return nullptr;
+	}
 	for(auto &t : callinfo->templates) {
 		templates.push_back(t->vtyp);
 	}
@@ -414,9 +425,10 @@ type_func_t *type_func_t::specialize_compatible_call(stmt_fncallinfo_t *callinfo
 		templates.push_back(callinfo->args[i]->vtyp);
 	}
 	bool is_arg_compatible = true;
-	for(size_t i = 0; i < this->args.size(); ++i) {
-		type_base_t *farg   = this->args[i];
-		stmt_base_t *fciarg = callinfo->args[i];
+	for(size_t i = 0, j = 0; i < this->args.size() && j < callinfo->args.size(); ++i, ++j) {
+		type_base_t *farg = this->args[i];
+		if(farg->info & TypeInfoMask::VARIADIC) --i;
+		stmt_base_t *fciarg = callinfo->args[j];
 		if(farg->type == TSIMPLE) {
 			type_simple_t *fargsim = static_cast<type_simple_t *>(farg);
 			if(fargsim->name[0] == '@') {
@@ -431,6 +443,7 @@ type_func_t *type_func_t::specialize_compatible_call(stmt_fncallinfo_t *callinfo
 			farg = farg->copy();
 		}
 		if(!farg->compatible(fciarg->vtyp, fciarg->line, fciarg->col)) {
+			printf("Non compatible\n");
 			is_arg_compatible = false;
 			delete farg;
 			break;
@@ -499,13 +512,15 @@ type_func_t *type_funcmap_t::decide_func(stmt_fncallinfo_t *callinfo,
 {
 	for(auto &fn : funcs) {
 		templates.clear();
+		err::reset();
 		printf("option: %s -> %s\n", fn.first.c_str(), fn.second->str().c_str());
 		type_func_t *f = fn.second;
-		err::reset();
 		if(!(f = f->specialize_compatible_call(callinfo, templates))) continue;
 		printf("matched: %s -> %s\n", fn.first.c_str(), f->str().c_str());
 		return f;
 	}
+	templates.clear();
+	err::reset();
 	return nullptr;
 }
 type_func_t *type_funcmap_t::decide_func(type_base_t *vartype)

@@ -402,6 +402,7 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 		if(!tmp) {
 			err::set(line, col, "function '%s' does not exist for type: %s",
 				 oper.tok.str().c_str(), lhs->vtyp->str().c_str());
+			fci->args.clear();
 			delete fci;
 			return false;
 		}
