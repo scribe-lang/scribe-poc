@@ -25,17 +25,17 @@ namespace parser
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 Stmt::Stmt(const Stmts &type, const size_t &src_id, const size_t &line, const size_t &col)
-	: type(type), parent(nullptr), src_id(src_id), line(line), col(col), vtyp(nullptr),
-	  is_specialized(false), is_intrin(false)
+	: type(type), parent(nullptr), src_id(src_id), line(line), col(col), is_specialized(false),
+	  is_intrin(false), vtyp(nullptr), value(nullptr)
 {}
 Stmt::~Stmt()
 {
 	if(vtyp) delete vtyp;
 }
 
-Stmt *Stmt::copy(const bool &copy_vtyp)
+Stmt *Stmt::copy(const bool &copy_vtyp, const bool &copy_val)
 {
-	Stmt *cp = hidden_copy(copy_vtyp, this);
+	Stmt *cp = hidden_copy(copy_vtyp, copy_val, this);
 	if(!cp) return nullptr;
 	cp->set_parent(cp->parent); // no change for top level parent
 	return cp;

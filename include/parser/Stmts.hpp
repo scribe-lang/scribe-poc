@@ -64,19 +64,19 @@ struct Stmt
 	bool is_intrin;	     // if this is an intrinsic function call
 
 	Type *vtyp;
-	Value *val;
+	Value *value;
 
 	Stmt(const Stmts &type, const size_t &src_id, const size_t &line, const size_t &col);
 	virtual ~Stmt();
 
 	// NEVER use hidden_copy(); instead use copy()
-	Stmt *copy(const bool &copy_vtyp);
-	virtual Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par) = 0;
-	virtual void disp(const bool &has_next)			    = 0;
-	virtual void set_parent(Stmt *parent)			    = 0;
-	virtual bool assign_type(TypeMgr &types)		    = 0;
-	virtual bool call_intrinsic(TypeMgr &types)		    = 0;
-	virtual Stmt *executecomptime(TypeMgr &types)		    = 0;
+	Stmt *copy(const bool &copy_vtyp, const bool &copy_val);
+	virtual Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par) = 0;
+	virtual void disp(const bool &has_next)						  = 0;
+	virtual void set_parent(Stmt *parent)						  = 0;
+	virtual bool assign_type(TypeMgr &types)					  = 0;
+	virtual bool call_intrinsic(TypeMgr &types)					  = 0;
+	virtual bool const_fold(TypeMgr &types, ValueMgr &vals)				  = 0;
 
 	Stmt *get_parent_with_type(const Stmts &typ);
 
@@ -111,12 +111,12 @@ struct StmtType : public Stmt
 	StmtType(const size_t &src_id, const size_t &line, const size_t &col, Stmt *fn);
 	~StmtType();
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 
 	std::string getname();
 };
@@ -128,12 +128,12 @@ struct StmtBlock : public Stmt
 		  const std::vector<Stmt *> &stmts);
 	~StmtBlock();
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 
 struct StmtSimple : public Stmt
@@ -143,12 +143,12 @@ struct StmtSimple : public Stmt
 		   const lex::Lexeme &val);
 	~StmtSimple();
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 
 struct StmtFnCallInfo : public Stmt
@@ -159,12 +159,12 @@ struct StmtFnCallInfo : public Stmt
 		       const std::vector<StmtType *> &templates, const std::vector<Stmt *> &args);
 	~StmtFnCallInfo();
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 
 struct StmtExpr : public Stmt
@@ -180,12 +180,12 @@ struct StmtExpr : public Stmt
 		 const lex::Lexeme &oper, Stmt *rhs);
 	~StmtExpr();
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 
 struct StmtVar : public Stmt
@@ -198,12 +198,12 @@ struct StmtVar : public Stmt
 		const lex::Lexeme &name, StmtType *vtype, Stmt *val);
 	~StmtVar();
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 
 struct StmtFnSig : public Stmt
@@ -218,12 +218,12 @@ struct StmtFnSig : public Stmt
 		  StmtType *rettype, const bool &comptime);
 	~StmtFnSig();
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 
 struct StmtFnDef : public Stmt
@@ -234,12 +234,12 @@ struct StmtFnDef : public Stmt
 		  StmtBlock *blk);
 	~StmtFnDef();
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 
 struct StmtHeader : public Stmt
@@ -250,12 +250,12 @@ struct StmtHeader : public Stmt
 	StmtHeader(const size_t &src_id, const size_t &line, const size_t &col,
 		   const lex::Lexeme &names, const lex::Lexeme &flags);
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 
 struct StmtLib : public Stmt
@@ -265,12 +265,12 @@ struct StmtLib : public Stmt
 	StmtLib(const size_t &src_id, const size_t &line, const size_t &col,
 		const lex::Lexeme &flags);
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 
 struct StmtExtern : public Stmt
@@ -284,12 +284,12 @@ struct StmtExtern : public Stmt
 		   const lex::Lexeme &fname, StmtHeader *headers, StmtLib *libs, StmtFnSig *sig);
 	~StmtExtern();
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 
 struct StmtEnum : public Stmt
@@ -300,12 +300,12 @@ struct StmtEnum : public Stmt
 		 const std::vector<StmtVar *> &items);
 	~StmtEnum();
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 
 // both declaration and definition
@@ -319,12 +319,12 @@ struct StmtStruct : public Stmt
 		   const std::vector<lex::Lexeme> &templates, const std::vector<StmtVar *> &fields);
 	~StmtStruct();
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 
 struct StmtVarDecl : public Stmt
@@ -335,12 +335,12 @@ struct StmtVarDecl : public Stmt
 		    const std::vector<StmtVar *> &decls);
 	~StmtVarDecl();
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 
 struct cond_t
@@ -356,12 +356,12 @@ struct StmtCond : public Stmt
 		 const std::vector<cond_t> &conds);
 	~StmtCond();
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 
 struct StmtForIn : public Stmt
@@ -373,12 +373,12 @@ struct StmtForIn : public Stmt
 		  const lex::Lexeme &iter, Stmt *in, StmtBlock *blk);
 	~StmtForIn();
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 
 struct StmtFor : public Stmt
@@ -392,12 +392,12 @@ struct StmtFor : public Stmt
 		Stmt *incr, StmtBlock *blk);
 	~StmtFor();
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 
 struct StmtWhile : public Stmt
@@ -408,12 +408,12 @@ struct StmtWhile : public Stmt
 		  StmtBlock *blk);
 	~StmtWhile();
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 
 struct StmtRet : public Stmt
@@ -422,34 +422,34 @@ struct StmtRet : public Stmt
 	StmtRet(const size_t &src_id, const size_t &line, const size_t &col, Stmt *val);
 	~StmtRet();
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 struct StmtContinue : public Stmt
 {
 	StmtContinue(const size_t &src_id, const size_t &line, const size_t &col);
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 struct StmtBreak : public Stmt
 {
 	StmtBreak(const size_t &src_id, const size_t &line, const size_t &col);
 
-	Stmt *hidden_copy(const bool &copy_vtyp, Stmt *par);
+	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
 	bool call_intrinsic(TypeMgr &types);
-	Stmt *executecomptime(TypeMgr &types);
+	bool const_fold(TypeMgr &types, ValueMgr &vals);
 };
 } // namespace parser
 } // namespace sc

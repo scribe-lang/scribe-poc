@@ -39,7 +39,7 @@ static bool init_templ_func(TypeMgr &types, Stmt *lhs, const std::vector<Type *>
 			 "could not find function definition's variable declaration!");
 		return false;
 	}
-	fndefvar     = fndefvar->copy(false);
+	fndefvar     = fndefvar->copy(false, false);
 	StmtVar *var = as<StmtVar>(fndefvar);
 	assert(var->val && var->val->type == FNDEF && var->val &&
 	       "expected function definition as variable value for template initialization");
