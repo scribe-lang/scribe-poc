@@ -74,25 +74,6 @@ static bool init_templ_func(VarMgr &vars, stmt_base_t *lhs,
 		return false;
 	}
 	fn->sig->comptime = comptime;
-	// if(fn->sig->vtyp) delete fn->sig->vtyp;
-	// if(fn->vtyp) delete fn->vtyp;
-	// if(var->vtyp) delete var->vtyp;
-	// fn->sig->vtyp = origsig->copy();
-	// fn->vtyp      = fn->sig->vtyp->copy();
-	// var->vtyp     = fn->vtyp->copy();
-	if(comptime) {
-		// TODO: make executecomptime independent, rename it to const folding or something
-		// add the comptime resolved argument list to the function definition argument list
-		// to break the need of executecomptime to be with assign_type
-		stmt_fndef_t *res = static_cast<stmt_fndef_t *>(fn->executecomptime(vars));
-		if(!res) {
-			err::set(lhs->line, lhs->col, "failed to execute comptime function");
-			return false;
-		}
-		delete fn;
-		fn	 = res;
-		var->val = fn;
-	}
 	vars.popfret();
 	vars.poplayer();
 	if(vars.current_src() == fn->src_id) {
