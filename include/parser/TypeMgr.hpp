@@ -24,13 +24,13 @@ namespace sc
 {
 namespace parser
 {
-class VarLayer
+class LayerTypes
 {
-	std::unordered_map<std::string, type_base_t *> items;
+	std::unordered_map<std::string, Type *> items;
 
 public:
-	~VarLayer();
-	inline bool add(const std::string &name, type_base_t *val)
+	~LayerTypes();
+	inline bool add(const std::string &name, Type *val)
 	{
 		if(exists(name)) return false;
 		items[name] = val;
@@ -40,61 +40,61 @@ public:
 	{
 		return items.find(name) != items.end();
 	}
-	inline type_base_t *get(const std::string &name)
+	inline Type *get(const std::string &name)
 	{
 		return items.find(name) == items.end() ? nullptr : items[name];
 	}
-	inline std::unordered_map<std::string, type_base_t *> &get_items()
+	inline std::unordered_map<std::string, Type *> &get_items()
 	{
 		return items;
 	}
 };
-class VarSrc
+class SrcTypes
 {
-	std::vector<VarLayer *> stack;
+	std::vector<LayerTypes *> stack;
 
 public:
-	~VarSrc();
+	~SrcTypes();
 	inline void pushlayer()
 	{
-		stack.push_back(new VarLayer);
+		stack.push_back(new LayerTypes);
 	};
 	inline void poplayer()
 	{
 		delete stack.back();
 		stack.pop_back();
 	}
-	bool add(const std::string &name, type_base_t *val);
+	bool add(const std::string &name, Type *val);
 	bool exists(const std::string &name, const size_t &locked_from, const bool &top_only);
-	type_base_t *get(const std::string &name, const size_t &locked_from);
-	inline VarLayer *get_top()
+	Type *get(const std::string &name, const size_t &locked_from);
+	inline LayerTypes *get_top()
 	{
 		return stack.empty() ? nullptr : stack.back();
 	}
 
-	inline std::vector<VarLayer *> &get_layers()
+	inline std::vector<LayerTypes *> &get_layers()
 	{
 		return stack;
 	}
 };
-class VarMgr
+class TypeMgr
 {
 	std::unordered_map<std::string, size_t> srcids;
 	std::unordered_map<size_t, std::string> srcfiles;
-	std::unordered_map<std::string, type_base_t *> globals;
-	std::unordered_map<size_t, VarSrc *> srcs;
+	std::unordered_map<std::string, Type *> globals;
+	std::unordered_map<size_t, SrcTypes *> srcs;
 	std::map<size_t, stmt_base_t *> managedptrees;
-	std::vector<VarSrc *> srcstack;
+	std::vector<SrcTypes *> srcstack;
 	std::vector<size_t> srcidstack;
-	std::vector<type_funcmap_t *> managedfnmaps;
+	std::vector<TypeFuncMap *> managedfnmaps;
 	// types that function returns (for type checking return statement)
-	std::vector<type_base_t *> funcreturns;
+	std::vector<Type *> funcreturns;
 	std::vector<size_t> lockedlayers;
 	bool init_typefuncs_called; // init_typefns() has been called or not
 
 public:
-	VarMgr();
-	~VarMgr();
+	TypeMgr();
+	~TypeMgr();
 	// MUST be called after at least one src has been pushed (pushsrc())
 	void init_typefns();
 	inline bool init_typefns_called()
@@ -115,7 +115,7 @@ public:
 	}
 	inline void addsrc(const size_t &src_id)
 	{
-		srcs[src_id] = new VarSrc;
+		srcs[src_id] = new SrcTypes;
 	}
 	bool pushsrc(const size_t &src_id);
 	void popsrc();
@@ -127,15 +127,15 @@ public:
 	{
 		return srcs.find(src_id) != srcs.end();
 	}
-	inline VarSrc *get_src(const size_t &src_id)
+	inline SrcTypes *get_src(const size_t &src_id)
 	{
 		return srcs[src_id];
 	}
-	bool add(const std::string &name, type_base_t *val, const bool &global = false);
-	bool add_copy(const std::string &name, type_base_t *val, const bool &global = false);
+	bool add(const std::string &name, Type *val, const bool &global = false);
+	bool add_copy(const std::string &name, Type *val, const bool &global = false);
 	bool exists(const std::string &name, const bool &top_only, const bool &with_globals);
-	type_base_t *get(const std::string &name, stmt_base_t *parent);
-	type_base_t *get_copy(const std::string &name, stmt_base_t *parent);
+	Type *get(const std::string &name, stmt_base_t *parent);
+	Type *get_copy(const std::string &name, stmt_base_t *parent);
 	void lock_scopes_before(const size_t &idx)
 	{
 		lockedlayers.push_back(idx);
@@ -145,12 +145,12 @@ public:
 		lockedlayers.pop_back();
 	}
 
-	bool add_func(const std::string &name, type_base_t *vtyp, const bool &global = false);
-	bool add_func_copy(const std::string &name, type_base_t *vtyp, const bool &global = false);
-	type_funcmap_t *get_funcmap(const std::string &name, stmt_base_t *parent);
-	type_funcmap_t *get_funcmap_copy(const std::string &name, stmt_base_t *parent);
+	bool add_func(const std::string &name, Type *vtyp, const bool &global = false);
+	bool add_func_copy(const std::string &name, Type *vtyp, const bool &global = false);
+	TypeFuncMap *get_funcmap(const std::string &name, stmt_base_t *parent);
+	TypeFuncMap *get_funcmap_copy(const std::string &name, stmt_base_t *parent);
 
-	inline void pushfret(type_base_t *fnret)
+	inline void pushfret(Type *fnret)
 	{
 		funcreturns.push_back(fnret);
 	}
@@ -158,7 +158,7 @@ public:
 	{
 		funcreturns.pop_back();
 	}
-	inline type_base_t *getfret()
+	inline Type *getfret()
 	{
 		return funcreturns.back();
 	}

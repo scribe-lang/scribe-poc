@@ -17,13 +17,13 @@
 #include <string>
 #include <unordered_map>
 
-#include "VarMgr.hpp"
+#include "TypeMgr.hpp"
 
 namespace sc
 {
 namespace parser
 {
-void add_primitive_integer_funcs(const std::string &typname, VarMgr &vars);
+void add_primitive_integer_funcs(const std::string &typname, TypeMgr &types);
 } // namespace parser
 } // namespace sc
 

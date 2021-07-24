@@ -50,10 +50,10 @@ enum Types
 	TVARIADIC,
 };
 
-typedef bool (*intrinsic_fn_t)(VarMgr &vars, stmt_base_t *stmt);
-#define INTRINSIC(name) bool intrinsic_##name(VarMgr &vars, stmt_base_t *stmt)
+typedef bool (*intrinsic_fn_t)(TypeMgr &types, stmt_base_t *stmt);
+#define INTRINSIC(name) bool intrinsic_##name(TypeMgr &types, stmt_base_t *stmt)
 
-struct type_base_t
+struct Type
 {
 	Types type;
 	stmt_base_t *parent; // associated stmt with type (can be nullptr if required)
@@ -62,25 +62,25 @@ struct type_base_t
 	size_t info;
 	intrinsic_fn_t intrin_fn;
 
-	type_base_t(const Types &type, stmt_base_t *parent, const size_t &ptr, const size_t &info);
-	type_base_t(const int64_t &id, const Types &type, stmt_base_t *parent, const size_t &ptr,
-		    const size_t &info, intrinsic_fn_t intrin_fn);
-	virtual ~type_base_t();
+	Type(const Types &type, stmt_base_t *parent, const size_t &ptr, const size_t &info);
+	Type(const int64_t &id, const Types &type, stmt_base_t *parent, const size_t &ptr,
+	     const size_t &info, intrinsic_fn_t intrin_fn);
+	virtual ~Type();
 
-	virtual type_base_t *copy()						     = 0;
-	virtual type_base_t *specialize(const std::vector<type_base_t *> &templates) = 0;
+	virtual Type *copy()					       = 0;
+	virtual Type *specialize(const std::vector<Type *> &templates) = 0;
 	// ignore_id is for templates
-	bool compatible_base(type_base_t *rhs, const bool &is_templ, const size_t &line,
+	bool compatible_base(Type *rhs, const bool &is_templ, const size_t &line,
 			     const size_t &col);
-	virtual bool compatible(type_base_t *rhs, const size_t &line, const size_t &col) = 0;
+	virtual bool compatible(Type *rhs, const size_t &line, const size_t &col) = 0;
 
 	inline void set_intrinsic(intrinsic_fn_t intrinsic)
 	{
 		intrin_fn = intrinsic;
 	}
-	inline bool call_intrinsic(VarMgr &vars, stmt_base_t *stmt)
+	inline bool call_intrinsic(TypeMgr &types, stmt_base_t *stmt)
 	{
-		return intrin_fn ? intrin_fn(vars, stmt) : true;
+		return intrin_fn ? intrin_fn(types, stmt) : true;
 	}
 
 	std::string str_base();
@@ -89,68 +89,67 @@ struct type_base_t
 	virtual std::string mangled_name() = 0;
 };
 
-struct type_simple_t : public type_base_t
+struct TypeSimple : public Type
 {
 	// is template is checked by the condition - name begins with '@'
 	std::string name;
 
-	type_simple_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
-		      const std::string &name);
-	type_simple_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
-		      intrinsic_fn_t intrin_fn, const std::string &name);
+	TypeSimple(stmt_base_t *parent, const size_t &ptr, const size_t &info,
+		   const std::string &name);
+	TypeSimple(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
+		   intrinsic_fn_t intrin_fn, const std::string &name);
 
-	type_base_t *copy();
-	type_base_t *specialize(const std::vector<type_base_t *> &templates);
-	bool compatible(type_base_t *rhs, const size_t &line, const size_t &col);
+	Type *copy();
+	Type *specialize(const std::vector<Type *> &templates);
+	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 
 	std::string str();
 	std::string mangled_name();
 };
 
-struct type_struct_t : public type_base_t
+struct TypeStruct : public Type
 {
 	bool is_decl_only;
 	bool is_ref; // does not delete stored fields (intended to prevent unnecessary copies)
 	bool is_def;
 	size_t templ;
 	std::vector<std::string> field_order;
-	std::unordered_map<std::string, type_base_t *> fields;
+	std::unordered_map<std::string, Type *> fields;
 
-	type_struct_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
-		      const bool &is_ref, const size_t &templ,
-		      const std::vector<std::string> &field_order,
-		      const std::unordered_map<std::string, type_base_t *> &fields);
-	type_struct_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
-		      const bool &is_ref, const bool &is_def, intrinsic_fn_t intrin_fn,
-		      const size_t &templ, const std::vector<std::string> &field_order,
-		      const std::unordered_map<std::string, type_base_t *> &fields);
-	~type_struct_t();
+	TypeStruct(stmt_base_t *parent, const size_t &ptr, const size_t &info, const bool &is_ref,
+		   const size_t &templ, const std::vector<std::string> &field_order,
+		   const std::unordered_map<std::string, Type *> &fields);
+	TypeStruct(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
+		   const bool &is_ref, const bool &is_def, intrinsic_fn_t intrin_fn,
+		   const size_t &templ, const std::vector<std::string> &field_order,
+		   const std::unordered_map<std::string, Type *> &fields);
+	~TypeStruct();
 
 	inline void set_decl_only(const bool &decl_only)
 	{
 		is_decl_only = decl_only;
 	}
 
-	type_base_t *copy();
-	type_base_t *specialize(const std::vector<type_base_t *> &templates);
-	bool compatible(type_base_t *rhs, const size_t &line, const size_t &col);
+	Type *copy();
+	Type *specialize(const std::vector<Type *> &templates);
+	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 	// checks if instantiation is viable with callinfo, returns specialized instance of struct
 	// if true; nullptr if false
-	type_struct_t *specialize_compatible_call(stmt_fncallinfo_t *callinfo,
-						  std::vector<type_base_t *> &templates);
+	TypeStruct *specialize_compatible_call(stmt_fncallinfo_t *callinfo,
+					       std::vector<Type *> &templates);
 
 	std::string str();
 	std::string mangled_name();
 
-	bool add_field(const std::string &name, type_base_t *val);
-	bool add_field_copy(const std::string &name, type_base_t *val);
+	bool add_field(const std::string &name, Type *val);
+	bool add_field_copy(const std::string &name, Type *val);
 
 	void set_fields(const std::vector<std::string> &order,
-			const std::unordered_map<std::string, type_base_t *> &vals);
+			const std::unordered_map<std::string, Type *> &vals);
 	void set_fields_copy(const std::vector<std::string> &order,
-			     const std::unordered_map<std::string, type_base_t *> &vals);
+			     const std::unordered_map<std::string, Type *> &vals);
 
-	type_base_t *get_field(const std::string &name);
+	Type *get_field(const std::string &name);
 
 	inline bool has_field(const std::string &name)
 	{
@@ -158,72 +157,69 @@ struct type_struct_t : public type_base_t
 	}
 };
 
-struct type_func_t : public type_base_t
+struct TypeFunc : public Type
 {
 	size_t scope;
 	size_t templ;
 	bool comptime;
-	std::vector<type_base_t *> args;
-	type_base_t *rettype;
+	std::vector<Type *> args;
+	Type *rettype;
 
-	type_func_t(stmt_base_t *parent, const size_t &ptr, const size_t &info, const size_t &scope,
-		    const size_t &templ, const bool &comptime,
-		    const std::vector<type_base_t *> &args, type_base_t *rettype);
-	type_func_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
-		    intrinsic_fn_t intrin_fn, const size_t &scope, const size_t &templ,
-		    const bool &comptime, const std::vector<type_base_t *> &args,
-		    type_base_t *rettype);
-	~type_func_t();
+	TypeFunc(stmt_base_t *parent, const size_t &ptr, const size_t &info, const size_t &scope,
+		 const size_t &templ, const bool &comptime, const std::vector<Type *> &args,
+		 Type *rettype);
+	TypeFunc(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
+		 intrinsic_fn_t intrin_fn, const size_t &scope, const size_t &templ,
+		 const bool &comptime, const std::vector<Type *> &args, Type *rettype);
+	~TypeFunc();
 
-	type_base_t *copy();
-	type_base_t *specialize(const std::vector<type_base_t *> &templates);
-	bool compatible(type_base_t *rhs, const size_t &line, const size_t &col);
+	Type *copy();
+	Type *specialize(const std::vector<Type *> &templates);
+	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 	// checks for compatibility and specializes the signature (for templates)
-	type_func_t *specialize_compatible_call(stmt_fncallinfo_t *callinfo,
-						std::vector<type_base_t *> &templates);
+	TypeFunc *specialize_compatible_call(stmt_fncallinfo_t *callinfo,
+					     std::vector<Type *> &templates);
 
 	std::string str();
 	std::string mangled_name();
 };
 
-struct type_funcmap_t : public type_base_t
+struct TypeFuncMap : public Type
 {
-	std::unordered_map<std::string, type_func_t *> funcs;
-	type_funcmap_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
-		       const std::unordered_map<std::string, type_func_t *> &funcs);
-	type_funcmap_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr,
-		       const size_t &info,
-		       const std::unordered_map<std::string, type_func_t *> &funcs);
+	std::unordered_map<std::string, TypeFunc *> funcs;
+	TypeFuncMap(stmt_base_t *parent, const size_t &ptr, const size_t &info,
+		    const std::unordered_map<std::string, TypeFunc *> &funcs);
+	TypeFuncMap(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
+		    const std::unordered_map<std::string, TypeFunc *> &funcs);
 
-	type_base_t *copy();
-	type_base_t *specialize(const std::vector<type_base_t *> &templates);
-	bool compatible(type_base_t *rhs, const size_t &line, const size_t &col);
+	Type *copy();
+	Type *specialize(const std::vector<Type *> &templates);
+	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 
 	std::string str();
 	std::string mangled_name();
 
-	type_func_t *decide_func(stmt_fncallinfo_t *callinfo,
-				 std::vector<type_base_t *> &templates);
-	type_func_t *decide_func(type_base_t *vartype);
+	TypeFunc *decide_func(stmt_fncallinfo_t *callinfo, std::vector<Type *> &templates);
+	TypeFunc *decide_func(Type *vartype);
 };
 
-struct type_variadic_t : public type_base_t
+struct TypeVariadic : public Type
 {
-	std::vector<type_base_t *> args;
-	type_variadic_t(stmt_base_t *parent, const size_t &ptr, const size_t &info,
-			const std::vector<type_base_t *> &args);
-	type_variadic_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr,
-			const size_t &info, const std::vector<type_base_t *> &args);
-	~type_variadic_t();
+	std::vector<Type *> args;
+	TypeVariadic(stmt_base_t *parent, const size_t &ptr, const size_t &info,
+		     const std::vector<Type *> &args);
+	TypeVariadic(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
+		     const std::vector<Type *> &args);
+	~TypeVariadic();
 
-	type_base_t *copy();
-	type_base_t *specialize(const std::vector<type_base_t *> &templates);
-	bool compatible(type_base_t *rhs, const size_t &line, const size_t &col);
+	Type *copy();
+	Type *specialize(const std::vector<Type *> &templates);
+	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 
 	std::string str();
 	std::string mangled_name();
 
-	type_base_t *get_arg(const size_t &idx);
+	Type *get_arg(const size_t &idx);
 };
 } // namespace parser
 } // namespace sc

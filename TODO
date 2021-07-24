@@ -17,4 +17,4 @@ The code will be read from all sources as necessary, but only be written to the 
 
 
 
-move intrinsic members to stmt_base_t from type_base_t(?)
+move intrinsic members to stmt_base_t from Type(?)

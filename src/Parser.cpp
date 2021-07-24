@@ -14,29 +14,29 @@
 #include "Parser.hpp"
 
 #include "Error.hpp"
-#include "parser/VarMgr.hpp"
+#include "parser/TypeMgr.hpp"
 
 namespace sc
 {
 namespace parser
 {
 // on successful parse, returns true, and tree is allocated
-bool parse(const std::string &file, std::vector<lex::Lexeme> &toks, VarMgr &vars)
+bool parse(const std::string &file, std::vector<lex::Lexeme> &toks, TypeMgr &types)
 {
-	size_t src_id = vars.get_src_id(file);
+	size_t src_id = types.get_src_id(file);
 	ParseHelper p(toks, src_id);
 	stmt_block_t *tree = nullptr;
 	if(!parse_block(p, tree, false)) return false;
-	vars.manage_ptree(src_id, tree);
+	types.manage_ptree(src_id, tree);
 	tree->set_parent(nullptr);
-	vars.addsrc(src_id);
-	vars.pushsrc(src_id);
-	if(!vars.init_typefns_called()) vars.init_typefns();
-	if(!tree->assign_type(vars)) {
+	types.addsrc(src_id);
+	types.pushsrc(src_id);
+	if(!types.init_typefns_called()) types.init_typefns();
+	if(!tree->assign_type(types)) {
 		err::set(tree->line, tree->col, "failed to assign types while parsing");
 		return false;
 	}
-	vars.popsrc();
+	types.popsrc();
 	return true;
 }
 } // namespace parser

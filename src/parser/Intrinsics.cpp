@@ -16,7 +16,7 @@
 #include "Error.hpp"
 #include "FS.hpp"
 #include "Parser.hpp"
-#include "parser/VarMgr.hpp"
+#include "parser/TypeMgr.hpp"
 
 namespace sc
 {
@@ -46,9 +46,9 @@ INTRINSIC(import)
 	std::string data;
 	std::vector<lex::Lexeme> toks;
 
-	size_t src_id = vars.get_src_id(file);
+	size_t src_id = types.get_src_id(file);
 
-	if(vars.src_exists(src_id)) {
+	if(types.src_exists(src_id)) {
 		goto gen_struct;
 	}
 
@@ -59,23 +59,23 @@ INTRINSIC(import)
 		return false;
 	}
 
-	if(!parser::parse(file, toks, vars)) {
+	if(!parser::parse(file, toks, types)) {
 		err::show(stderr, data, file);
 		return false;
 	}
 
 gen_struct:
-	VarSrc *src   = vars.get_src(src_id);
-	VarLayer *top = src->get_top();
+	SrcTypes *src	= types.get_src(src_id);
+	LayerTypes *top = src->get_top();
 	if(!top) {
 		err::set(line, col, "module '%s' contains no stack to get items from",
 			 file.c_str());
 		return false;
 	}
-	std::unordered_map<std::string, type_base_t *> &items = top->get_items();
+	std::unordered_map<std::string, Type *> &items = top->get_items();
 	if(items.empty()) return true;
-	type_struct_t *src_st = new type_struct_t(stmt, 0, 0, true, {}, {}, {});
-	src_st->is_def	      = false;
+	TypeStruct *src_st = new TypeStruct(stmt, 0, 0, true, {}, {}, {});
+	src_st->is_def	   = false;
 	for(auto &i : items) {
 		src_st->add_field(i.first, i.second);
 	}
@@ -112,12 +112,12 @@ INTRINSIC(va_len)
 	// 	return false;
 	// }
 	// size_t variadics = 0;
-	// for(auto &a : static_cast<type_func_t *>(fn->sig->vtyp)->args) {
+	// for(auto &a : static_cast<TypeFunc *>(fn->sig->vtyp)->args) {
 	// 	if(a->info & VARIADIC) ++variadics;
 	// }
 	// printf("function contains %zu variadics\n", variadics);
 	if(stmt->vtyp) delete stmt->vtyp;
-	stmt->vtyp = vars.get_copy("i32", stmt->parent);
+	stmt->vtyp = types.get_copy("i32", stmt->parent);
 	return true;
 }
 } // namespace parser

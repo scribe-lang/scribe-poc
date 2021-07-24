@@ -29,8 +29,8 @@ enum Values
 	VSTRUCT,
 };
 
-// typedef bool (*intrinsic_fn_t)(VarMgr &vars, stmt_base_t *stmt);
-// #define INTRINSIC(name) bool intrinsic_##name(VarMgr &vars, stmt_base_t *stmt)
+// typedef bool (*intrinsic_fn_t)(TypeMgr &types, stmt_base_t *stmt);
+// #define INTRINSIC(name) bool intrinsic_##name(TypeMgr &types, stmt_base_t *stmt)
 
 struct Value
 {

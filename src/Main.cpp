@@ -69,9 +69,9 @@ int main(int argc, char **argv)
 		}
 	}
 
-	sc::parser::VarMgr vars;
+	sc::parser::TypeMgr types;
 
-	if(!parser::parse(file, toks, vars)) {
+	if(!parser::parse(file, toks, types)) {
 		err::show(stderr, data, file);
 		return 1;
 	}
@@ -79,8 +79,8 @@ int main(int argc, char **argv)
 	if(args.has("parse") || args.has("semantic")) {
 		printf("-------------------------------------------------- Semantic Tree(s) "
 		       "--------------------------------------------------\n");
-		for(auto &ptree : vars.get_managed_ptrees()) {
-			printf("\n\nSource: %s\n", vars.get_src_path(ptree.first).c_str());
+		for(auto &ptree : types.get_managed_ptrees()) {
+			printf("\n\nSource: %s\n", types.get_src_path(ptree.first).c_str());
 			ptree.second->disp(false);
 		}
 	}

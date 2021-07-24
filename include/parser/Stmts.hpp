@@ -20,10 +20,13 @@ namespace sc
 {
 namespace parser
 {
-struct VarMgr;
-struct type_base_t;
-struct type_func_t;
-struct type_struct_t;
+struct TypeMgr;
+struct Type;
+struct TypeFunc;
+struct TypeStruct;
+
+struct ValueMgr;
+struct Value;
 
 enum StmtType
 {
@@ -57,9 +60,12 @@ struct stmt_base_t
 	size_t src_id;
 	size_t line;
 	size_t col;
-	type_base_t *vtyp;
 	bool is_specialized; // to prevent cycles (fn -> type_fn -> fn ...)
 	bool is_intrin;	     // if this is an intrinsic function call
+
+	Type *vtyp;
+	Value *val;
+
 	stmt_base_t(const StmtType &type, const size_t &src_id, const size_t &line,
 		    const size_t &col);
 	virtual ~stmt_base_t();
@@ -69,9 +75,9 @@ struct stmt_base_t
 	virtual stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par) = 0;
 	virtual void disp(const bool &has_next)					  = 0;
 	virtual void set_parent(stmt_base_t *parent)				  = 0;
-	virtual bool assign_type(VarMgr &vars)					  = 0;
-	virtual bool call_intrinsic(VarMgr &vars)				  = 0;
-	virtual stmt_base_t *executecomptime(VarMgr &vars)			  = 0;
+	virtual bool assign_type(TypeMgr &types)				  = 0;
+	virtual bool call_intrinsic(TypeMgr &types)				  = 0;
+	virtual stmt_base_t *executecomptime(TypeMgr &types)			  = 0;
 
 	stmt_base_t *get_parent_with_type(const StmtType &typ);
 
@@ -109,9 +115,9 @@ struct stmt_type_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 
 	std::string getname();
 };
@@ -126,9 +132,9 @@ struct stmt_block_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 
 struct stmt_simple_t : public stmt_base_t
@@ -141,9 +147,9 @@ struct stmt_simple_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 
 struct stmt_fncallinfo_t : public stmt_base_t
@@ -158,9 +164,9 @@ struct stmt_fncallinfo_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 
 struct stmt_expr_t : public stmt_base_t
@@ -179,9 +185,9 @@ struct stmt_expr_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 
 struct stmt_var_t : public stmt_base_t
@@ -197,9 +203,9 @@ struct stmt_var_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 
 struct stmt_fnsig_t : public stmt_base_t
@@ -217,9 +223,9 @@ struct stmt_fnsig_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 
 struct stmt_fndef_t : public stmt_base_t
@@ -233,9 +239,9 @@ struct stmt_fndef_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 
 struct stmt_header_t : public stmt_base_t
@@ -249,9 +255,9 @@ struct stmt_header_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 
 struct stmt_lib_t : public stmt_base_t
@@ -264,9 +270,9 @@ struct stmt_lib_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 
 struct stmt_extern_t : public stmt_base_t
@@ -284,9 +290,9 @@ struct stmt_extern_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 
 struct stmt_enumdef_t : public stmt_base_t
@@ -300,9 +306,9 @@ struct stmt_enumdef_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 
 // both declaration and definition
@@ -320,9 +326,9 @@ struct stmt_struct_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 
 struct stmt_vardecl_t : public stmt_base_t
@@ -336,9 +342,9 @@ struct stmt_vardecl_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 
 struct cond_t
@@ -357,9 +363,9 @@ struct stmt_cond_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 
 struct stmt_forin_t : public stmt_base_t
@@ -374,9 +380,9 @@ struct stmt_forin_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 
 struct stmt_for_t : public stmt_base_t
@@ -393,9 +399,9 @@ struct stmt_for_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 
 struct stmt_while_t : public stmt_base_t
@@ -409,9 +415,9 @@ struct stmt_while_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 
 struct stmt_ret_t : public stmt_base_t
@@ -423,9 +429,9 @@ struct stmt_ret_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 struct stmt_cont_t : public stmt_base_t
 {
@@ -434,9 +440,9 @@ struct stmt_cont_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 struct stmt_break_t : public stmt_base_t
 {
@@ -445,9 +451,9 @@ struct stmt_break_t : public stmt_base_t
 	stmt_base_t *hidden_copy(const bool &copy_vtyp, stmt_base_t *par);
 	void disp(const bool &has_next);
 	void set_parent(stmt_base_t *parent);
-	bool assign_type(VarMgr &vars);
-	bool call_intrinsic(VarMgr &vars);
-	stmt_base_t *executecomptime(VarMgr &vars);
+	bool assign_type(TypeMgr &types);
+	bool call_intrinsic(TypeMgr &types);
+	stmt_base_t *executecomptime(TypeMgr &types);
 };
 } // namespace parser
 } // namespace sc
