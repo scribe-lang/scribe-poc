@@ -14,6 +14,7 @@
 #include "parser/Stmts.hpp"
 
 #include "parser/Type.hpp"
+#include "parser/ValueMgr.hpp"
 #include "TreeIO.hpp"
 
 namespace sc
@@ -78,6 +79,14 @@ std::string Stmt::typestr()
 	return "";
 }
 
+std::string Stmt::extrastr()
+{
+	std::string res;
+	if(vtyp) res += " :: " + vtyp->str();
+	if(value) res += " -> " + value->stringify();
+	return res;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////// StmtBlock ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -123,8 +132,7 @@ void StmtType::disp(const bool &has_next)
 {
 	if(func) {
 		tio::taba(has_next);
-		tio::print(has_next, "Type: <Function>%s\n",
-			   vtyp ? (" -> " + vtyp->str()).c_str() : "");
+		tio::print(has_next, "Type: <Function>%s\n", extrastr().c_str());
 		fn->disp(false);
 		tio::tabr();
 		return;
@@ -146,8 +154,7 @@ void StmtType::disp(const bool &has_next)
 		tname += ">";
 	}
 	tio::taba(has_next);
-	tio::print(false, "Type: %s%s\n", tname.c_str(),
-		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
+	tio::print(false, "Type: %s%s\n", tname.c_str(), extrastr().c_str());
 	tio::tabr();
 }
 
@@ -183,8 +190,7 @@ StmtSimple::StmtSimple(const size_t &src_id, const size_t &line, const size_t &c
 void StmtSimple::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Simple: %s%s\n", val.str(0).c_str(),
-		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
+	tio::print(has_next, "Simple: %s%s\n", val.str(0).c_str(), extrastr().c_str());
 	tio::tabr();
 }
 
@@ -249,7 +255,7 @@ void StmtExpr::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "Expression [intrinsic = %s]:%s\n", is_intrin ? "yes" : "no",
-		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
+		   extrastr().c_str());
 	if(lhs) {
 		tio::taba(oper.tok.is_valid() || rhs || or_blk);
 		tio::print(oper.tok.is_valid() || rhs || or_blk, "LHS:\n");
@@ -294,8 +300,7 @@ StmtVar::~StmtVar()
 void StmtVar::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Variable: %s%s\n", name.data.s.c_str(),
-		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
+	tio::print(has_next, "Variable: %s%s\n", name.data.s.c_str(), extrastr().c_str());
 	if(vtype) {
 		tio::taba(val);
 		tio::print(val, "Type:\n");
@@ -331,7 +336,7 @@ void StmtFnSig::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "Function signature [comptime = %s]%s\n", comptime ? "yes" : "no",
-		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
+		   extrastr().c_str());
 	if(!templates.empty()) {
 		tio::taba(params.size() > 0 || rettype);
 		tio::print(params.size() > 0 || rettype, "Templates:\n");
@@ -376,7 +381,7 @@ StmtFnDef::~StmtFnDef()
 void StmtFnDef::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Function definition%s\n", vtyp ? (" -> " + vtyp->str()).c_str() : "");
+	tio::print(has_next, "Function definition%s\n", extrastr().c_str());
 	tio::taba(true);
 	tio::print(true, "Function Signature:\n");
 	sig->disp(false);
@@ -449,8 +454,7 @@ StmtExtern::~StmtExtern()
 void StmtExtern::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Extern for %s%s\n", fname.data.s.c_str(),
-		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
+	tio::print(has_next, "Extern for %s%s\n", fname.data.s.c_str(), extrastr().c_str());
 	if(headers) {
 		tio::taba(libs || sig);
 		tio::print(libs || sig, "Headers:\n");
@@ -506,7 +510,7 @@ void StmtStruct::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "struct [declaration = %s]%s\n", decl ? "yes" : "no",
-		   vtyp ? (" -> " + vtyp->str()).c_str() : "");
+		   extrastr().c_str());
 
 	if(!templates.empty()) {
 		tio::taba(!fields.empty());
@@ -709,7 +713,7 @@ StmtRet::~StmtRet()
 void StmtRet::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Return%s\n", vtyp ? (" -> " + vtyp->str()).c_str() : "");
+	tio::print(has_next, "Return%s\n", extrastr().c_str());
 	if(val) {
 		tio::taba(false);
 		tio::print(false, "Value:\n");

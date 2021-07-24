@@ -54,35 +54,14 @@ int main(int argc, char **argv)
 	}
 	file = fs::abs_path(file);
 
-	std::string data;
-	if(!fs::read(file, data)) return 1;
+	parser::RAIIParser parser(args);
+	size_t src_id = 0;
+	if(!parser.add_src(file, src_id)) return 1;
+	if(!parser.parse(src_id)) return 1;
+	if(!parser.assign_type(src_id)) return 1;
+	if(!parser.const_fold(src_id)) return 1;
 
-	std::vector<lex::Lexeme> toks;
-	if(!lex::tokenize(data, toks)) {
-		err::show(stderr, data, file);
-		return 1;
-	}
-	if(args.has("tokens")) {
-		printf("Tokens:\n");
-		for(auto &l : toks) {
-			printf("%s\n", l.str().c_str());
-		}
-	}
-
-	sc::parser::TypeMgr types;
-
-	if(!parser::parse(file, toks, types)) {
-		err::show(stderr, data, file);
-		return 1;
-	}
-
-	if(args.has("parse") || args.has("semantic")) {
-		printf("-------------------------------------------------- Semantic Tree(s) "
-		       "--------------------------------------------------\n");
-		for(auto &ptree : types.get_managed_ptrees()) {
-			printf("\n\nSource: %s\n", types.get_src_path(ptree.first).c_str());
-			ptree.second->disp(false);
-		}
-	}
+	parser.show_toks(false);
+	parser.show_ptrees(false);
 	return 0;
 }

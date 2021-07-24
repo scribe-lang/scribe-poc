@@ -28,6 +28,8 @@ struct TypeStruct;
 struct ValueMgr;
 struct Value;
 
+class RAIIParser;
+
 enum Stmts
 {
 	BLOCK,
@@ -75,12 +77,16 @@ struct Stmt
 	virtual void disp(const bool &has_next)						  = 0;
 	virtual void set_parent(Stmt *parent)						  = 0;
 	virtual bool assign_type(TypeMgr &types)					  = 0;
-	virtual bool call_intrinsic(TypeMgr &types)					  = 0;
 	virtual bool const_fold(TypeMgr &types, ValueMgr &vals)				  = 0;
+	// comptime execute here
+	virtual bool call_intrinsic(TypeMgr &types) = 0;
 
 	Stmt *get_parent_with_type(const Stmts &typ);
 
 	std::string typestr();
+
+	// returns vtyp and value as string
+	std::string extrastr();
 };
 
 template<typename T> T *as(Stmt *data)
@@ -115,8 +121,8 @@ struct StmtType : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 
 	std::string getname();
 };
@@ -132,8 +138,8 @@ struct StmtBlock : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 
 struct StmtSimple : public Stmt
@@ -147,8 +153,8 @@ struct StmtSimple : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 
 struct StmtFnCallInfo : public Stmt
@@ -163,8 +169,8 @@ struct StmtFnCallInfo : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 
 struct StmtExpr : public Stmt
@@ -184,8 +190,8 @@ struct StmtExpr : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 
 struct StmtVar : public Stmt
@@ -202,8 +208,8 @@ struct StmtVar : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 
 struct StmtFnSig : public Stmt
@@ -222,8 +228,8 @@ struct StmtFnSig : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 
 struct StmtFnDef : public Stmt
@@ -238,8 +244,8 @@ struct StmtFnDef : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 
 struct StmtHeader : public Stmt
@@ -254,8 +260,8 @@ struct StmtHeader : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 
 struct StmtLib : public Stmt
@@ -269,8 +275,8 @@ struct StmtLib : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 
 struct StmtExtern : public Stmt
@@ -288,8 +294,8 @@ struct StmtExtern : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 
 struct StmtEnum : public Stmt
@@ -304,8 +310,8 @@ struct StmtEnum : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 
 // both declaration and definition
@@ -323,8 +329,8 @@ struct StmtStruct : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 
 struct StmtVarDecl : public Stmt
@@ -339,8 +345,8 @@ struct StmtVarDecl : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 
 struct cond_t
@@ -360,8 +366,8 @@ struct StmtCond : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 
 struct StmtForIn : public Stmt
@@ -377,8 +383,8 @@ struct StmtForIn : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 
 struct StmtFor : public Stmt
@@ -396,8 +402,8 @@ struct StmtFor : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 
 struct StmtWhile : public Stmt
@@ -412,8 +418,8 @@ struct StmtWhile : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 
 struct StmtRet : public Stmt
@@ -426,8 +432,8 @@ struct StmtRet : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 struct StmtContinue : public Stmt
 {
@@ -437,8 +443,8 @@ struct StmtContinue : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 struct StmtBreak : public Stmt
 {
@@ -448,8 +454,8 @@ struct StmtBreak : public Stmt
 	void disp(const bool &has_next);
 	void set_parent(Stmt *parent);
 	bool assign_type(TypeMgr &types);
-	bool call_intrinsic(TypeMgr &types);
 	bool const_fold(TypeMgr &types, ValueMgr &vals);
+	bool call_intrinsic(TypeMgr &types);
 };
 } // namespace parser
 } // namespace sc

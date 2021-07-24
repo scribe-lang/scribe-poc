@@ -43,26 +43,13 @@ INTRINSIC(import)
 		return false;
 	}
 	file = fs::abs_path(file);
-	std::string data;
-	std::vector<lex::Lexeme> toks;
-
-	size_t src_id = types.get_src_id(file);
-
-	if(types.src_exists(src_id)) {
-		goto gen_struct;
-	}
-
-	if(!fs::read(file, data)) return false;
-
-	if(!lex::tokenize(data, toks)) {
-		err::show(stderr, data, file);
-		return false;
-	}
-
-	if(!parser::parse(file, toks, types)) {
-		err::show(stderr, data, file);
-		return false;
-	}
+	// do here
+	size_t src_id	   = 0;
+	RAIIParser *parser = types.get_parser();
+	if(!parser->add_src(file, src_id)) return false;
+	if(!parser->parse(src_id)) return false;
+	if(!parser->assign_type(src_id)) return false;
+	if(!parser->const_fold(src_id)) return false;
 
 gen_struct:
 	SrcTypes *src	= types.get_src(src_id);

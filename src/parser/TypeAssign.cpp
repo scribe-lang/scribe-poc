@@ -21,11 +21,14 @@ namespace sc
 {
 namespace parser
 {
+// TODO: add a macro to each assign_type function that checks if vtyp is already set
+// don't add this macro to a function where vtyp has no relevance (continue, break)
 static bool init_templ_func(TypeMgr &types, Stmt *lhs, const std::vector<Type *> &calltemplates,
 			    const bool &comptime)
 {
 	if(calltemplates.empty() && !comptime) return true;
 	// TODO: handle comptime
+	assert(lhs->vtyp && lhs->vtyp->parent && "LHS has no vtype or parent assigned!");
 	Stmt *templfnparent = lhs->vtyp->parent->get_parent_with_type(BLOCK);
 	TypeFunc *origsig   = static_cast<TypeFunc *>(lhs->vtyp);
 	if(!templfnparent) {

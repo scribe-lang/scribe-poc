@@ -16,16 +16,63 @@
 
 #include <cstddef>
 
+#include "Args.hpp"
 #include "Lex.hpp"
 #include "parser/Parse.hpp"
 #include "parser/TypeMgr.hpp"
+#include "parser/ValueMgr.hpp"
 
 namespace sc
 {
 namespace parser
 {
-// on successful parse, returns true, and tree is allocated
-bool parse(const std::string &file, std::vector<lex::Lexeme> &toks, TypeMgr &types);
+class RAIIParser
+{
+	args::ArgParser &args;
+
+	// as new sources are imported, they'll be pushed back
+	// this is NOT used to fetch current src_id or something
+	std::vector<std::string> srcstack;
+
+	std::unordered_map<size_t, std::string> srcdata;
+	std::unordered_map<size_t, std::vector<lex::Lexeme>> srctoks;
+	std::unordered_map<size_t, Stmt *> srcstmts;
+
+	TypeMgr types;
+	ValueMgr vals;
+
+public:
+	RAIIParser(args::ArgParser &args);
+	~RAIIParser();
+
+	bool add_src(const std::string &file_path, size_t &src_id);
+
+	bool parse(const size_t &src_id);
+	bool assign_type(const size_t &src_id);
+	bool const_fold(const size_t &src_id);
+
+	inline std::vector<lex::Lexeme> &get_toks(const size_t &src_id)
+	{
+		return srctoks[src_id];
+	}
+	inline Stmt *&get_ptree(const size_t &src_id)
+	{
+		return srcstmts[src_id];
+	}
+
+	inline TypeMgr &get_types()
+	{
+		return types;
+	}
+	inline ValueMgr &get_vals()
+	{
+		return vals;
+	}
+
+	// force ignores arg parser
+	void show_toks(const bool &force);
+	void show_ptrees(const bool &force);
+};
 } // namespace parser
 } // namespace sc
 

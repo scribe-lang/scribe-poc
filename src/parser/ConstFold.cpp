@@ -14,7 +14,7 @@
 #include "Error.hpp"
 #include "parser/Stmts.hpp"
 #include "parser/TypeMgr.hpp"
-#include "parser/Value.hpp"
+#include "parser/ValueMgr.hpp"
 
 namespace sc
 {
@@ -24,16 +24,20 @@ namespace parser
 ///////////////////////////////////////// StmtBlock ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+#define CHECK_VALUE() \
+	if(value != nullptr && value->type != VUNKNOWN) return true
+
 bool StmtBlock::const_fold(TypeMgr &types, ValueMgr &vals)
 {
-	types.pushlayer();
+	CHECK_VALUE();
+	vals.pushlayer();
 	for(auto &s : stmts) {
 		if(!s->const_fold(types, vals)) {
 			err::set(line, col, "failed to execute comptime block");
 			return false;
 		}
 	}
-	types.poplayer();
+	vals.poplayer();
 	return true;
 }
 
@@ -43,6 +47,7 @@ bool StmtBlock::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtType::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
 	return true;
 }
 
@@ -52,6 +57,7 @@ bool StmtType::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtSimple::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
 	switch(val.tok.val) {
 	case lex::INT: value = vals.get(val.data.i); break;
 	case lex::FLT: value = vals.get((double)val.data.f); break;
@@ -68,6 +74,7 @@ bool StmtSimple::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtFnCallInfo::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
 	return true;
 }
 
@@ -77,6 +84,7 @@ bool StmtFnCallInfo::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtExpr::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
 	return true;
 }
 
@@ -86,6 +94,15 @@ bool StmtExpr::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtVar::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
+
+	if(!val) return true;
+
+	if(!val->const_fold(types, vals)) {
+		err::set(line, col, "failed to const fold value of var");
+		return false;
+	}
+	if(val->value) value = val->value;
 	return true;
 }
 
@@ -95,6 +112,14 @@ bool StmtVar::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtFnSig::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
+	// for(auto &a : params) {
+	// 	Value *res = vals.get_val(a->name.data.s);
+	// 	if(!res) {
+	// 		err::set(line, col, "failed to const fold function signature argument");
+	// 		return false;
+	// 	}
+	// }
 	return true;
 }
 
@@ -104,7 +129,9 @@ bool StmtFnSig::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtFnDef::const_fold(TypeMgr &types, ValueMgr &vals)
 {
-	// this->disp(false);
+	CHECK_VALUE();
+	// TODO: function definition will work only when a function call occurs
+	// therefore disable function definition const folding via var declarations
 	return true;
 }
 
@@ -114,6 +141,7 @@ bool StmtFnDef::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtHeader::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
 	return true;
 }
 
@@ -123,6 +151,7 @@ bool StmtHeader::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtLib::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
 	return true;
 }
 
@@ -132,6 +161,7 @@ bool StmtLib::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtExtern::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
 	return true;
 }
 
@@ -141,6 +171,7 @@ bool StmtExtern::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtEnum::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
 	return true;
 }
 
@@ -150,6 +181,7 @@ bool StmtEnum::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtStruct::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
 	return true;
 }
 
@@ -159,6 +191,7 @@ bool StmtStruct::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtVarDecl::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
 	return true;
 }
 
@@ -168,6 +201,7 @@ bool StmtVarDecl::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtCond::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
 	return true;
 }
 
@@ -177,6 +211,7 @@ bool StmtCond::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtForIn::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
 	return true;
 }
 
@@ -186,6 +221,7 @@ bool StmtForIn::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtFor::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
 	return true;
 }
 
@@ -195,6 +231,7 @@ bool StmtFor::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtWhile::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
 	return true;
 }
 
@@ -204,6 +241,7 @@ bool StmtWhile::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtRet::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
 	return true;
 }
 
@@ -213,6 +251,7 @@ bool StmtRet::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtContinue::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
 	return true;
 }
 
@@ -222,6 +261,7 @@ bool StmtContinue::const_fold(TypeMgr &types, ValueMgr &vals)
 
 bool StmtBreak::const_fold(TypeMgr &types, ValueMgr &vals)
 {
+	CHECK_VALUE();
 	return true;
 }
 } // namespace parser

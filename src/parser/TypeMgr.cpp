@@ -13,6 +13,7 @@
 
 #include "parser/TypeMgr.hpp"
 
+#include "Parser.hpp"
 #include "parser/Intrinsics.hpp"
 #include "parser/PrimitiveFuncs.hpp"
 #include "parser/Stmts.hpp"
@@ -66,7 +67,7 @@ Type *SrcTypes::get(const std::string &name, const size_t &locked_from)
 	return nullptr;
 }
 
-TypeMgr::TypeMgr() : init_typefuncs_called(false)
+TypeMgr::TypeMgr(RAIIParser *parser) : parser(parser), init_typefuncs_called(false)
 {
 	globals["any"]	     = new TypeSimple(nullptr, 0, 0, "any");
 	globals["void"]	     = new TypeSimple(nullptr, 0, 0, "void");
@@ -115,10 +116,6 @@ TypeMgr::~TypeMgr()
 	for(auto &g : globals) delete g.second;
 	for(auto &s : srcs) delete s.second;
 	for(auto &mfn : managedfnmaps) delete mfn;
-	for(auto &mpt : managedptrees) {
-		if(!mpt.second) continue;
-		delete mpt.second;
-	}
 }
 void TypeMgr::init_typefns()
 {
@@ -229,21 +226,6 @@ TypeFuncMap *TypeMgr::get_funcmap_copy(const std::string &name, Stmt *parent)
 	}
 	if(funcs.empty()) return nullptr;
 	return new TypeFuncMap(parent, 0, 0, funcs);
-}
-
-size_t TypeMgr::get_src_id(const std::string &src_path)
-{
-	if(srcids.find(src_path) == srcids.end()) {
-		size_t id	 = gen_src_id();
-		srcids[src_path] = id;
-		srcfiles[id]	 = src_path;
-	}
-	return srcids[src_path];
-}
-std::string TypeMgr::get_src_path(const size_t &src_id)
-{
-	if(srcfiles.find(src_id) == srcfiles.end()) return "";
-	return srcfiles[src_id];
 }
 } // namespace parser
 } // namespace sc

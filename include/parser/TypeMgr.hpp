@@ -24,6 +24,8 @@ namespace sc
 {
 namespace parser
 {
+class RAIIParser;
+
 class LayerTypes
 {
 	std::unordered_map<std::string, Type *> items;
@@ -79,11 +81,9 @@ public:
 };
 class TypeMgr
 {
-	std::unordered_map<std::string, size_t> srcids;
-	std::unordered_map<size_t, std::string> srcfiles;
+	RAIIParser *parser;
 	std::unordered_map<std::string, Type *> globals;
 	std::unordered_map<size_t, SrcTypes *> srcs;
-	std::map<size_t, Stmt *> managedptrees;
 	std::vector<SrcTypes *> srcstack;
 	std::vector<size_t> srcidstack;
 	std::vector<TypeFuncMap *> managedfnmaps;
@@ -93,13 +93,17 @@ class TypeMgr
 	bool init_typefuncs_called; // init_typefns() has been called or not
 
 public:
-	TypeMgr();
+	TypeMgr(RAIIParser *parser);
 	~TypeMgr();
 	// MUST be called after at least one src has been pushed (pushsrc())
 	void init_typefns();
 	inline bool init_typefns_called()
 	{
 		return init_typefuncs_called;
+	}
+	inline RAIIParser *get_parser()
+	{
+		return parser;
 	}
 	inline void pushlayer()
 	{
@@ -166,23 +170,6 @@ public:
 	{
 		return !funcreturns.empty();
 	}
-
-	inline void manage_ptree(const size_t &src_id, Stmt *tree)
-	{
-		managedptrees[src_id] = tree;
-	}
-	inline std::map<size_t, Stmt *> &get_managed_ptrees()
-	{
-		return managedptrees;
-	}
-	inline Stmt *get_managed_ptree(const size_t &src_id)
-	{
-		if(managedptrees.find(src_id) == managedptrees.end()) return nullptr;
-		return managedptrees[src_id];
-	}
-
-	size_t get_src_id(const std::string &src_path);
-	std::string get_src_path(const size_t &src_id);
 };
 } // namespace parser
 } // namespace sc

@@ -15,6 +15,7 @@
 #define PARSER_VALUE_HPP
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace sc
@@ -23,14 +24,13 @@ namespace parser
 {
 enum Values
 {
+	VUNKNOWN,
+	VVOID,
 	VINT, // also char (u8)
 	VFLT,
 	VSTR,
 	VSTRUCT,
 };
-
-// typedef bool (*intrinsic_fn_t)(TypeMgr &types, Stmt *stmt);
-// #define INTRINSIC(name) bool intrinsic_##name(TypeMgr &types, Stmt *stmt)
 
 struct Value
 {
@@ -38,32 +38,39 @@ struct Value
 	int64_t i;
 	double f;
 	std::string s;
-	std::vector<Value *> st; // each element contains a field of struct
+	std::unordered_map<std::string, Value *> st; // each element contains a field of struct
 
+	Value(const Values &type);
 	Value(const int64_t &idata);
 	Value(const double &fdata);
 	Value(const std::string &sdata);
-	Value(const std::vector<Value *> &stdata);
+	Value(const std::unordered_map<std::string, Value *> &stdata);
 
 	bool operator==(const Value &other);
 	bool operator!=(const Value &other);
+
+	std::string stringify();
 };
 
 // no need to copy unnecessarily - values are immutable
-class ValueMgr
+class ValueAllocator
 {
 	std::vector<Value *> allvalues;
+	Value *unknown;
+	Value *vvoid;
 
-	std::string stringify(const std::vector<Value *> &v);
-	std::string stringify(const Value *v);
+	std::string stringify(const std::unordered_map<std::string, Value *> &v);
 
 public:
-	~ValueMgr();
+	ValueAllocator();
+	~ValueAllocator();
 
+	// for unknown type
+	Value *get(const Values &type);
 	Value *get(const int64_t &idata);
 	Value *get(const double &fdata);
 	Value *get(const std::string &sdata);
-	Value *get(const std::vector<Value *> &stdata);
+	Value *get(const std::unordered_map<std::string, Value *> &stdata);
 };
 } // namespace parser
 } // namespace sc
