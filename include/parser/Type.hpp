@@ -60,7 +60,6 @@ struct type_base_t
 	int64_t id;
 	size_t ptr;
 	size_t info;
-	std::vector<type_base_t *> counts; // for arrays
 	intrinsic_fn_t intrin_fn;
 
 	type_base_t(const Types &type, stmt_base_t *parent, const size_t &ptr, const size_t &info);
@@ -74,11 +73,6 @@ struct type_base_t
 	bool compatible_base(type_base_t *rhs, const bool &is_templ, const size_t &line,
 			     const size_t &col);
 	virtual bool compatible(type_base_t *rhs, const size_t &line, const size_t &col) = 0;
-
-	inline void add_count(type_base_t *count)
-	{
-		counts.push_back(count);
-	}
 
 	inline void set_intrinsic(intrinsic_fn_t intrinsic)
 	{

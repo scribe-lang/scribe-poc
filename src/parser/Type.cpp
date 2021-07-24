@@ -45,10 +45,7 @@ type_base_t::type_base_t(const int64_t &id, const Types &type, stmt_base_t *pare
 			 const size_t &ptr, const size_t &info, intrinsic_fn_t intrin_fn)
 	: id(id), type(type), parent(parent), ptr(ptr), info(info), intrin_fn(intrin_fn)
 {}
-type_base_t::~type_base_t()
-{
-	for(auto &c : counts) delete c;
-}
+type_base_t::~type_base_t() {}
 bool type_base_t::compatible_base(type_base_t *rhs, const bool &is_templ, const size_t &line,
 				  const size_t &col)
 {
@@ -102,9 +99,6 @@ std::string type_base_t::str_base()
 	if(info & CONST) tname += "const ";
 	if(info & VOLATILE) tname += "volatile ";
 	if(info & VARIADIC) tname = "..." + tname + (!tname.empty() ? " " : "");
-	for(auto &c : counts) {
-		tname += "[" + c->str() + "]";
-	}
 	return tname;
 }
 std::string type_base_t::mangled_name_base()
@@ -113,9 +107,6 @@ std::string type_base_t::mangled_name_base()
 	if(info & REF) tname += "&";
 	if(info & VARIADIC) tname = "..." + tname;
 	if(!tname.empty()) tname = "_" + tname;
-	for(auto &c : counts) {
-		tname += "[" + c->mangled_name() + "]";
-	}
 	return tname;
 }
 
