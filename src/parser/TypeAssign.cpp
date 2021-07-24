@@ -61,17 +61,8 @@ static bool init_templ_func(VarMgr &vars, stmt_base_t *lhs,
 		vars.add_copy(t, calltemplates[i]);
 	}
 	fn->sig->templates.clear();
-	bool applied_variadic_name = false;
-	size_t variadic_id	   = 0;
-	for(size_t i = 0, j = 0; i < origsig->args.size() && j < fn->sig->params.size(); ++i, ++j) {
-		type_base_t *o = origsig->args[i];
-		std::string v  = fn->sig->params[j]->name.data.s;
-		if(!(o->info & VARIADIC)) continue;
-		--j;
-		v += "." + std::to_string(variadic_id++);
-		o = o->copy();
-		o->info &= ~VARIADIC;
-		vars.add(v, o);
+	if(origsig->args.size() > 0 && origsig->args.back()->type == TVARIADIC) {
+		vars.add_copy(fn->sig->params.back()->name.data.s, origsig->args.back());
 	}
 	fn->sig->comptime = false; // because body of function is not read if comptime is true
 	if(!fn->assign_type(vars)) {
@@ -82,12 +73,12 @@ static bool init_templ_func(VarMgr &vars, stmt_base_t *lhs,
 		return false;
 	}
 	fn->sig->comptime = comptime;
-	if(fn->sig->vtyp) delete fn->sig->vtyp;
-	if(fn->vtyp) delete fn->vtyp;
-	if(var->vtyp) delete var->vtyp;
-	fn->sig->vtyp = origsig->copy();
-	fn->vtyp      = fn->sig->vtyp->copy();
-	var->vtyp     = fn->vtyp->copy();
+	// if(fn->sig->vtyp) delete fn->sig->vtyp;
+	// if(fn->vtyp) delete fn->vtyp;
+	// if(var->vtyp) delete var->vtyp;
+	// fn->sig->vtyp = origsig->copy();
+	// fn->vtyp      = fn->sig->vtyp->copy();
+	// var->vtyp     = fn->vtyp->copy();
 	if(comptime) {
 		// TODO: make executecomptime independent, rename it to const folding or something
 		// add the comptime resolved argument list to the function definition argument list
@@ -140,13 +131,13 @@ bool stmt_type_t::assign_type(VarMgr &vars)
 {
 	std::vector<type_base_t *> resolvabletemplates;
 	for(size_t i = 0; i < templates.size(); ++i) {
-		if(vars.exists(templates[i].data.s, false, false)) {
+		if(vars.exists(templates[i].data.s, false, true)) {
 			type_base_t *v = vars.get(templates[i].data.s, this);
 			resolvabletemplates.push_back(v);
 			continue;
 		}
 		std::string tname = "@" + std::to_string(i);
-		vars.add(templates[i].data.s, new type_simple_t(0, 0, true, tname));
+		vars.add(templates[i].data.s, new type_simple_t(nullptr, 0, 0, tname));
 	}
 	if(func) {
 		if(!fn->assign_type(vars)) {
@@ -534,9 +525,9 @@ bool stmt_var_t::assign_type(VarMgr &vars)
 bool stmt_fnsig_t::assign_type(VarMgr &vars)
 {
 	for(size_t i = 0; i < templates.size(); ++i) {
-		if(vars.exists(templates[i].data.s, false, false)) continue;
+		if(vars.exists(templates[i].data.s, false, true)) continue;
 		std::string tname = "@" + std::to_string(i);
-		vars.add(templates[i].data.s, new type_simple_t(0, 0, true, tname));
+		vars.add(templates[i].data.s, new type_simple_t(nullptr, 0, 0, tname));
 	}
 	for(auto &p : params) {
 		if(!p->assign_type(vars)) {
@@ -651,9 +642,9 @@ bool stmt_struct_t::assign_type(VarMgr &vars)
 {
 	vars.pushlayer();
 	for(size_t i = 0; i < templates.size(); ++i) {
-		if(vars.exists(templates[i].data.s, false, false)) continue;
+		if(vars.exists(templates[i].data.s, false, true)) continue;
 		std::string tname = "@" + std::to_string(i);
-		vars.add(templates[i].data.s, new type_simple_t(0, 0, true, tname));
+		vars.add(templates[i].data.s, new type_simple_t(nullptr, 0, 0, tname));
 	}
 	std::vector<std::string> field_type_orders;
 	for(auto &f : fields) {

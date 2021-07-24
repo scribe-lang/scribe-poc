@@ -220,6 +220,7 @@ struct type_variadic_t : public type_base_t
 			const std::vector<type_base_t *> &args);
 	type_variadic_t(const int64_t &id, stmt_base_t *parent, const size_t &ptr,
 			const size_t &info, const std::vector<type_base_t *> &args);
+	~type_variadic_t();
 
 	type_base_t *copy();
 	type_base_t *specialize(const std::vector<type_base_t *> &templates);
@@ -227,6 +228,8 @@ struct type_variadic_t : public type_base_t
 
 	std::string str();
 	std::string mangled_name();
+
+	type_base_t *get_arg(const size_t &idx);
 };
 } // namespace parser
 } // namespace sc

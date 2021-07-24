@@ -216,8 +216,10 @@ bool type_struct_t::compatible(type_base_t *rhs, const size_t &line, const size_
 		}
 		const std::string &f = field_order[i];
 		if(!fields[f]->compatible(r->fields[f], line, col)) {
-			err::set(line, col, "incompatible field types (LHS: %s, RHS: %s)",
-				 fields[f]->str().c_str(), r->fields[f]->str().c_str());
+			err::set(line, col,
+				 "incompatible field types (LHS: %s, RHS: %s) in %s and %s",
+				 fields[f]->str().c_str(), r->fields[f]->str().c_str(),
+				 str().c_str(), r->str().c_str());
 			return false;
 		}
 	}
@@ -237,29 +239,19 @@ type_struct_t *type_struct_t::specialize_compatible_call(stmt_fncallinfo_t *call
 		templates.push_back(callinfo->args[i]->vtyp);
 	}
 	bool is_field_compatible = true;
-	for(size_t i = 0; i < this->fields.size(); ++i) {
-		type_base_t *ffield = this->fields[field_order[i]];
+	std::unordered_map<std::string, type_base_t *> specializedfields;
+	for(auto &f : this->fields) {
+		specializedfields[f.first] = f.second->specialize(templates);
+	}
+	for(size_t i = 0; i < specializedfields.size(); ++i) {
+		type_base_t *ffield = specializedfields[field_order[i]];
 		stmt_base_t *fciarg = callinfo->args[i];
-		if(ffield->type == TSIMPLE) {
-			type_simple_t *fargsim = static_cast<type_simple_t *>(ffield);
-			if(fargsim->name[0] == '@') {
-				std::string idstr = fargsim->name.substr(1);
-				ffield		  = templates[std::stoi(idstr)]->copy();
-				ffield->ptr += fargsim->ptr;
-				ffield->info |= fargsim->info;
-			} else {
-				ffield = ffield->copy();
-			}
-		} else {
-			ffield = ffield->copy();
-		}
 		if(!ffield->compatible(fciarg->vtyp, fciarg->line, fciarg->col)) {
 			is_field_compatible = false;
-			delete ffield;
 			break;
 		}
-		if(ffield) delete ffield;
 	}
+	for(auto &sf : specializedfields) delete sf.second;
 	if(!is_field_compatible) return nullptr;
 	type_struct_t *newst = static_cast<type_struct_t *>(specialize(templates));
 	newst->is_def	     = false;
@@ -427,39 +419,26 @@ type_func_t *type_func_t::specialize_compatible_call(stmt_fncallinfo_t *callinfo
 	}
 	bool is_arg_compatible = true;
 	std::vector<type_base_t *> variadics;
-	for(size_t i = 0, j = 0; i < this->args.size() && j < callinfo->args.size(); ++i, ++j) {
-		type_base_t *farg = this->args[i];
+	std::vector<type_base_t *> specializedargs;
+	for(auto &a : this->args) {
+		specializedargs.push_back(a->specialize(templates));
+	}
+	for(size_t i = 0, j = 0; i < specializedargs.size() && j < callinfo->args.size(); ++i, ++j)
+	{
+		type_base_t *farg = specializedargs[i];
 		bool variadic	  = false;
 		if(farg->info & VARIADIC) {
 			variadic = true;
 			--i;
 		}
 		stmt_base_t *fciarg = callinfo->args[j];
-		if(farg->type == TSIMPLE) {
-			type_simple_t *fargsim = static_cast<type_simple_t *>(farg);
-			if(fargsim->name[0] == '@') {
-				std::string idstr = fargsim->name.substr(1);
-				farg		  = templates[std::stoi(idstr)]->copy();
-				farg->ptr += fargsim->ptr;
-				farg->info |= fargsim->info;
-			} else if(fargsim->name == "any") {
-				farg = fciarg->vtyp->copy();
-				farg->ptr += fargsim->ptr;
-				farg->info |= fargsim->info;
-			} else {
-				farg = farg->copy();
-			}
-		} else {
-			farg = farg->copy();
-		}
 		if(!farg->compatible(fciarg->vtyp, fciarg->line, fciarg->col)) {
 			is_arg_compatible = false;
-			delete farg;
 			break;
 		}
-		if(variadic) variadics.push_back(farg);
-		if(farg && !variadic) delete farg;
+		if(variadic) variadics.push_back(fciarg->vtyp->copy());
 	}
+	for(auto &sa : specializedargs) delete sa;
 	if(!is_arg_compatible) return nullptr;
 	if(!variadics.empty()) {
 		type_func_t *tmp = static_cast<type_func_t *>(this->copy());
@@ -467,6 +446,7 @@ type_func_t *type_func_t::specialize_compatible_call(stmt_fncallinfo_t *callinfo
 		tmp->args.pop_back();
 		type_variadic_t *va = new type_variadic_t(nullptr, 0, 0, {});
 		for(auto &v : variadics) {
+			v->info &= ~VARIADIC;
 			va->args.push_back(v);
 		}
 		tmp->args.push_back(va);
@@ -532,6 +512,8 @@ type_func_t *type_funcmap_t::decide_func(stmt_fncallinfo_t *callinfo,
 					 std::vector<type_base_t *> &templates)
 {
 	for(auto &fn : funcs) {
+		templates.clear();
+		err::reset();
 		// printf("option: %s -> %s\n", fn.first.c_str(), fn.second->str().c_str());
 		type_func_t *f = fn.second;
 		if(!(f = f->specialize_compatible_call(callinfo, templates))) continue;
@@ -540,8 +522,6 @@ type_func_t *type_funcmap_t::decide_func(stmt_fncallinfo_t *callinfo,
 		err::reset();
 		return f;
 	}
-	templates.clear();
-	err::reset();
 	return nullptr;
 }
 type_func_t *type_funcmap_t::decide_func(type_base_t *vartype)
@@ -557,6 +537,10 @@ type_variadic_t::type_variadic_t(const int64_t &id, stmt_base_t *parent, const s
 				 const size_t &info, const std::vector<type_base_t *> &args)
 	: type_base_t(id, TVARIADIC, parent, ptr, info, nullptr), args(args)
 {}
+type_variadic_t::~type_variadic_t()
+{
+	for(auto &a : args) delete a;
+}
 
 type_base_t *type_variadic_t::copy()
 {
@@ -590,7 +574,16 @@ bool type_variadic_t::compatible(type_base_t *rhs, const size_t &line, const siz
 }
 std::string type_variadic_t::str()
 {
-	return str_base() + "<variadic args (" + std::to_string(args.size()) + ")>";
+	std::string tname = str_base() + "<variadic(" + std::to_string(args.size()) + ")>{";
+	for(auto &a : args) {
+		tname += a->str() + ", ";
+	}
+	if(args.size() > 0) {
+		tname.pop_back();
+		tname.pop_back();
+	}
+	tname += "}";
+	return tname;
 }
 std::string type_variadic_t::mangled_name()
 {
@@ -599,6 +592,11 @@ std::string type_variadic_t::mangled_name()
 		tname += a->mangled_name();
 	}
 	return tname;
+}
+
+type_base_t *type_variadic_t::get_arg(const size_t &idx)
+{
+	return args[idx]->copy();
 }
 } // namespace parser
 } // namespace sc

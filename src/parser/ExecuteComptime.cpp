@@ -99,7 +99,7 @@ stmt_base_t *stmt_fnsig_t::executecomptime(VarMgr &vars)
 
 stmt_base_t *stmt_fndef_t::executecomptime(VarMgr &vars)
 {
-	this->disp(false);
+	// this->disp(false);
 	return copy(true);
 }
 
