@@ -165,6 +165,12 @@ std::string stmt_type_t::getname()
 	if(info & VOLATILE) tname += "volatile ";
 	if(info & VARIADIC) tname = "..." + tname;
 	for(auto &n : name) tname += n.data.s.empty() ? n.tok.cstr() : n.data.s;
+	if(templates.empty()) return tname;
+	tname += "<";
+	for(auto &t : templates) {
+		tname += t.data.s;
+	}
+	tname += ">";
 	return tname;
 }
 

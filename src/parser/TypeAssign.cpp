@@ -62,7 +62,8 @@ static bool init_templ_func(VarMgr &vars, stmt_base_t *lhs,
 	}
 	fn->sig->templates.clear();
 	if(origsig->args.size() > 0 && origsig->args.back()->type == TVARIADIC) {
-		vars.add_copy(fn->sig->params.back()->name.data.s, origsig->args.back());
+		std::string tname = fn->sig->params.back()->vtype->getname();
+		vars.add_copy(tname, origsig->args.back());
 	}
 	fn->sig->comptime = false; // because body of function is not read if comptime is true
 	if(!fn->assign_type(vars)) {
@@ -147,7 +148,15 @@ bool stmt_type_t::assign_type(VarMgr &vars)
 		vtyp = fn->vtyp->copy();
 		return true;
 	}
-	type_base_t *res = vars.get(name.front().data.s, this);
+	type_base_t *res = nullptr;
+	if(info & VARIADIC && (res = vars.get(this->getname(), nullptr))) {
+		vtyp	   = res->copy();
+		vtyp->info = info;
+		vtyp->ptr += ptr;
+		vtyp->info &= ~VARIADIC;
+		return res;
+	}
+	res = vars.get(name.front().data.s, this);
 	if(res == nullptr) {
 		err::set(name.front(), "variable '%s' does not exist", name.front().data.s.c_str());
 		return false;
@@ -345,7 +354,7 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 		break;
 	}
 	case lex::SUBS: {
-		if(lhs->vtyp->info & VARIADIC) {
+		if(lhs->vtyp->type == TVARIADIC) {
 			bool found_compat = false;
 			for(auto &bn : basenumtypes()) {
 				if(rhs->vtyp->compatible(vars.get(bn, this), line, col)) {
@@ -361,8 +370,7 @@ bool stmt_expr_t::assign_type(VarMgr &vars)
 				return false;
 			}
 			err::reset();
-			vtyp = lhs->vtyp->copy();
-			vtyp->info &= ~VARIADIC;
+			vtyp = vars.get_copy("any", this);
 			break;
 		}
 		if(lhs->vtyp->ptr > 0) {
