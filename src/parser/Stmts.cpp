@@ -21,37 +21,36 @@ namespace sc
 namespace parser
 {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////// stmt_base_t /////////////////////////////////////////////
+///////////////////////////////////////// Stmt /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_base_t::stmt_base_t(const StmtType &type, const size_t &src_id, const size_t &line,
-			 const size_t &col)
+Stmt::Stmt(const Stmts &type, const size_t &src_id, const size_t &line, const size_t &col)
 	: type(type), parent(nullptr), src_id(src_id), line(line), col(col), vtyp(nullptr),
 	  is_specialized(false), is_intrin(false)
 {}
-stmt_base_t::~stmt_base_t()
+Stmt::~Stmt()
 {
 	if(vtyp) delete vtyp;
 }
 
-stmt_base_t *stmt_base_t::copy(const bool &copy_vtyp)
+Stmt *Stmt::copy(const bool &copy_vtyp)
 {
-	stmt_base_t *cp = hidden_copy(copy_vtyp, this);
+	Stmt *cp = hidden_copy(copy_vtyp, this);
 	if(!cp) return nullptr;
 	cp->set_parent(cp->parent); // no change for top level parent
 	return cp;
 }
 
-stmt_base_t *stmt_base_t::get_parent_with_type(const StmtType &typ)
+Stmt *Stmt::get_parent_with_type(const Stmts &typ)
 {
-	stmt_base_t *res = this->parent;
+	Stmt *res = this->parent;
 	while(res && res->type != typ) {
 		res = res->parent;
 	}
 	return res;
 }
 
-std::string stmt_base_t::typestr()
+std::string Stmt::typestr()
 {
 	switch(type) {
 	case BLOCK: return "block";
@@ -80,19 +79,19 @@ std::string stmt_base_t::typestr()
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////// stmt_block_t ////////////////////////////////////////////
+///////////////////////////////////////// StmtBlock ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_block_t::stmt_block_t(const size_t &src_id, const size_t &line, const size_t &col,
-			   const std::vector<stmt_base_t *> &stmts)
-	: stmt_base_t(BLOCK, src_id, line, col), stmts(stmts)
+StmtBlock::StmtBlock(const size_t &src_id, const size_t &line, const size_t &col,
+		     const std::vector<Stmt *> &stmts)
+	: Stmt(BLOCK, src_id, line, col), stmts(stmts)
 {}
-stmt_block_t::~stmt_block_t()
+StmtBlock::~StmtBlock()
 {
 	for(auto &stmt : stmts) delete stmt;
 }
 
-void stmt_block_t::stmt_block_t::disp(const bool &has_next)
+void StmtBlock::StmtBlock::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "Block:\n");
@@ -103,26 +102,24 @@ void stmt_block_t::stmt_block_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////// stmt_type_t /////////////////////////////////////////////
+///////////////////////////////////////// StmtType /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_type_t::stmt_type_t(const size_t &src_id, const size_t &line, const size_t &col,
-			 const size_t &ptr, const size_t &info,
-			 const std::vector<lex::Lexeme> &name,
-			 const std::vector<lex::Lexeme> &templates)
-	: stmt_base_t(TYPE, src_id, line, col), func(false), ptr(ptr), info(info), name(name),
+StmtType::StmtType(const size_t &src_id, const size_t &line, const size_t &col, const size_t &ptr,
+		   const size_t &info, const std::vector<lex::Lexeme> &name,
+		   const std::vector<lex::Lexeme> &templates)
+	: Stmt(TYPE, src_id, line, col), func(false), ptr(ptr), info(info), name(name),
 	  templates(templates), fn(nullptr)
 {}
-stmt_type_t::stmt_type_t(const size_t &src_id, const size_t &line, const size_t &col,
-			 stmt_base_t *fn)
-	: stmt_base_t(TYPE, src_id, line, col), func(true), ptr(0), info(0), name({}), fn(fn)
+StmtType::StmtType(const size_t &src_id, const size_t &line, const size_t &col, Stmt *fn)
+	: Stmt(TYPE, src_id, line, col), func(true), ptr(0), info(0), name({}), fn(fn)
 {}
-stmt_type_t::~stmt_type_t()
+StmtType::~StmtType()
 {
 	if(fn) delete fn;
 }
 
-void stmt_type_t::disp(const bool &has_next)
+void StmtType::disp(const bool &has_next)
 {
 	if(func) {
 		tio::taba(has_next);
@@ -154,7 +151,7 @@ void stmt_type_t::disp(const bool &has_next)
 	tio::tabr();
 }
 
-std::string stmt_type_t::getname()
+std::string StmtType::getname()
 {
 	if(func) return fn->typestr();
 
@@ -175,15 +172,15 @@ std::string stmt_type_t::getname()
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////// stmt_simple_t ////////////////////////////////////////////
+//////////////////////////////////////// StmtSimple ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_simple_t::stmt_simple_t(const size_t &src_id, const size_t &line, const size_t &col,
-			     const lex::Lexeme &val)
-	: stmt_base_t(SIMPLE, src_id, line, col), val(val)
+StmtSimple::StmtSimple(const size_t &src_id, const size_t &line, const size_t &col,
+		       const lex::Lexeme &val)
+	: Stmt(SIMPLE, src_id, line, col), val(val)
 {}
 
-void stmt_simple_t::disp(const bool &has_next)
+void StmtSimple::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "Simple: %s%s\n", val.str(0).c_str(),
@@ -191,24 +188,24 @@ void stmt_simple_t::disp(const bool &has_next)
 	tio::tabr();
 }
 
-stmt_simple_t::~stmt_simple_t() {}
+StmtSimple::~StmtSimple() {}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////// stmt_fncallinfo_t //////////////////////////////////////////
+////////////////////////////////////// StmtFnCallInfo //////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_fncallinfo_t::stmt_fncallinfo_t(const size_t &src_id, const size_t &line, const size_t &col,
-				     const std::vector<stmt_type_t *> &templates,
-				     const std::vector<stmt_base_t *> &args)
-	: stmt_base_t(FNCALLINFO, src_id, line, col), templates(templates), args(args)
+StmtFnCallInfo::StmtFnCallInfo(const size_t &src_id, const size_t &line, const size_t &col,
+			       const std::vector<StmtType *> &templates,
+			       const std::vector<Stmt *> &args)
+	: Stmt(FNCALLINFO, src_id, line, col), templates(templates), args(args)
 {}
-stmt_fncallinfo_t::~stmt_fncallinfo_t()
+StmtFnCallInfo::~StmtFnCallInfo()
 {
 	for(auto &templ : templates) delete templ;
 	for(auto &a : args) delete a;
 }
 
-void stmt_fncallinfo_t::disp(const bool &has_next)
+void StmtFnCallInfo::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "Function Call Info: %s\n",
@@ -233,22 +230,22 @@ void stmt_fncallinfo_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////// stmt_expr_t /////////////////////////////////////////////
+///////////////////////////////////////// StmtExpr /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_expr_t::stmt_expr_t(const size_t &src_id, const size_t &line, const size_t &col,
-			 stmt_base_t *lhs, const lex::Lexeme &oper, stmt_base_t *rhs)
-	: stmt_base_t(EXPR, src_id, line, col), commas(0), lhs(lhs), oper(oper), rhs(rhs),
-	  or_blk(nullptr), or_blk_var()
+StmtExpr::StmtExpr(const size_t &src_id, const size_t &line, const size_t &col, Stmt *lhs,
+		   const lex::Lexeme &oper, Stmt *rhs)
+	: Stmt(EXPR, src_id, line, col), commas(0), lhs(lhs), oper(oper), rhs(rhs), or_blk(nullptr),
+	  or_blk_var()
 {}
-stmt_expr_t::~stmt_expr_t()
+StmtExpr::~StmtExpr()
 {
 	if(lhs) delete lhs;
 	if(rhs) delete rhs;
 	if(or_blk) delete or_blk;
 }
 
-void stmt_expr_t::disp(const bool &has_next)
+void StmtExpr::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "Expression [intrinsic = %s]:%s\n", is_intrin ? "yes" : "no",
@@ -281,20 +278,20 @@ void stmt_expr_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////// stmt_var_t //////////////////////////////////////////////
+///////////////////////////////////////// StmtVar //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_var_t::stmt_var_t(const size_t &src_id, const size_t &line, const size_t &col,
-		       const lex::Lexeme &name, stmt_type_t *vtype, stmt_base_t *val)
-	: stmt_base_t(VAR, src_id, line, col), name(name), vtype(vtype), val(val)
+StmtVar::StmtVar(const size_t &src_id, const size_t &line, const size_t &col,
+		 const lex::Lexeme &name, StmtType *vtype, Stmt *val)
+	: Stmt(VAR, src_id, line, col), name(name), vtype(vtype), val(val)
 {}
-stmt_var_t::~stmt_var_t()
+StmtVar::~StmtVar()
 {
 	if(vtype) delete vtype;
 	if(val) delete val;
 }
 
-void stmt_var_t::disp(const bool &has_next)
+void StmtVar::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "Variable: %s%s\n", name.data.s.c_str(),
@@ -315,23 +312,22 @@ void stmt_var_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////// stmt_fnsig_t ////////////////////////////////////////////
+///////////////////////////////////////// StmtFnSig ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_fnsig_t::stmt_fnsig_t(const size_t &src_id, const size_t &line, const size_t &col,
-			   const std::vector<lex::Lexeme> &templates,
-			   std::vector<stmt_var_t *> &params, stmt_type_t *rettype,
-			   const bool &comptime)
-	: stmt_base_t(FNSIG, src_id, line, col), templates(templates), params(params),
-	  rettype(rettype), comptime(comptime)
+StmtFnSig::StmtFnSig(const size_t &src_id, const size_t &line, const size_t &col,
+		     const std::vector<lex::Lexeme> &templates, std::vector<StmtVar *> &params,
+		     StmtType *rettype, const bool &comptime)
+	: Stmt(FNSIG, src_id, line, col), templates(templates), params(params), rettype(rettype),
+	  comptime(comptime)
 {}
-stmt_fnsig_t::~stmt_fnsig_t()
+StmtFnSig::~StmtFnSig()
 {
 	for(auto &p : params) delete p;
 	if(rettype) delete rettype;
 }
 
-void stmt_fnsig_t::disp(const bool &has_next)
+void StmtFnSig::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "Function signature [comptime = %s]%s\n", comptime ? "yes" : "no",
@@ -364,20 +360,20 @@ void stmt_fnsig_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////// stmt_fndef_t ////////////////////////////////////////////
+///////////////////////////////////////// StmtFnDef ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_fndef_t::stmt_fndef_t(const size_t &src_id, const size_t &line, const size_t &col,
-			   stmt_fnsig_t *sig, stmt_block_t *blk)
-	: stmt_base_t(FNDEF, src_id, line, col), sig(sig), blk(blk)
+StmtFnDef::StmtFnDef(const size_t &src_id, const size_t &line, const size_t &col, StmtFnSig *sig,
+		     StmtBlock *blk)
+	: Stmt(FNDEF, src_id, line, col), sig(sig), blk(blk)
 {}
-stmt_fndef_t::~stmt_fndef_t()
+StmtFnDef::~StmtFnDef()
 {
 	if(sig) delete sig;
 	if(blk) delete blk;
 }
 
-void stmt_fndef_t::disp(const bool &has_next)
+void StmtFnDef::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "Function definition%s\n", vtyp ? (" -> " + vtyp->str()).c_str() : "");
@@ -393,15 +389,15 @@ void stmt_fndef_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////// stmt_header_t ////////////////////////////////////////////
+//////////////////////////////////////// StmtHeader ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_header_t::stmt_header_t(const size_t &src_id, const size_t &line, const size_t &col,
-			     const lex::Lexeme &names, const lex::Lexeme &flags)
-	: stmt_base_t(HEADER, src_id, line, col), names(names), flags(flags)
+StmtHeader::StmtHeader(const size_t &src_id, const size_t &line, const size_t &col,
+		       const lex::Lexeme &names, const lex::Lexeme &flags)
+	: Stmt(HEADER, src_id, line, col), names(names), flags(flags)
 {}
 
-void stmt_header_t::disp(const bool &has_next)
+void StmtHeader::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "Header\n");
@@ -418,15 +414,15 @@ void stmt_header_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////// stmt_lib_t //////////////////////////////////////////////
+///////////////////////////////////////// StmtLib //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_lib_t::stmt_lib_t(const size_t &src_id, const size_t &line, const size_t &col,
-		       const lex::Lexeme &flags)
-	: stmt_base_t(LIB, src_id, line, col), flags(flags)
+StmtLib::StmtLib(const size_t &src_id, const size_t &line, const size_t &col,
+		 const lex::Lexeme &flags)
+	: Stmt(LIB, src_id, line, col), flags(flags)
 {}
 
-void stmt_lib_t::disp(const bool &has_next)
+void StmtLib::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "Libs\n");
@@ -436,23 +432,21 @@ void stmt_lib_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////// stmt_extern_t ////////////////////////////////////////////
+//////////////////////////////////////// StmtExtern ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_extern_t::stmt_extern_t(const size_t &src_id, const size_t &line, const size_t &col,
-			     const lex::Lexeme &fname, stmt_header_t *headers, stmt_lib_t *libs,
-			     stmt_fnsig_t *sig)
-	: stmt_base_t(EXTERN, src_id, line, col), fname(fname), headers(headers), libs(libs),
-	  sig(sig)
+StmtExtern::StmtExtern(const size_t &src_id, const size_t &line, const size_t &col,
+		       const lex::Lexeme &fname, StmtHeader *headers, StmtLib *libs, StmtFnSig *sig)
+	: Stmt(EXTERN, src_id, line, col), fname(fname), headers(headers), libs(libs), sig(sig)
 {}
-stmt_extern_t::~stmt_extern_t()
+StmtExtern::~StmtExtern()
 {
 	if(headers) delete headers;
 	if(libs) delete libs;
 	if(sig) delete sig;
 }
 
-void stmt_extern_t::disp(const bool &has_next)
+void StmtExtern::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "Extern for %s%s\n", fname.data.s.c_str(),
@@ -480,36 +474,35 @@ void stmt_extern_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////// stmt_enumdef_t ///////////////////////////////////////////
+//////////////////////////////////////// StmtEnum ///////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_enumdef_t::stmt_enumdef_t(const size_t &src_id, const size_t &line, const size_t &col,
-			       const std::vector<stmt_var_t *> &items)
-	: stmt_base_t(ENUMDEF, src_id, line, col), items(items)
+StmtEnum::StmtEnum(const size_t &src_id, const size_t &line, const size_t &col,
+		   const std::vector<StmtVar *> &items)
+	: Stmt(ENUMDEF, src_id, line, col), items(items)
 {}
-stmt_enumdef_t::~stmt_enumdef_t()
+StmtEnum::~StmtEnum()
 {
 	for(auto &item : items) delete item;
 }
 
-void stmt_enumdef_t::disp(const bool &has_next) {}
+void StmtEnum::disp(const bool &has_next) {}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////// stmt_struct_t //////////////////////////////////////////
+/////////////////////////////////////// StmtStruct //////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_struct_t::stmt_struct_t(const size_t &src_id, const size_t &line, const size_t &col,
-			     const bool &decl, const std::vector<lex::Lexeme> &templates,
-			     const std::vector<stmt_var_t *> &fields)
-	: stmt_base_t(STRUCTDEF, src_id, line, col), decl(decl), templates(templates),
-	  fields(fields)
+StmtStruct::StmtStruct(const size_t &src_id, const size_t &line, const size_t &col,
+		       const bool &decl, const std::vector<lex::Lexeme> &templates,
+		       const std::vector<StmtVar *> &fields)
+	: Stmt(STRUCTDEF, src_id, line, col), decl(decl), templates(templates), fields(fields)
 {}
-stmt_struct_t::~stmt_struct_t()
+StmtStruct::~StmtStruct()
 {
 	for(auto &field : fields) delete field;
 }
 
-void stmt_struct_t::disp(const bool &has_next)
+void StmtStruct::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "struct [declaration = %s]%s\n", decl ? "yes" : "no",
@@ -539,19 +532,19 @@ void stmt_struct_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////// stmt_vardecl_t ///////////////////////////////////////////
+/////////////////////////////////////// StmtVarDecl ///////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_vardecl_t::stmt_vardecl_t(const size_t &src_id, const size_t &line, const size_t &col,
-			       const std::vector<stmt_var_t *> &decls)
-	: stmt_base_t(VARDECL, src_id, line, col), decls(decls)
+StmtVarDecl::StmtVarDecl(const size_t &src_id, const size_t &line, const size_t &col,
+			 const std::vector<StmtVar *> &decls)
+	: Stmt(VARDECL, src_id, line, col), decls(decls)
 {}
-stmt_vardecl_t::~stmt_vardecl_t()
+StmtVarDecl::~StmtVarDecl()
 {
 	for(auto &decl : decls) delete decl;
 }
 
-void stmt_vardecl_t::disp(const bool &has_next)
+void StmtVarDecl::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "Variable declarations\n");
@@ -562,14 +555,14 @@ void stmt_vardecl_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////// stmt_cond_t /////////////////////////////////////////////
+///////////////////////////////////////// StmtCond /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_cond_t::stmt_cond_t(const size_t &src_id, const size_t &line, const size_t &col,
-			 const std::vector<cond_t> &conds)
-	: stmt_base_t(COND, src_id, line, col), conds(conds)
+StmtCond::StmtCond(const size_t &src_id, const size_t &line, const size_t &col,
+		   const std::vector<cond_t> &conds)
+	: Stmt(COND, src_id, line, col), conds(conds)
 {}
-stmt_cond_t::~stmt_cond_t()
+StmtCond::~StmtCond()
 {
 	for(auto &c : conds) {
 		if(c.cond) delete c.cond;
@@ -577,7 +570,7 @@ stmt_cond_t::~stmt_cond_t()
 	}
 }
 
-void stmt_cond_t::disp(const bool &has_next)
+void StmtCond::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "Conditional\n");
@@ -599,20 +592,20 @@ void stmt_cond_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////// stmt_forin_t ////////////////////////////////////////////
+//////////////////////////////////////// StmtForIn ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_forin_t::stmt_forin_t(const size_t &src_id, const size_t &line, const size_t &col,
-			   const lex::Lexeme &iter, stmt_base_t *in, stmt_block_t *blk)
-	: stmt_base_t(FORIN, src_id, line, col), iter(iter), in(in), blk(blk)
+StmtForIn::StmtForIn(const size_t &src_id, const size_t &line, const size_t &col,
+		     const lex::Lexeme &iter, Stmt *in, StmtBlock *blk)
+	: Stmt(FORIN, src_id, line, col), iter(iter), in(in), blk(blk)
 {}
-stmt_forin_t::~stmt_forin_t()
+StmtForIn::~StmtForIn()
 {
 	if(in) delete in;
 	if(blk) delete blk;
 }
 
-void stmt_forin_t::disp(const bool &has_next)
+void StmtForIn::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "For in with iterator %s", iter.data.s.c_str());
@@ -627,14 +620,14 @@ void stmt_forin_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////// stmt_for_t //////////////////////////////////////////////
+///////////////////////////////////////// StmtFor //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_for_t::stmt_for_t(const size_t &src_id, const size_t &line, const size_t &col,
-		       stmt_base_t *init, stmt_base_t *cond, stmt_base_t *incr, stmt_block_t *blk)
-	: stmt_base_t(FOR, src_id, line, col), init(init), cond(cond), incr(incr), blk(blk)
+StmtFor::StmtFor(const size_t &src_id, const size_t &line, const size_t &col, Stmt *init,
+		 Stmt *cond, Stmt *incr, StmtBlock *blk)
+	: Stmt(FOR, src_id, line, col), init(init), cond(cond), incr(incr), blk(blk)
 {}
-stmt_for_t::~stmt_for_t()
+StmtFor::~StmtFor()
 {
 	if(init) delete init;
 	if(cond) delete cond;
@@ -642,7 +635,7 @@ stmt_for_t::~stmt_for_t()
 	if(blk) delete blk;
 }
 
-void stmt_for_t::disp(const bool &has_next)
+void StmtFor::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "For\n");
@@ -674,20 +667,20 @@ void stmt_for_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////// stmt_while_t ////////////////////////////////////////////
+///////////////////////////////////////// StmtWhile ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_while_t::stmt_while_t(const size_t &src_id, const size_t &line, const size_t &col,
-			   stmt_base_t *cond, stmt_block_t *blk)
-	: stmt_base_t(WHILE, src_id, line, col), cond(cond), blk(blk)
+StmtWhile::StmtWhile(const size_t &src_id, const size_t &line, const size_t &col, Stmt *cond,
+		     StmtBlock *blk)
+	: Stmt(WHILE, src_id, line, col), cond(cond), blk(blk)
 {}
-stmt_while_t::~stmt_while_t()
+StmtWhile::~StmtWhile()
 {
 	if(cond) delete cond;
 	if(blk) delete blk;
 }
 
-void stmt_while_t::disp(const bool &has_next)
+void StmtWhile::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "While\n");
@@ -702,19 +695,18 @@ void stmt_while_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////// stmt_ret_t //////////////////////////////////////////////
+///////////////////////////////////////// StmtRet //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_ret_t::stmt_ret_t(const size_t &src_id, const size_t &line, const size_t &col,
-		       stmt_base_t *val)
-	: stmt_base_t(RET, src_id, line, col), val(val)
+StmtRet::StmtRet(const size_t &src_id, const size_t &line, const size_t &col, Stmt *val)
+	: Stmt(RET, src_id, line, col), val(val)
 {}
-stmt_ret_t::~stmt_ret_t()
+StmtRet::~StmtRet()
 {
 	if(val) delete val;
 }
 
-void stmt_ret_t::disp(const bool &has_next)
+void StmtRet::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "Return%s\n", vtyp ? (" -> " + vtyp->str()).c_str() : "");
@@ -728,14 +720,14 @@ void stmt_ret_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////// stmt_cont_t /////////////////////////////////////////////
+///////////////////////////////////////// StmtContinue /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_cont_t::stmt_cont_t(const size_t &src_id, const size_t &line, const size_t &col)
-	: stmt_base_t(CONTINUE, src_id, line, col)
+StmtContinue::StmtContinue(const size_t &src_id, const size_t &line, const size_t &col)
+	: Stmt(CONTINUE, src_id, line, col)
 {}
 
-void stmt_cont_t::disp(const bool &has_next)
+void StmtContinue::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "Continue\n");
@@ -743,14 +735,14 @@ void stmt_cont_t::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////// stmt_break_t ////////////////////////////////////////////
+///////////////////////////////////////// StmtBreak ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-stmt_break_t::stmt_break_t(const size_t &src_id, const size_t &line, const size_t &col)
-	: stmt_base_t(BREAK, src_id, line, col)
+StmtBreak::StmtBreak(const size_t &src_id, const size_t &line, const size_t &col)
+	: Stmt(BREAK, src_id, line, col)
 {}
 
-void stmt_break_t::disp(const bool &has_next)
+void StmtBreak::disp(const bool &has_next)
 {
 	tio::taba(has_next);
 	tio::print(has_next, "Break\n");

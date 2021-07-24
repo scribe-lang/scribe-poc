@@ -50,20 +50,20 @@ enum Types
 	TVARIADIC,
 };
 
-typedef bool (*intrinsic_fn_t)(TypeMgr &types, stmt_base_t *stmt);
-#define INTRINSIC(name) bool intrinsic_##name(TypeMgr &types, stmt_base_t *stmt)
+typedef bool (*intrinsic_fn_t)(TypeMgr &types, Stmt *stmt);
+#define INTRINSIC(name) bool intrinsic_##name(TypeMgr &types, Stmt *stmt)
 
 struct Type
 {
 	Types type;
-	stmt_base_t *parent; // associated stmt with type (can be nullptr if required)
+	Stmt *parent; // associated stmt with type (can be nullptr if required)
 	int64_t id;
 	size_t ptr;
 	size_t info;
 	intrinsic_fn_t intrin_fn;
 
-	Type(const Types &type, stmt_base_t *parent, const size_t &ptr, const size_t &info);
-	Type(const int64_t &id, const Types &type, stmt_base_t *parent, const size_t &ptr,
+	Type(const Types &type, Stmt *parent, const size_t &ptr, const size_t &info);
+	Type(const int64_t &id, const Types &type, Stmt *parent, const size_t &ptr,
 	     const size_t &info, intrinsic_fn_t intrin_fn);
 	virtual ~Type();
 
@@ -78,7 +78,7 @@ struct Type
 	{
 		intrin_fn = intrinsic;
 	}
-	inline bool call_intrinsic(TypeMgr &types, stmt_base_t *stmt)
+	inline bool call_intrinsic(TypeMgr &types, Stmt *stmt)
 	{
 		return intrin_fn ? intrin_fn(types, stmt) : true;
 	}
@@ -94,9 +94,8 @@ struct TypeSimple : public Type
 	// is template is checked by the condition - name begins with '@'
 	std::string name;
 
-	TypeSimple(stmt_base_t *parent, const size_t &ptr, const size_t &info,
-		   const std::string &name);
-	TypeSimple(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
+	TypeSimple(Stmt *parent, const size_t &ptr, const size_t &info, const std::string &name);
+	TypeSimple(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
 		   intrinsic_fn_t intrin_fn, const std::string &name);
 
 	Type *copy();
@@ -116,10 +115,10 @@ struct TypeStruct : public Type
 	std::vector<std::string> field_order;
 	std::unordered_map<std::string, Type *> fields;
 
-	TypeStruct(stmt_base_t *parent, const size_t &ptr, const size_t &info, const bool &is_ref,
+	TypeStruct(Stmt *parent, const size_t &ptr, const size_t &info, const bool &is_ref,
 		   const size_t &templ, const std::vector<std::string> &field_order,
 		   const std::unordered_map<std::string, Type *> &fields);
-	TypeStruct(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
+	TypeStruct(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
 		   const bool &is_ref, const bool &is_def, intrinsic_fn_t intrin_fn,
 		   const size_t &templ, const std::vector<std::string> &field_order,
 		   const std::unordered_map<std::string, Type *> &fields);
@@ -135,7 +134,7 @@ struct TypeStruct : public Type
 	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 	// checks if instantiation is viable with callinfo, returns specialized instance of struct
 	// if true; nullptr if false
-	TypeStruct *specialize_compatible_call(stmt_fncallinfo_t *callinfo,
+	TypeStruct *specialize_compatible_call(StmtFnCallInfo *callinfo,
 					       std::vector<Type *> &templates);
 
 	std::string str();
@@ -165,10 +164,10 @@ struct TypeFunc : public Type
 	std::vector<Type *> args;
 	Type *rettype;
 
-	TypeFunc(stmt_base_t *parent, const size_t &ptr, const size_t &info, const size_t &scope,
+	TypeFunc(Stmt *parent, const size_t &ptr, const size_t &info, const size_t &scope,
 		 const size_t &templ, const bool &comptime, const std::vector<Type *> &args,
 		 Type *rettype);
-	TypeFunc(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
+	TypeFunc(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
 		 intrinsic_fn_t intrin_fn, const size_t &scope, const size_t &templ,
 		 const bool &comptime, const std::vector<Type *> &args, Type *rettype);
 	~TypeFunc();
@@ -177,7 +176,7 @@ struct TypeFunc : public Type
 	Type *specialize(const std::vector<Type *> &templates);
 	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 	// checks for compatibility and specializes the signature (for templates)
-	TypeFunc *specialize_compatible_call(stmt_fncallinfo_t *callinfo,
+	TypeFunc *specialize_compatible_call(StmtFnCallInfo *callinfo,
 					     std::vector<Type *> &templates);
 
 	std::string str();
@@ -187,9 +186,9 @@ struct TypeFunc : public Type
 struct TypeFuncMap : public Type
 {
 	std::unordered_map<std::string, TypeFunc *> funcs;
-	TypeFuncMap(stmt_base_t *parent, const size_t &ptr, const size_t &info,
+	TypeFuncMap(Stmt *parent, const size_t &ptr, const size_t &info,
 		    const std::unordered_map<std::string, TypeFunc *> &funcs);
-	TypeFuncMap(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
+	TypeFuncMap(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
 		    const std::unordered_map<std::string, TypeFunc *> &funcs);
 
 	Type *copy();
@@ -199,16 +198,16 @@ struct TypeFuncMap : public Type
 	std::string str();
 	std::string mangled_name();
 
-	TypeFunc *decide_func(stmt_fncallinfo_t *callinfo, std::vector<Type *> &templates);
+	TypeFunc *decide_func(StmtFnCallInfo *callinfo, std::vector<Type *> &templates);
 	TypeFunc *decide_func(Type *vartype);
 };
 
 struct TypeVariadic : public Type
 {
 	std::vector<Type *> args;
-	TypeVariadic(stmt_base_t *parent, const size_t &ptr, const size_t &info,
+	TypeVariadic(Stmt *parent, const size_t &ptr, const size_t &info,
 		     const std::vector<Type *> &args);
-	TypeVariadic(const int64_t &id, stmt_base_t *parent, const size_t &ptr, const size_t &info,
+	TypeVariadic(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
 		     const std::vector<Type *> &args);
 	~TypeVariadic();
 

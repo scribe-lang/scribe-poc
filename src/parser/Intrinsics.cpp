@@ -27,10 +27,10 @@ INTRINSIC(import)
 	size_t &line = stmt->line;
 	size_t &col  = stmt->col;
 
-	stmt_expr_t *fncall	   = static_cast<stmt_expr_t *>(stmt);
-	stmt_fncallinfo_t *arginfo = static_cast<stmt_fncallinfo_t *>(fncall->rhs);
+	StmtExpr *fncall	= static_cast<StmtExpr *>(stmt);
+	StmtFnCallInfo *arginfo = static_cast<StmtFnCallInfo *>(fncall->rhs);
 
-	stmt_simple_t *mod	   = static_cast<stmt_simple_t *>(arginfo->args[0]);
+	StmtSimple *mod		   = static_cast<StmtSimple *>(arginfo->args[0]);
 	const std::string &modname = mod->val.data.s;
 	if(modname.empty()) {
 		err::set(line, col, "no module provided");
@@ -101,7 +101,7 @@ INTRINSIC(typid)
 INTRINSIC(va_len)
 {
 	printf("called va_len intrinsic\n");
-	// stmt_fndef_t *fn = static_cast<stmt_fndef_t *>(stmt->get_parent_with_type(FNDEF));
+	// StmtFnDef *fn = static_cast<StmtFnDef *>(stmt->get_parent_with_type(FNDEF));
 	// if(!fn) {
 	// 	err::set(stmt->line, stmt->col, "this function must be called within a function");
 	// 	return false;

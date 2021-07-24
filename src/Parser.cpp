@@ -25,7 +25,7 @@ bool parse(const std::string &file, std::vector<lex::Lexeme> &toks, TypeMgr &typ
 {
 	size_t src_id = types.get_src_id(file);
 	ParseHelper p(toks, src_id);
-	stmt_block_t *tree = nullptr;
+	StmtBlock *tree = nullptr;
 	if(!parse_block(p, tree, false)) return false;
 	types.manage_ptree(src_id, tree);
 	tree->set_parent(nullptr);

@@ -11,10 +11,11 @@
 	furnished to do so.
 */
 
+#include "parser/TypeMgr.hpp"
+
 #include "parser/Intrinsics.hpp"
 #include "parser/PrimitiveFuncs.hpp"
 #include "parser/Stmts.hpp"
-#include "parser/TypeMgr.hpp"
 
 static size_t gen_src_id()
 {
@@ -171,7 +172,7 @@ bool TypeMgr::exists(const std::string &name, const bool &top_only, const bool &
 	if(srcstack.back()->exists(name, lock_from, top_only)) return true;
 	return with_globals ? globals.find(name) != globals.end() : false;
 }
-Type *TypeMgr::get(const std::string &name, stmt_base_t *parent)
+Type *TypeMgr::get(const std::string &name, Stmt *parent)
 {
 	size_t lock_from = lockedlayers.size() > 0 ? lockedlayers.back() : size_t(-1);
 	Type *res	 = srcstack.back()->get(name, lock_from);
@@ -180,7 +181,7 @@ Type *TypeMgr::get(const std::string &name, stmt_base_t *parent)
 	if(gres != globals.end()) return gres->second;
 	return get_funcmap(name, parent);
 }
-Type *TypeMgr::get_copy(const std::string &name, stmt_base_t *parent)
+Type *TypeMgr::get_copy(const std::string &name, Stmt *parent)
 {
 	Type *res = get(name, parent);
 	if(!res) return nullptr;
@@ -196,14 +197,14 @@ bool TypeMgr::add_func_copy(const std::string &name, Type *vtyp, const bool &glo
 	std::string fullname = name + "_" + vtyp->mangled_name();
 	return add_copy(fullname, vtyp, global);
 }
-TypeFuncMap *TypeMgr::get_funcmap(const std::string &name, stmt_base_t *parent)
+TypeFuncMap *TypeMgr::get_funcmap(const std::string &name, Stmt *parent)
 {
 	TypeFuncMap *res = get_funcmap_copy(name, parent);
 	if(!res) return nullptr;
 	managedfnmaps.push_back(res);
 	return res;
 }
-TypeFuncMap *TypeMgr::get_funcmap_copy(const std::string &name, stmt_base_t *parent)
+TypeFuncMap *TypeMgr::get_funcmap_copy(const std::string &name, Stmt *parent)
 {
 	std::unordered_map<std::string, TypeFunc *> funcs;
 	for(auto si = srcstack.rbegin(); si != srcstack.rend(); ++si) {

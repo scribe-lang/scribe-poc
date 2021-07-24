@@ -23,12 +23,12 @@ namespace parser
 {
 // on successful parse, returns true, and tree is allocated
 // if with_brace is true, it will attempt to find the beginning and ending brace for each block
-bool parse_block(ParseHelper &p, stmt_block_t *&tree, const bool &with_brace)
+bool parse_block(ParseHelper &p, StmtBlock *&tree, const bool &with_brace)
 {
 	tree = nullptr;
 
-	std::vector<stmt_base_t *> stmts;
-	stmt_base_t *stmt = nullptr;
+	std::vector<Stmt *> stmts;
+	Stmt *stmt = nullptr;
 
 	lex::Lexeme &start = p.peak();
 
@@ -86,7 +86,7 @@ bool parse_block(ParseHelper &p, stmt_block_t *&tree, const bool &with_brace)
 		}
 	}
 
-	tree = new stmt_block_t(p.get_src(), start.line, start.col_beg, stmts);
+	tree = new StmtBlock(p.get_src(), start.line, start.col_beg, stmts);
 	return true;
 fail:
 	for(auto &stmt : stmts) delete stmt;
@@ -94,7 +94,7 @@ fail:
 	return false;
 }
 
-bool parse_type(ParseHelper &p, stmt_type_t *&type)
+bool parse_type(ParseHelper &p, StmtType *&type)
 {
 	type = nullptr;
 
@@ -102,16 +102,16 @@ bool parse_type(ParseHelper &p, stmt_type_t *&type)
 	size_t info = 0;
 	std::vector<lex::Lexeme> name;
 	std::vector<lex::Lexeme> templates;
-	stmt_base_t *count = nullptr;
-	stmt_base_t *fn	   = nullptr;
-	bool dot_turn	   = false; // to ensure type name is in the form <name><dot><name>...
+	Stmt *count   = nullptr;
+	Stmt *fn      = nullptr;
+	bool dot_turn = false; // to ensure type name is in the form <name><dot><name>...
 	std::unordered_set<std::string> templnames;
 
 	lex::Lexeme &start = p.peak();
 
 	if(p.accept(lex::COMPTIME, lex::FN)) {
 		if(!parse_fnsig(p, fn)) goto fail;
-		type = new stmt_type_t(p.get_src(), start.line, start.col_beg, fn);
+		type = new StmtType(p.get_src(), start.line, start.col_beg, fn);
 		return true;
 	}
 
@@ -166,7 +166,7 @@ bool parse_type(ParseHelper &p, stmt_type_t *&type)
 		return false;
 	}
 after_templates:
-	type = new stmt_type_t(p.get_src(), start.line, start.col_beg, ptr, info, name, templates);
+	type = new StmtType(p.get_src(), start.line, start.col_beg, ptr, info, name, templates);
 	return true;
 fail:
 	if(count) delete count;
@@ -174,7 +174,7 @@ fail:
 	return false;
 }
 
-bool parse_simple(ParseHelper &p, stmt_base_t *&data)
+bool parse_simple(ParseHelper &p, Stmt *&data)
 {
 	data = nullptr;
 
@@ -186,23 +186,23 @@ bool parse_simple(ParseHelper &p, stmt_base_t *&data)
 	lex::Lexeme &val = p.peak();
 	p.next();
 
-	data = new stmt_simple_t(p.get_src(), val.line, val.col_beg, val);
+	data = new StmtSimple(p.get_src(), val.line, val.col_beg, val);
 	return true;
 }
 
-bool parse_expr(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr(ParseHelper &p, Stmt *&expr)
 {
 	return parse_expr_17(p, expr);
 }
 
 // Left Associative
 // ,
-bool parse_expr_17(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr_17(ParseHelper &p, Stmt *&expr)
 {
 	expr = nullptr;
 
-	stmt_base_t *lhs = nullptr;
-	stmt_base_t *rhs = nullptr;
+	Stmt *lhs = nullptr;
+	Stmt *rhs = nullptr;
 
 	lex::Lexeme oper;
 
@@ -221,12 +221,12 @@ bool parse_expr_17(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_16(p, lhs)) {
 			goto fail;
 		}
-		rhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		rhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		lhs = nullptr;
 	}
 
 	if(rhs->type == parser::EXPR) {
-		as<stmt_expr_t>(rhs)->commas = commas;
+		as<StmtExpr>(rhs)->commas = commas;
 	}
 
 	expr = rhs;
@@ -238,14 +238,14 @@ fail:
 }
 // Left Associative
 // ?:
-bool parse_expr_16(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr_16(ParseHelper &p, Stmt *&expr)
 {
 	expr = nullptr;
 
-	stmt_base_t *lhs     = nullptr;
-	stmt_base_t *rhs     = nullptr;
-	stmt_base_t *lhs_lhs = nullptr;
-	stmt_base_t *lhs_rhs = nullptr;
+	Stmt *lhs     = nullptr;
+	Stmt *rhs     = nullptr;
+	Stmt *lhs_lhs = nullptr;
+	Stmt *lhs_rhs = nullptr;
 
 	lex::Lexeme oper;
 
@@ -276,12 +276,12 @@ bool parse_expr_16(ParseHelper &p, stmt_base_t *&expr)
 	if(!parse_expr_15(p, lhs_rhs)) {
 		goto fail;
 	}
-	rhs = new stmt_expr_t(p.get_src(), oper_inside.line, oper_inside.col_beg, lhs_lhs,
-			      oper_inside, lhs_rhs);
+	rhs = new StmtExpr(p.get_src(), oper_inside.line, oper_inside.col_beg, lhs_lhs, oper_inside,
+			   lhs_rhs);
 	goto after_quest;
 
 after_quest:
-	expr = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+	expr = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 	return true;
 fail:
 	if(lhs_rhs) delete lhs_rhs;
@@ -292,12 +292,12 @@ fail:
 }
 // Right Associative
 // =
-bool parse_expr_15(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr_15(ParseHelper &p, Stmt *&expr)
 {
 	expr = nullptr;
 
-	stmt_base_t *lhs = nullptr;
-	stmt_base_t *rhs = nullptr;
+	Stmt *lhs = nullptr;
+	Stmt *rhs = nullptr;
 
 	lex::Lexeme oper;
 
@@ -313,7 +313,7 @@ bool parse_expr_15(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_14(p, lhs)) {
 			goto fail;
 		}
-		rhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		rhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		lhs = nullptr;
 	}
 
@@ -330,13 +330,13 @@ fail:
 // <<= >>=
 // &= |= ^=
 // or-block
-bool parse_expr_14(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr_14(ParseHelper &p, Stmt *&expr)
 {
 	expr = nullptr;
 
-	stmt_base_t *lhs     = nullptr;
-	stmt_base_t *rhs     = nullptr;
-	stmt_block_t *or_blk = nullptr;
+	Stmt *lhs	  = nullptr;
+	Stmt *rhs	  = nullptr;
+	StmtBlock *or_blk = nullptr;
 	lex::Lexeme or_blk_var;
 
 	lex::Lexeme oper;
@@ -356,7 +356,7 @@ bool parse_expr_14(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_13(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -373,10 +373,10 @@ bool parse_expr_14(ParseHelper &p, stmt_base_t *&expr)
 		goto fail;
 	}
 	if(expr->type != EXPR) {
-		expr = new stmt_expr_t(p.get_src(), expr->line, expr->col, expr, {}, nullptr);
+		expr = new StmtExpr(p.get_src(), expr->line, expr->col, expr, {}, nullptr);
 	}
-	as<stmt_expr_t>(expr)->or_blk	  = or_blk;
-	as<stmt_expr_t>(expr)->or_blk_var = or_blk_var;
+	as<StmtExpr>(expr)->or_blk     = or_blk;
+	as<StmtExpr>(expr)->or_blk_var = or_blk_var;
 	return true;
 fail:
 	if(lhs) delete lhs;
@@ -386,12 +386,12 @@ fail:
 }
 // Left Associative
 // ||
-bool parse_expr_13(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr_13(ParseHelper &p, Stmt *&expr)
 {
 	expr = nullptr;
 
-	stmt_base_t *lhs = nullptr;
-	stmt_base_t *rhs = nullptr;
+	Stmt *lhs = nullptr;
+	Stmt *rhs = nullptr;
 
 	lex::Lexeme oper;
 
@@ -407,7 +407,7 @@ bool parse_expr_13(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_12(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -420,12 +420,12 @@ fail:
 }
 // Left Associative
 // &&
-bool parse_expr_12(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr_12(ParseHelper &p, Stmt *&expr)
 {
 	expr = nullptr;
 
-	stmt_base_t *lhs = nullptr;
-	stmt_base_t *rhs = nullptr;
+	Stmt *lhs = nullptr;
+	Stmt *rhs = nullptr;
 
 	lex::Lexeme oper;
 
@@ -441,7 +441,7 @@ bool parse_expr_12(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_11(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -454,12 +454,12 @@ fail:
 }
 // Left Associative
 // |
-bool parse_expr_11(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr_11(ParseHelper &p, Stmt *&expr)
 {
 	expr = nullptr;
 
-	stmt_base_t *lhs = nullptr;
-	stmt_base_t *rhs = nullptr;
+	Stmt *lhs = nullptr;
+	Stmt *rhs = nullptr;
 
 	lex::Lexeme oper;
 
@@ -475,7 +475,7 @@ bool parse_expr_11(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_10(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -488,12 +488,12 @@ fail:
 }
 // Left Associative
 // ^
-bool parse_expr_10(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr_10(ParseHelper &p, Stmt *&expr)
 {
 	expr = nullptr;
 
-	stmt_base_t *lhs = nullptr;
-	stmt_base_t *rhs = nullptr;
+	Stmt *lhs = nullptr;
+	Stmt *rhs = nullptr;
 
 	lex::Lexeme oper;
 
@@ -509,7 +509,7 @@ bool parse_expr_10(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_09(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -522,12 +522,12 @@ fail:
 }
 // Left Associative
 // &
-bool parse_expr_09(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr_09(ParseHelper &p, Stmt *&expr)
 {
 	expr = nullptr;
 
-	stmt_base_t *lhs = nullptr;
-	stmt_base_t *rhs = nullptr;
+	Stmt *lhs = nullptr;
+	Stmt *rhs = nullptr;
 
 	lex::Lexeme oper;
 
@@ -543,7 +543,7 @@ bool parse_expr_09(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_08(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -556,12 +556,12 @@ fail:
 }
 // Left Associative
 // == !=
-bool parse_expr_08(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr_08(ParseHelper &p, Stmt *&expr)
 {
 	expr = nullptr;
 
-	stmt_base_t *lhs = nullptr;
-	stmt_base_t *rhs = nullptr;
+	Stmt *lhs = nullptr;
+	Stmt *rhs = nullptr;
 
 	lex::Lexeme oper;
 
@@ -577,7 +577,7 @@ bool parse_expr_08(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_07(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -591,12 +591,12 @@ fail:
 // Left Associative
 // < <=
 // > >=
-bool parse_expr_07(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr_07(ParseHelper &p, Stmt *&expr)
 {
 	expr = nullptr;
 
-	stmt_base_t *lhs = nullptr;
-	stmt_base_t *rhs = nullptr;
+	Stmt *lhs = nullptr;
+	Stmt *rhs = nullptr;
 
 	lex::Lexeme oper;
 
@@ -612,7 +612,7 @@ bool parse_expr_07(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_06(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -625,12 +625,12 @@ fail:
 }
 // Left Associative
 // << >>
-bool parse_expr_06(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr_06(ParseHelper &p, Stmt *&expr)
 {
 	expr = nullptr;
 
-	stmt_base_t *lhs = nullptr;
-	stmt_base_t *rhs = nullptr;
+	Stmt *lhs = nullptr;
+	Stmt *rhs = nullptr;
 
 	lex::Lexeme oper;
 
@@ -646,7 +646,7 @@ bool parse_expr_06(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_05(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -659,12 +659,12 @@ fail:
 }
 // Left Associative
 // + -
-bool parse_expr_05(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr_05(ParseHelper &p, Stmt *&expr)
 {
 	expr = nullptr;
 
-	stmt_base_t *lhs = nullptr;
-	stmt_base_t *rhs = nullptr;
+	Stmt *lhs = nullptr;
+	Stmt *rhs = nullptr;
 
 	lex::Lexeme oper;
 
@@ -680,7 +680,7 @@ bool parse_expr_05(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_04(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -693,12 +693,12 @@ fail:
 }
 // Left Associative
 // * / %
-bool parse_expr_04(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr_04(ParseHelper &p, Stmt *&expr)
 {
 	expr = nullptr;
 
-	stmt_base_t *lhs = nullptr;
-	stmt_base_t *rhs = nullptr;
+	Stmt *lhs = nullptr;
+	Stmt *rhs = nullptr;
 
 	lex::Lexeme oper;
 
@@ -714,7 +714,7 @@ bool parse_expr_04(ParseHelper &p, stmt_base_t *&expr)
 		if(!parse_expr_03(p, rhs)) {
 			goto fail;
 		}
-		lhs = new stmt_expr_t(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -730,11 +730,11 @@ fail:
 // + - (unary)
 // * & (deref, addrof)
 // ! ~ (log/bit)
-bool parse_expr_03(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr_03(ParseHelper &p, Stmt *&expr)
 {
 	expr = nullptr;
 
-	stmt_base_t *lhs = nullptr;
+	Stmt *lhs = nullptr;
 
 	std::vector<lex::Lexeme> opers;
 
@@ -758,7 +758,7 @@ bool parse_expr_03(ParseHelper &p, stmt_base_t *&expr)
 	}
 
 	for(auto &op : opers) {
-		lhs = new stmt_expr_t(p.get_src(), op.line, op.col_beg, lhs, op, nullptr);
+		lhs = new StmtExpr(p.get_src(), op.line, op.col_beg, lhs, op, nullptr);
 	}
 
 	expr = lhs;
@@ -770,11 +770,11 @@ fail:
 // Left Associative
 // ++ -- (post)
 // ... (postva)
-bool parse_expr_02(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr_02(ParseHelper &p, Stmt *&expr)
 {
 	expr = nullptr;
 
-	stmt_base_t *lhs = nullptr;
+	Stmt *lhs = nullptr;
 
 	std::vector<lex::Lexeme> opers;
 
@@ -786,8 +786,8 @@ bool parse_expr_02(ParseHelper &p, stmt_base_t *&expr)
 
 	if(p.accept(lex::XINC, lex::XDEC, lex::PreVA)) {
 		if(p.peakt() == lex::PreVA) p.sett(lex::PostVA);
-		lhs = new stmt_expr_t(p.get_src(), p.peak().line, p.peak().col_beg, lhs, p.peak(),
-				      nullptr);
+		lhs =
+		new StmtExpr(p.get_src(), p.peak().line, p.peak().col_beg, lhs, p.peak(), nullptr);
 		p.next();
 	}
 
@@ -797,20 +797,20 @@ fail:
 	if(lhs) delete lhs;
 	return false;
 }
-bool parse_expr_01(ParseHelper &p, stmt_base_t *&expr)
+bool parse_expr_01(ParseHelper &p, Stmt *&expr)
 {
 	expr = nullptr;
 
 	lex::Lexeme &start = p.peak();
 	lex::Lexeme dot;
 
-	stmt_base_t *lhs = nullptr;
-	stmt_base_t *rhs = nullptr;
-	bool is_intrin	 = false;
-	std::vector<stmt_type_t *> templates;
-	stmt_type_t *templ = nullptr;
-	std::vector<stmt_base_t *> args;
-	stmt_base_t *arg = nullptr;
+	Stmt *lhs      = nullptr;
+	Stmt *rhs      = nullptr;
+	bool is_intrin = false;
+	std::vector<StmtType *> templates;
+	StmtType *templ = nullptr;
+	std::vector<Stmt *> args;
+	Stmt *arg = nullptr;
 
 	if(p.acceptn(lex::LPAREN)) {
 		if(!parse_expr(p, expr)) {
@@ -834,7 +834,7 @@ begin:
 after_dot:
 	if(!p.acceptd() || !parse_simple(p, rhs)) goto fail;
 	if(lhs && rhs) {
-		lhs = new stmt_expr_t(p.get_src(), dot.line, dot.col_beg, lhs, dot, rhs);
+		lhs = new StmtExpr(p.get_src(), dot.line, dot.col_beg, lhs, dot, rhs);
 		rhs = nullptr;
 	}
 
@@ -860,7 +860,7 @@ begin_brack:
 				 p.peak().tok.str().c_str());
 			goto fail;
 		}
-		lhs = new stmt_expr_t(p.get_src(), oper.line, oper.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.get_src(), oper.line, oper.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 		if(p.accept(lex::LBRACK, lex::LPAREN) ||
 		   (p.peakt() == lex::DOT && p.peakt(1) == lex::LT))
@@ -900,8 +900,8 @@ begin_brack:
 			goto fail;
 		}
 	post_args:
-		rhs  = new stmt_fncallinfo_t(p.get_src(), oper.line, oper.col_beg, templates, args);
-		lhs  = new stmt_expr_t(p.get_src(), oper.line, oper.col_beg, lhs, oper, rhs);
+		rhs  = new StmtFnCallInfo(p.get_src(), oper.line, oper.col_beg, templates, args);
+		lhs  = new StmtExpr(p.get_src(), oper.line, oper.col_beg, lhs, oper, rhs);
 		rhs  = nullptr;
 		args = {};
 		templates      = {};
@@ -913,8 +913,8 @@ begin_brack:
 dot:
 	if(p.acceptn(lex::DOT, lex::ARROW)) {
 		if(lhs && rhs) {
-			lhs = new stmt_expr_t(p.get_src(), p.peak(-1).line, p.peak(-1).col_beg, lhs,
-					      p.peak(-1), rhs);
+			lhs = new StmtExpr(p.get_src(), p.peak(-1).line, p.peak(-1).col_beg, lhs,
+					   p.peak(-1), rhs);
 			rhs = nullptr;
 		}
 		dot = p.peak(-1);
@@ -923,7 +923,7 @@ dot:
 
 done:
 	if(lhs && rhs) {
-		lhs = new stmt_expr_t(p.get_src(), dot.line, dot.col_beg, lhs, dot, rhs);
+		lhs = new StmtExpr(p.get_src(), dot.line, dot.col_beg, lhs, dot, rhs);
 		rhs = nullptr;
 	}
 	expr = lhs;
@@ -938,7 +938,7 @@ fail:
 	return false;
 }
 
-bool parse_var(ParseHelper &p, stmt_var_t *&var, const Occurs &intype, const Occurs &otype,
+bool parse_var(ParseHelper &p, StmtVar *&var, const Occurs &intype, const Occurs &otype,
 	       const Occurs &oval)
 {
 	var = nullptr;
@@ -950,9 +950,9 @@ bool parse_var(ParseHelper &p, stmt_var_t *&var, const Occurs &intype, const Occ
 	}
 	lex::Lexeme &name = p.peak();
 	p.next();
-	stmt_type_t *in	  = nullptr;
-	stmt_type_t *type = nullptr;
-	stmt_base_t *val  = nullptr;
+	StmtType *in   = nullptr;
+	StmtType *type = nullptr;
+	Stmt *val      = nullptr;
 
 in:
 	if(intype == Occurs::NO && p.accept(lex::IN)) {
@@ -1018,17 +1018,16 @@ done:
 		}
 		in->info |= TypeInfoMask::REF;
 		lex::Lexeme selfeme = lex::Lexeme(in->line, in->col, in->col, lex::IDEN, "self");
-		stmt_var_t *self =
-		new stmt_var_t(p.get_src(), in->line, in->col, selfeme, in, nullptr);
-		stmt_fnsig_t *valsig = as<stmt_fndef_t>(val)->sig;
+		StmtVar *self = new StmtVar(p.get_src(), in->line, in->col, selfeme, in, nullptr);
+		StmtFnSig *valsig = as<StmtFnDef>(val)->sig;
 		for(auto &t : in->templates) {
 			valsig->templates.push_back(t);
 		}
 		in->templates.clear();
-		std::vector<stmt_var_t *> &params = valsig->params;
+		std::vector<StmtVar *> &params = valsig->params;
 		params.insert(params.begin(), self);
 	}
-	var = new stmt_var_t(p.get_src(), name.line, name.col_beg, name, type, val);
+	var = new StmtVar(p.get_src(), name.line, name.col_beg, name, type, val);
 	return true;
 fail:
 	if(in) delete in;
@@ -1037,17 +1036,17 @@ fail:
 	return false;
 }
 
-bool parse_fnsig(ParseHelper &p, stmt_base_t *&fsig)
+bool parse_fnsig(ParseHelper &p, Stmt *&fsig)
 {
 	fsig = nullptr;
 
 	std::vector<lex::Lexeme> templates;
-	std::vector<stmt_var_t *> params;
-	stmt_var_t *var = nullptr;
+	std::vector<StmtVar *> params;
+	StmtVar *var = nullptr;
 	std::unordered_set<std::string> argnames;
-	bool found_va	     = false;
-	stmt_type_t *rettype = nullptr;
-	bool comptime	     = false;
+	bool found_va	  = false;
+	StmtType *rettype = nullptr;
+	bool comptime	  = false;
 	std::unordered_set<std::string> templnames;
 	lex::Lexeme &start = p.peak();
 
@@ -1141,12 +1140,12 @@ post_args:
 	if(!rettype) {
 		size_t line = p.peak(-1).line;
 		size_t col  = p.peak(-1).col_beg;
-		rettype	    = new stmt_type_t(p.get_src(), line, col, 0, 0,
-					      {lex::Lexeme(line, col, col, lex::VOID, "void")}, {});
+		rettype	    = new StmtType(p.get_src(), line, col, 0, 0,
+					   {lex::Lexeme(line, col, col, lex::VOID, "void")}, {});
 	}
 
-	fsig = new stmt_fnsig_t(p.get_src(), start.line, start.col_beg, templates, params, rettype,
-				comptime);
+	fsig =
+	new StmtFnSig(p.get_src(), start.line, start.col_beg, templates, params, rettype, comptime);
 	return true;
 fail:
 	if(var) delete var;
@@ -1154,18 +1153,18 @@ fail:
 	if(rettype) delete rettype;
 	return false;
 }
-bool parse_fndef(ParseHelper &p, stmt_base_t *&fndef)
+bool parse_fndef(ParseHelper &p, Stmt *&fndef)
 {
 	fndef = nullptr;
 
-	stmt_base_t *sig   = nullptr;
-	stmt_block_t *blk  = nullptr;
+	Stmt *sig	   = nullptr;
+	StmtBlock *blk	   = nullptr;
 	lex::Lexeme &start = p.peak();
 
 	if(!parse_fnsig(p, sig)) goto fail;
 	if(!parse_block(p, blk)) goto fail;
 
-	fndef = new stmt_fndef_t(p.get_src(), start.line, start.col_beg, (stmt_fnsig_t *)sig, blk);
+	fndef = new StmtFnDef(p.get_src(), start.line, start.col_beg, (StmtFnSig *)sig, blk);
 	return true;
 fail:
 	if(sig) delete sig;
@@ -1173,7 +1172,7 @@ fail:
 	return false;
 }
 
-bool parse_header(ParseHelper &p, stmt_header_t *&header)
+bool parse_header(ParseHelper &p, StmtHeader *&header)
 {
 	header = nullptr;
 
@@ -1199,10 +1198,10 @@ bool parse_header(ParseHelper &p, stmt_header_t *&header)
 	p.next();
 
 done:
-	header = new stmt_header_t(p.get_src(), names.line, names.col_beg, names, flags);
+	header = new StmtHeader(p.get_src(), names.line, names.col_beg, names, flags);
 	return true;
 }
-bool parse_lib(ParseHelper &p, stmt_lib_t *&lib)
+bool parse_lib(ParseHelper &p, StmtLib *&lib)
 {
 	lib = nullptr;
 
@@ -1216,17 +1215,17 @@ bool parse_lib(ParseHelper &p, stmt_lib_t *&lib)
 	flags = p.peak();
 	p.next();
 
-	lib = new stmt_lib_t(p.get_src(), flags.line, flags.col_beg, flags);
+	lib = new StmtLib(p.get_src(), flags.line, flags.col_beg, flags);
 	return true;
 }
-bool parse_extern(ParseHelper &p, stmt_base_t *&ext)
+bool parse_extern(ParseHelper &p, Stmt *&ext)
 {
 	ext = nullptr;
 
 	lex::Lexeme name; // name of the function
-	stmt_header_t *headers = nullptr;
-	stmt_lib_t *libs       = nullptr;
-	stmt_base_t *sig       = nullptr;
+	StmtHeader *headers = nullptr;
+	StmtLib *libs	    = nullptr;
+	Stmt *sig	    = nullptr;
 
 	if(!p.acceptn(lex::EXTERN)) {
 		err::set(p.peak(), "expected extern keyword here, found: %s",
@@ -1263,8 +1262,8 @@ endinfo:
 
 sig:
 	if(!parse_fnsig(p, sig)) goto fail;
-	ext = new stmt_extern_t(p.get_src(), name.line, name.col_beg, name, headers, libs,
-				(stmt_fnsig_t *)sig);
+	ext =
+	new StmtExtern(p.get_src(), name.line, name.col_beg, name, headers, libs, (StmtFnSig *)sig);
 	return true;
 fail:
 	if(headers) delete headers;
@@ -1273,14 +1272,14 @@ fail:
 	return false;
 }
 
-bool parse_struct(ParseHelper &p, stmt_base_t *&sd)
+bool parse_struct(ParseHelper &p, Stmt *&sd)
 {
 	sd = nullptr;
 
 	bool decl = false;
 	std::vector<lex::Lexeme> templates;
-	std::vector<stmt_var_t *> fields;
-	stmt_var_t *field = nullptr;
+	std::vector<StmtVar *> fields;
+	StmtVar *field = nullptr;
 	std::unordered_set<std::string> fieldnames;
 	std::unordered_set<std::string> templnames;
 	lex::Lexeme &start = p.peak();
@@ -1341,7 +1340,7 @@ bool parse_struct(ParseHelper &p, stmt_base_t *&sd)
 	}
 
 done:
-	sd = new stmt_struct_t(p.get_src(), start.line, start.col_beg, decl, templates, fields);
+	sd = new StmtStruct(p.get_src(), start.line, start.col_beg, decl, templates, fields);
 	return true;
 
 fail:
@@ -1350,12 +1349,12 @@ fail:
 	return false;
 }
 
-bool parse_vardecl(ParseHelper &p, stmt_base_t *&vd)
+bool parse_vardecl(ParseHelper &p, Stmt *&vd)
 {
 	vd = nullptr;
 
-	std::vector<stmt_var_t *> decls;
-	stmt_var_t *decl   = nullptr;
+	std::vector<StmtVar *> decls;
+	StmtVar *decl	   = nullptr;
 	lex::Lexeme &start = p.peak();
 
 	if(!p.acceptn(lex::LET)) {
@@ -1371,7 +1370,7 @@ bool parse_vardecl(ParseHelper &p, stmt_base_t *&vd)
 		if(!p.acceptn(lex::COMMA)) break;
 	}
 
-	vd = new stmt_vardecl_t(p.get_src(), start.line, start.col_beg, decls);
+	vd = new StmtVarDecl(p.get_src(), start.line, start.col_beg, decls);
 	return true;
 
 fail:
@@ -1380,7 +1379,7 @@ fail:
 	return false;
 }
 
-bool parse_conds(ParseHelper &p, stmt_base_t *&conds)
+bool parse_conds(ParseHelper &p, Stmt *&conds)
 {
 	conds = nullptr;
 
@@ -1414,7 +1413,7 @@ blk:
 		goto blk;
 	}
 
-	conds = new stmt_cond_t(p.get_src(), start.line, start.col_beg, cvec);
+	conds = new StmtCond(p.get_src(), start.line, start.col_beg, cvec);
 	return true;
 
 fail:
@@ -1426,13 +1425,13 @@ fail:
 	}
 	return false;
 }
-bool parse_forin(ParseHelper &p, stmt_base_t *&fin)
+bool parse_forin(ParseHelper &p, Stmt *&fin)
 {
 	fin = nullptr;
 
 	lex::Lexeme iter;
-	stmt_base_t *in	   = nullptr; // L01
-	stmt_block_t *blk  = nullptr;
+	Stmt *in	   = nullptr; // L01
+	StmtBlock *blk	   = nullptr;
 	lex::Lexeme &start = p.peak();
 
 	if(!p.acceptn(lex::FOR)) {
@@ -1469,21 +1468,21 @@ bool parse_forin(ParseHelper &p, stmt_base_t *&fin)
 		goto fail;
 	}
 
-	fin = new stmt_forin_t(p.get_src(), start.line, start.col_beg, iter, in, blk);
+	fin = new StmtForIn(p.get_src(), start.line, start.col_beg, iter, in, blk);
 	return true;
 fail:
 	if(in) delete in;
 	if(blk) delete blk;
 	return false;
 }
-bool parse_for(ParseHelper &p, stmt_base_t *&f)
+bool parse_for(ParseHelper &p, Stmt *&f)
 {
 	f = nullptr;
 
-	stmt_base_t *init  = nullptr; // either of stmt_vardecl_t or stmt_expr_t
-	stmt_base_t *cond  = nullptr;
-	stmt_base_t *incr  = nullptr;
-	stmt_block_t *blk  = nullptr;
+	Stmt *init	   = nullptr; // either of StmtVarDecl or StmtExpr
+	Stmt *cond	   = nullptr;
+	Stmt *incr	   = nullptr;
+	StmtBlock *blk	   = nullptr;
 	lex::Lexeme &start = p.peak();
 
 	if(!p.acceptn(lex::FOR)) {
@@ -1531,7 +1530,7 @@ body:
 		goto fail;
 	}
 
-	f = new stmt_for_t(p.get_src(), start.line, start.col_beg, init, cond, incr, blk);
+	f = new StmtFor(p.get_src(), start.line, start.col_beg, init, cond, incr, blk);
 	return true;
 fail:
 	if(init) delete init;
@@ -1540,12 +1539,12 @@ fail:
 	if(blk) delete blk;
 	return false;
 }
-bool parse_while(ParseHelper &p, stmt_base_t *&w)
+bool parse_while(ParseHelper &p, Stmt *&w)
 {
 	w = nullptr;
 
-	stmt_base_t *cond  = nullptr;
-	stmt_block_t *blk  = nullptr;
+	Stmt *cond	   = nullptr;
+	StmtBlock *blk	   = nullptr;
 	lex::Lexeme &start = p.peak();
 
 	if(!p.acceptn(lex::WHILE)) {
@@ -1565,18 +1564,18 @@ bool parse_while(ParseHelper &p, stmt_base_t *&w)
 		goto fail;
 	}
 
-	w = new stmt_while_t(p.get_src(), start.line, start.col_beg, cond, blk);
+	w = new StmtWhile(p.get_src(), start.line, start.col_beg, cond, blk);
 	return true;
 fail:
 	if(cond) delete cond;
 	if(blk) delete blk;
 	return false;
 }
-bool parse_ret(ParseHelper &p, stmt_base_t *&ret)
+bool parse_ret(ParseHelper &p, Stmt *&ret)
 {
 	ret = nullptr;
 
-	stmt_base_t *val   = nullptr;
+	Stmt *val	   = nullptr;
 	lex::Lexeme &start = p.peak();
 
 	if(!p.acceptn(lex::RETURN)) {
@@ -1592,13 +1591,13 @@ bool parse_ret(ParseHelper &p, stmt_base_t *&ret)
 	}
 
 done:
-	ret = new stmt_ret_t(p.get_src(), start.line, start.col_beg, val);
+	ret = new StmtRet(p.get_src(), start.line, start.col_beg, val);
 	return true;
 fail:
 	if(val) delete val;
 	return false;
 }
-bool parse_continue(ParseHelper &p, stmt_base_t *&cont)
+bool parse_continue(ParseHelper &p, Stmt *&cont)
 {
 	cont = nullptr;
 
@@ -1610,10 +1609,10 @@ bool parse_continue(ParseHelper &p, stmt_base_t *&cont)
 		return false;
 	}
 
-	cont = new stmt_cont_t(p.get_src(), start.line, start.col_beg);
+	cont = new StmtContinue(p.get_src(), start.line, start.col_beg);
 	return true;
 }
-bool parse_break(ParseHelper &p, stmt_base_t *&brk)
+bool parse_break(ParseHelper &p, Stmt *&brk)
 {
 	brk = nullptr;
 
@@ -1624,7 +1623,7 @@ bool parse_break(ParseHelper &p, stmt_base_t *&brk)
 		return false;
 	}
 
-	brk = new stmt_cont_t(p.get_src(), start.line, start.col_beg);
+	brk = new StmtContinue(p.get_src(), start.line, start.col_beg);
 	return true;
 }
 } // namespace parser

@@ -83,7 +83,7 @@ class TypeMgr
 	std::unordered_map<size_t, std::string> srcfiles;
 	std::unordered_map<std::string, Type *> globals;
 	std::unordered_map<size_t, SrcTypes *> srcs;
-	std::map<size_t, stmt_base_t *> managedptrees;
+	std::map<size_t, Stmt *> managedptrees;
 	std::vector<SrcTypes *> srcstack;
 	std::vector<size_t> srcidstack;
 	std::vector<TypeFuncMap *> managedfnmaps;
@@ -134,8 +134,8 @@ public:
 	bool add(const std::string &name, Type *val, const bool &global = false);
 	bool add_copy(const std::string &name, Type *val, const bool &global = false);
 	bool exists(const std::string &name, const bool &top_only, const bool &with_globals);
-	Type *get(const std::string &name, stmt_base_t *parent);
-	Type *get_copy(const std::string &name, stmt_base_t *parent);
+	Type *get(const std::string &name, Stmt *parent);
+	Type *get_copy(const std::string &name, Stmt *parent);
 	void lock_scopes_before(const size_t &idx)
 	{
 		lockedlayers.push_back(idx);
@@ -147,8 +147,8 @@ public:
 
 	bool add_func(const std::string &name, Type *vtyp, const bool &global = false);
 	bool add_func_copy(const std::string &name, Type *vtyp, const bool &global = false);
-	TypeFuncMap *get_funcmap(const std::string &name, stmt_base_t *parent);
-	TypeFuncMap *get_funcmap_copy(const std::string &name, stmt_base_t *parent);
+	TypeFuncMap *get_funcmap(const std::string &name, Stmt *parent);
+	TypeFuncMap *get_funcmap_copy(const std::string &name, Stmt *parent);
 
 	inline void pushfret(Type *fnret)
 	{
@@ -167,15 +167,15 @@ public:
 		return !funcreturns.empty();
 	}
 
-	inline void manage_ptree(const size_t &src_id, stmt_base_t *tree)
+	inline void manage_ptree(const size_t &src_id, Stmt *tree)
 	{
 		managedptrees[src_id] = tree;
 	}
-	inline std::map<size_t, stmt_base_t *> &get_managed_ptrees()
+	inline std::map<size_t, Stmt *> &get_managed_ptrees()
 	{
 		return managedptrees;
 	}
-	inline stmt_base_t *get_managed_ptree(const size_t &src_id)
+	inline Stmt *get_managed_ptree(const size_t &src_id)
 	{
 		if(managedptrees.find(src_id) == managedptrees.end()) return nullptr;
 		return managedptrees[src_id];
