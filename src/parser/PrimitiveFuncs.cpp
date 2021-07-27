@@ -13,63 +13,35 @@
 
 #include "parser/PrimitiveFuncs.hpp"
 
+#include "parser/Intrinsics.hpp"
+
 namespace sc
 {
 namespace parser
 {
-static inline TypeFunc *func(const std::vector<Type *> &args, Type *rettype)
+static inline TypeFunc *func(TypeMgr &types, const std::vector<Type *> &args, Type *rettype)
 {
-	return new TypeFunc(nullptr, 0, 0, 0, 0, false, args, rettype);
+	return new TypeFunc(nullptr, 0, 0, types.get(VUNKNOWN), 0, 0, false, args, rettype);
 }
-void add_primitive_integer_funcs(const std::string &typname, TypeMgr &types)
+void add_primitive_integer_funcs(TypeMgr &types)
 {
 	std::vector<std::string> alltypes = {"i1",  "i8",  "i16", "i32", "i64", "u8",
 					     "u16", "u32", "u64", "f32", "f64"};
 
-	TypeSimple *type   = static_cast<TypeSimple *>(types.get(typname, nullptr));
-	TypeSimple *i1type = static_cast<TypeSimple *>(types.get("i1", nullptr));
-	for(auto &t : alltypes) {
-		TypeSimple *type2 = static_cast<TypeSimple *>(types.get(t, nullptr));
+	TypeSimple *t0 = nullptr;
+	TypeSimple *t1 = nullptr;
+	TypeSimple *t2 = nullptr;
+	TypeFunc *fn   = nullptr;
 
-		types.add_func("=", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("+", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("-", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("*", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("/", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("%", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("+=", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("-=", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("*=", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("/=", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("%=", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("&&", func({type->copy(), type2->copy()}, i1type->copy()), true);
-		types.add_func("||", func({type->copy(), type2->copy()}, i1type->copy()), true);
-		types.add_func("==", func({type->copy(), type2->copy()}, i1type->copy()), true);
-		types.add_func("<", func({type->copy(), type2->copy()}, i1type->copy()), true);
-		types.add_func(">", func({type->copy(), type2->copy()}, i1type->copy()), true);
-		types.add_func("<=", func({type->copy(), type2->copy()}, i1type->copy()), true);
-		types.add_func(">=", func({type->copy(), type2->copy()}, i1type->copy()), true);
-		types.add_func("!=", func({type->copy(), type2->copy()}, i1type->copy()), true);
-		types.add_func("&", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("|", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("^", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("&=", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("|=", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("~=", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("^=", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("<<", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func(">>", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func("<<=", func({type->copy(), type2->copy()}, type->copy()), true);
-		types.add_func(">>=", func({type->copy(), type2->copy()}, type->copy()), true);
-	}
-	types.add_func("x++", func({type->copy()}, type->copy()), true);
-	types.add_func("++x", func({type->copy()}, type->copy()), true);
-	types.add_func("x--", func({type->copy()}, type->copy()), true);
-	types.add_func("--x", func({type->copy()}, type->copy()), true);
-	types.add_func("u+", func({type->copy()}, type->copy()), true);
-	types.add_func("u-", func({type->copy()}, type->copy()), true);
-	types.add_func("!", func({type->copy()}, i1type->copy()), true);
-	types.add_func("~", func({type->copy()}, type->copy()), true);
+#include "./PrimitiveFuncs/Arithmetic.def"
+#include "./PrimitiveFuncs/ArithmeticAssn.def"
+#include "./PrimitiveFuncs/Logical.def"
+#include "./PrimitiveFuncs/UnaryPostAssn.def"
+#include "./PrimitiveFuncs/UnaryPre.def"
+#include "./PrimitiveFuncs/UnaryPreAssn.def"
 }
 } // namespace parser
 } // namespace sc
+
+// TODO: correct the intrin_gen.fer script - such that it generates the include and src files
+// simultaneously

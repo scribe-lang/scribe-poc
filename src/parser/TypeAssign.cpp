@@ -17,6 +17,9 @@
 #include "parser/Stmts.hpp"
 #include "parser/TypeMgr.hpp"
 
+#define CHECK_VALUE() \
+	if(vtyp && vtyp->val && vtyp->val->type != VUNKNOWN) return true
+
 namespace sc
 {
 namespace parser
@@ -122,7 +125,7 @@ bool StmtType::assign_type(TypeMgr &types)
 			continue;
 		}
 		std::string tname = "@" + std::to_string(i);
-		types.add(templates[i].data.s, new TypeSimple(nullptr, 0, 0, tname));
+		types.add(templates[i].data.s, new TypeSimple(nullptr, 0, 0, nullptr, tname));
 	}
 	if(func) {
 		if(!fn->assign_type(types)) {
@@ -182,13 +185,26 @@ bool StmtSimple::assign_type(TypeMgr &types)
 	case lex::FLT: vtyp = types.get_copy("f32", this); break;
 	case lex::CHAR: vtyp = types.get_copy("u8", this); break;
 	case lex::STR: vtyp = types.get_copy("*const u8", this); break;
-	case lex::IDEN:
-		vtyp = types.get_copy(val.data.s, this);
-		if(vtyp == nullptr) return false;
-		break;
+	case lex::IDEN: vtyp = types.get_copy(val.data.s, this); return vtyp;
 	default: return false;
 	}
-	if(!vtyp) err::set(val, "failed to determine type of this statement");
+	if(!vtyp) {
+		err::set(val, "failed to determine type of this statement");
+		return false;
+	}
+	CHECK_VALUE();
+	switch(val.tok.val) {
+	case lex::VOID: vtyp->val = types.get(VVOID); break;
+	case lex::TRUE: vtyp->val = types.get((int64_t)1); break;
+	case lex::FALSE: // fallthrough
+	case lex::NIL: vtyp->val = types.get((int64_t)0); break;
+	case lex::INT: vtyp->val = types.get(val.data.i); break;
+	case lex::FLT: vtyp->val = types.get((double)val.data.f); break;
+	case lex::CHAR: vtyp->val = types.get((int64_t)val.data.s[0]); break;
+	case lex::STR: vtyp->val = types.get(val.data.s); break;
+	// no need of lex::IDEN here as value is in vtyp itself
+	default: return false;
+	}
 	return vtyp;
 }
 
@@ -282,6 +298,9 @@ bool StmtExpr::assign_type(TypeMgr &types)
 				 lhs->vtyp->str().c_str());
 			return false;
 		}
+		// TODO: move -> <value> display in parse tree from Type to Stmt
+		// & rename Type to Info
+		// x;
 		if(lhs->vtyp->type == TFUNCMAP) {
 			TypeFuncMap *fmap = static_cast<TypeFuncMap *>(lhs->vtyp);
 			if(!(vtyp = fmap->decide_func(finfo, calltemplates))) {
@@ -305,15 +324,15 @@ bool StmtExpr::assign_type(TypeMgr &types)
 			}
 			delete oldfn;
 			lhs->vtyp = fn;
-			if(!fn->intrin_fn) vtyp = fn->rettype->copy();
-			if(fn->intrin_fn && !fn->call_intrinsic(types, this)) {
+			if(vtyp) delete vtyp;
+			vtyp = fn->rettype->copy();
+			if(fn->intrin_fn && !fn->call_intrinsic(types, this, fn, finfo)) {
 				err::set(line, col,
 					 "failed to call intrinsic "
 					 "function during type assignment");
 				return false;
 			}
 			comptime = fn->comptime;
-			if(!vtyp) vtyp = fn->rettype->copy();
 		} else if(lhs->vtyp->type == TSTRUCT) {
 			TypeStruct *st = static_cast<TypeStruct *>(lhs->vtyp);
 			if(!st->is_def) {
@@ -460,6 +479,7 @@ bool StmtExpr::assign_type(TypeMgr &types)
 		if(rhs) fci->args.push_back(rhs);
 		std::vector<Type *> calltemplates;
 		TypeFunc *decidedfn = fn->decide_func(fci, calltemplates);
+		err::reset();
 		if(!decidedfn) {
 			err::set(line, col, "function '%s' does not exist for type: %s",
 				 oper.tok.str().c_str(), lhs->vtyp->str().c_str());
@@ -467,9 +487,19 @@ bool StmtExpr::assign_type(TypeMgr &types)
 			delete fci;
 			return false;
 		}
+		if(vtyp) delete vtyp;
+		vtyp = decidedfn->rettype->copy();
+		if(decidedfn->intrin_fn && !decidedfn->call_intrinsic(types, this, decidedfn, fci))
+		{
+			err::set(line, col,
+				 "failed to call intrinsic "
+				 "function during type assignment");
+			delete fci;
+			delete decidedfn;
+			return false;
+		}
 		if(!init_templ_func(types, lhs, calltemplates, false)) return false;
 		fci->args.clear();
-		vtyp = static_cast<TypeFunc *>(decidedfn)->rettype->copy();
 		delete fci;
 		delete decidedfn;
 		break;
@@ -519,7 +549,7 @@ bool StmtFnSig::assign_type(TypeMgr &types)
 	for(size_t i = 0; i < templates.size(); ++i) {
 		if(types.exists(templates[i].data.s, false, true)) continue;
 		std::string tname = "@" + std::to_string(i);
-		types.add(templates[i].data.s, new TypeSimple(nullptr, 0, 0, tname));
+		types.add(templates[i].data.s, new TypeSimple(nullptr, 0, 0, nullptr, tname));
 	}
 	for(auto &p : params) {
 		if(!p->assign_type(types)) {
@@ -537,8 +567,8 @@ bool StmtFnSig::assign_type(TypeMgr &types)
 	}
 	size_t layer = types.getlayer() - 1;
 	if(parent && parent->type == FNDEF) --layer;
-	vtyp =
-	new TypeFunc(this, 0, 0, layer, templates.size(), comptime, args, rettype->vtyp->copy());
+	vtyp = new TypeFunc(this, 0, 0, nullptr, layer, templates.size(), comptime, args,
+			    rettype->vtyp->copy());
 	return true;
 }
 
@@ -636,7 +666,7 @@ bool StmtStruct::assign_type(TypeMgr &types)
 	for(size_t i = 0; i < templates.size(); ++i) {
 		if(types.exists(templates[i].data.s, false, true)) continue;
 		std::string tname = "@" + std::to_string(i);
-		types.add(templates[i].data.s, new TypeSimple(nullptr, 0, 0, tname));
+		types.add(templates[i].data.s, new TypeSimple(nullptr, 0, 0, nullptr, tname));
 	}
 	std::vector<std::string> field_type_orders;
 	for(auto &f : fields) {
@@ -650,7 +680,7 @@ bool StmtStruct::assign_type(TypeMgr &types)
 	for(size_t i = 0; i < field_type_orders.size(); ++i) {
 		field_types[field_type_orders[i]] = fields[i]->vtyp->copy();
 	}
-	vtyp = new TypeStruct(this, 0, 0, false, templates.size(), field_type_orders,
+	vtyp = new TypeStruct(this, 0, 0, nullptr, false, templates.size(), field_type_orders,
 			      field_types); // comment for correct auto formatting of this
 	types.poplayer();
 	return true;

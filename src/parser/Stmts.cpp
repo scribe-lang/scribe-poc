@@ -27,7 +27,7 @@ namespace parser
 
 Stmt::Stmt(const Stmts &type, const size_t &src_id, const size_t &line, const size_t &col)
 	: type(type), parent(nullptr), src_id(src_id), line(line), col(col), is_specialized(false),
-	  is_intrin(false), vtyp(nullptr), value(nullptr)
+	  is_intrin(false), vtyp(nullptr)
 {}
 Stmt::~Stmt()
 {
@@ -83,7 +83,7 @@ std::string Stmt::extrastr()
 {
 	std::string res;
 	if(vtyp) res += " :: " + vtyp->str();
-	if(value) res += " -> " + value->stringify();
+	// if(value) res += " -> " + value->stringify();
 	return res;
 }
 

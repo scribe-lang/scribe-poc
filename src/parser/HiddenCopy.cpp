@@ -30,7 +30,6 @@ Stmt *StmtBlock::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *
 	}
 	Stmt *res = new StmtBlock(src_id, line, col, newstmts);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -46,12 +45,11 @@ Stmt *StmtType::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *p
 	if(fn) {
 		Stmt *res = new StmtType(src_id, line, col, fn);
 		if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-		if(copy_val) res->value = value;
+
 		return res;
 	}
 	Stmt *res = new StmtType(src_id, line, col, ptr, info, name, templates);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -65,7 +63,6 @@ Stmt *StmtSimple::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt 
 {
 	Stmt *res = new StmtSimple(src_id, line, col, val);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -88,7 +85,6 @@ Stmt *StmtFnCallInfo::hidden_copy(const bool &copy_vtyp, const bool &copy_val, S
 	}
 	Stmt *res = new StmtFnCallInfo(src_id, line, col, newtemplates, newargs);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -108,7 +104,6 @@ Stmt *StmtExpr::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *p
 		static_cast<StmtBlock *>(or_blk->hidden_copy(copy_vtyp, copy_val, this));
 	res->or_blk_var = or_blk_var;
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -126,7 +121,6 @@ Stmt *StmtVar::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *pa
 
 	Stmt *res = new StmtVar(src_id, line, col, name, newvtype, newval);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -149,7 +143,6 @@ Stmt *StmtFnSig::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *
 
 	Stmt *res = new StmtFnSig(src_id, line, col, templates, newparams, newrettype, comptime);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -166,7 +159,6 @@ Stmt *StmtFnDef::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *
 	blk ? static_cast<StmtBlock *>(blk->hidden_copy(copy_vtyp, copy_val, this)) : nullptr;
 	Stmt *res = new StmtFnDef(src_id, line, col, newsig, newblk);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -180,7 +172,6 @@ Stmt *StmtHeader::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt 
 {
 	Stmt *res = new StmtHeader(src_id, line, col, names, flags);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -194,7 +185,6 @@ Stmt *StmtLib::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *pa
 {
 	Stmt *res = new StmtLib(src_id, line, col, flags);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -214,7 +204,6 @@ Stmt *StmtExtern::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt 
 	StmtFnSig *newsig = static_cast<StmtFnSig *>(sig->hidden_copy(copy_vtyp, copy_val, this));
 	Stmt *res	  = new StmtExtern(src_id, line, col, fname, newheaders, newlibs, newsig);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -233,7 +222,6 @@ Stmt *StmtEnum::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *p
 	}
 	Stmt *res = new StmtEnum(src_id, line, col, newitems);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -252,7 +240,6 @@ Stmt *StmtStruct::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt 
 	}
 	Stmt *res = new StmtStruct(src_id, line, col, decl, templates, newfields);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -271,7 +258,6 @@ Stmt *StmtVarDecl::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt
 	}
 	Stmt *res = new StmtVarDecl(src_id, line, col, newdecls);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -291,7 +277,6 @@ Stmt *StmtCond::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *p
 	}
 	Stmt *res = new StmtCond(src_id, line, col, newconds);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -307,7 +292,6 @@ Stmt *StmtForIn::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *
 	StmtBlock *newblk = static_cast<StmtBlock *>(blk->hidden_copy(copy_vtyp, copy_val, this));
 	Stmt *res	  = new StmtForIn(src_id, line, col, iter, newin, newblk);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -325,7 +309,6 @@ Stmt *StmtFor::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *pa
 	StmtBlock *newblk = static_cast<StmtBlock *>(blk->hidden_copy(copy_vtyp, copy_val, this));
 	Stmt *res	  = new StmtFor(src_id, line, col, newinit, newcond, newincr, newblk);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -341,7 +324,6 @@ Stmt *StmtWhile::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *
 	StmtBlock *newblk = static_cast<StmtBlock *>(blk->hidden_copy(copy_vtyp, copy_val, this));
 	Stmt *res	  = new StmtWhile(src_id, line, col, newcond, newblk);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -356,7 +338,6 @@ Stmt *StmtRet::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *pa
 	Stmt *newval = val ? val->hidden_copy(copy_vtyp, copy_val, this) : nullptr;
 	Stmt *res    = new StmtRet(src_id, line, col, newval);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -370,7 +351,6 @@ Stmt *StmtContinue::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stm
 {
 	Stmt *res = new StmtContinue(src_id, line, col);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -384,7 +364,6 @@ Stmt *StmtBreak::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *
 {
 	Stmt *res = new StmtBreak(src_id, line, col);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
-	if(copy_val) res->value = value;
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;

@@ -80,19 +80,6 @@ bool RAIIParser::assign_type(const size_t &src_id)
 	types.popsrc();
 	return true;
 }
-bool RAIIParser::const_fold(const size_t &src_id)
-{
-	Stmt *&tree = srcstmts[src_id];
-	vals.add_src(src_id);
-	vals.push_src(src_id);
-	if(!tree->const_fold(types, vals)) {
-		err::set(tree->line, tree->col, "failed to const fold while parsing");
-		err::show(stderr, srcdata[src_id], srcstack[src_id]);
-		return false;
-	}
-	vals.pop_src();
-	return true;
-}
 void RAIIParser::show_toks(const bool &force)
 {
 	if(!args.has("tokens") && !force) return;

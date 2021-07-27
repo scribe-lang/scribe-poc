@@ -1,0 +1,56 @@
+/*
+	MIT License
+
+	Copyright (c) 2021 Scribe Language Repositories
+
+	Permission is hereby granted, free of charge, to any person obtaining a
+	copy of this software and associated documentation files (the "Software"), to
+	deal in the Software without restriction, including without limitation the
+	rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+	sell copies of the Software, and to permit persons to whom the Software is
+	furnished to do so.
+*/
+
+INTRINSIC(uadd_i8);
+INTRINSIC(uadd_i16);
+INTRINSIC(uadd_i32);
+INTRINSIC(uadd_i64);
+INTRINSIC(uadd_u8);
+INTRINSIC(uadd_u16);
+INTRINSIC(uadd_u32);
+INTRINSIC(uadd_u64);
+INTRINSIC(uadd_f32);
+INTRINSIC(uadd_f64);
+
+INTRINSIC(usub_i8);
+INTRINSIC(usub_i16);
+INTRINSIC(usub_i32);
+INTRINSIC(usub_i64);
+INTRINSIC(usub_u8);
+INTRINSIC(usub_u16);
+INTRINSIC(usub_u32);
+INTRINSIC(usub_u64);
+INTRINSIC(usub_f32);
+INTRINSIC(usub_f64);
+
+INTRINSIC(not_i1);
+INTRINSIC(not_i8);
+INTRINSIC(not_i16);
+INTRINSIC(not_i32);
+INTRINSIC(not_i64);
+INTRINSIC(not_u8);
+INTRINSIC(not_u16);
+INTRINSIC(not_u32);
+INTRINSIC(not_u64);
+INTRINSIC(not_f32);
+INTRINSIC(not_f64);
+
+INTRINSIC(bnot_i8);
+INTRINSIC(bnot_i16);
+INTRINSIC(bnot_i32);
+INTRINSIC(bnot_i64);
+INTRINSIC(bnot_u8);
+INTRINSIC(bnot_u16);
+INTRINSIC(bnot_u32);
+INTRINSIC(bnot_u64);
+

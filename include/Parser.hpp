@@ -49,7 +49,6 @@ public:
 
 	bool parse(const size_t &src_id);
 	bool assign_type(const size_t &src_id);
-	bool const_fold(const size_t &src_id);
 
 	inline std::vector<lex::Lexeme> &get_toks(const size_t &src_id)
 	{

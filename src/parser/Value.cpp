@@ -70,6 +70,18 @@ std::string Value::stringify()
 	}
 	return "";
 }
+bool Value::has_data()
+{
+	switch(type) {
+	case VUNKNOWN: return false;
+	case VVOID: // fallthrough
+	case VINT:  // fallthrough
+	case VFLT:  // fallthrough
+	case VSTR:  // fallthrough
+	case VSTRUCT: return true;
+	}
+	return false;
+}
 
 ValueAllocator::ValueAllocator() : unknown(new Value(VUNKNOWN)), vvoid(new Value(VVOID)) {}
 ValueAllocator::~ValueAllocator()

@@ -20,11 +20,13 @@ namespace sc
 {
 namespace parser
 {
-INTRINSIC(import);
-INTRINSIC(as);
-INTRINSIC(szof);
-INTRINSIC(typid);
-INTRINSIC(va_len);
+#include "Intrinsics/Arithmetic.def"
+#include "Intrinsics/ArithmeticAssn.def"
+#include "Intrinsics/Core.def"
+#include "Intrinsics/Logical.def"
+#include "Intrinsics/UnaryPostAssn.def"
+#include "Intrinsics/UnaryPre.def"
+#include "Intrinsics/UnaryPreAssn.def"
 } // namespace parser
 } // namespace sc
 

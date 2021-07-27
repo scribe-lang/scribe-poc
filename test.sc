@@ -1,2 +1,2 @@
 let tmp = @import("./tmp");
-let res = tmp.i;
+let res = tmp.a;

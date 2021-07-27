@@ -11,20 +11,21 @@
 	furnished to do so.
 */
 
-#ifndef PARSER_PRIMITIVE_FUNCS_HPP
-#define PARSER_PRIMITIVE_FUNCS_HPP
+INTRINSIC(xinc_i8);
+INTRINSIC(xinc_i16);
+INTRINSIC(xinc_i32);
+INTRINSIC(xinc_i64);
+INTRINSIC(xinc_u8);
+INTRINSIC(xinc_u16);
+INTRINSIC(xinc_u32);
+INTRINSIC(xinc_u64);
 
-#include <string>
-#include <unordered_map>
+INTRINSIC(xdec_i8);
+INTRINSIC(xdec_i16);
+INTRINSIC(xdec_i32);
+INTRINSIC(xdec_i64);
+INTRINSIC(xdec_u8);
+INTRINSIC(xdec_u16);
+INTRINSIC(xdec_u32);
+INTRINSIC(xdec_u64);
 
-#include "TypeMgr.hpp"
-
-namespace sc
-{
-namespace parser
-{
-void add_primitive_integer_funcs(TypeMgr &types);
-} // namespace parser
-} // namespace sc
-
-#endif // PARSER_PRIMITIVE_FUNCS_HPP

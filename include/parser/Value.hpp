@@ -50,6 +50,8 @@ struct Value
 	bool operator!=(const Value &other);
 
 	std::string stringify();
+
+	bool has_data();
 };
 
 // no need to copy unnecessarily - values are immutable

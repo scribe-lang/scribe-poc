@@ -1,0 +1,328 @@
+let io = import('std/io');
+let fs = import('std/fs');
+let str = import('std/str');
+let vec = import('std/vec');
+let fmt = import('std/fmt');
+
+let license = `/*
+	MIT License
+
+	Copyright (c) 2021 Scribe Language Repositories
+
+	Permission is hereby granted, free of charge, to any person obtaining a
+	copy of this software and associated documentation files (the "Software"), to
+	deal in the Software without restriction, including without limitation the
+	rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+	sell copies of the Software, and to permit persons to whom the Software is
+	furnished to do so.
+*/\n`;
+
+let basebin = `#include "Error.hpp"
+#include "FS.hpp"
+#include "Parser.hpp"
+#include "parser/TypeMgr.hpp"
+
+#define HAS_VALID_VAL(vtyp) (vtyp->val && vtyp->val->has_data())
+#define VERIFY_VALS_BINOP()                                                     		\\
+	if(!HAS_VALID_VAL(args->args[0]->vtyp) || !HAS_VALID_VAL(args->args[1]->vtyp)) \\{	\\
+		base->vtyp->val = types.get(VUNKNOWN);						\\
+		return true;									\\
+	}\n`;
+let baseun = `#include "parser/TypeMgr.hpp"
+
+#define HAS_VALID_VAL(vtyp) (vtyp->val && vtyp->val->has_data())
+#define VERIFY_VALS_UNOP()						\\
+	if(!HAS_VALID_VAL(args->args[0]->vtyp)) \\{			\\
+		base->vtyp->val = types.get(VUNKNOWN);			\\
+		return true;						\\
+	}\n`;
+
+let nsbegin = `namespace sc
+\\{
+namespace parser
+\\{`;
+
+let nsend = `} // namespace parser
+} // namespace sc`;
+
+let arith_decl = `INTRINSIC({opname}_{t1}_{t2});`;
+let arith_def = `INTRINSIC({opname}_{t1}_{t2})
+\\{
+	VERIFY_VALS_BINOP();
+	base->vtyp->val = types.get(({intorflt})(args->args[0]->vtyp->val->{v1} {op} args->args[1]->vtyp->val->{v2}));
+	return true;
+}`;
+
+let arith_assn_decl = `INTRINSIC({opname}_{t1}_{t2});`;
+let arith_assn_only_def = `INTRINSIC({opname}_{t1}_{t2})
+\\{
+	VERIFY_VALS_BINOP();
+	args->args[0]->vtyp->val = types.get(({intorflt})args->args[1]->vtyp->val->{v2});
+	base->vtyp->val = args->args[0]->vtyp->val;
+	return true;
+}`;
+let arith_assn_def = `INTRINSIC({opname}_{t1}_{t2})
+\\{
+	VERIFY_VALS_BINOP();
+	{intorflt} res = args->args[0]->vtyp->val->{v1};
+	args->args[0]->vtyp->val = types.get(({intorflt})(res {op} args->args[1]->vtyp->val->{v2}));
+	base->vtyp->val = args->args[0]->vtyp->val;
+	return true;
+}`;
+
+let unpre_decl = `INTRINSIC({opname}_{t1});`;
+let unpre_def = `INTRINSIC({opname}_{t1})
+\\{
+	VERIFY_VALS_UNOP();
+	base->vtyp->val = types.get(({intorflt})({op}args->args[0]->vtyp->val->{v1}));
+	return true;
+}`;
+let unpre_assn_decl = `INTRINSIC({opname}_{t1});`;
+let unpre_assn_def = `INTRINSIC({opname}_{t1})
+\\{
+	VERIFY_VALS_UNOP();
+	{intorflt} res = args->args[0]->vtyp->val->{v1};
+	args->args[0]->vtyp->val = types.get(({intorflt})({op}res));
+	base->vtyp->val = args->args[0]->vtyp->val;
+	return true;
+}`;
+let unpost_assn_decl = `INTRINSIC({opname}_{t1});`;
+let unpost_assn_def = `INTRINSIC({opname}_{t1})
+\\{
+	VERIFY_VALS_UNOP();
+	{intorflt} res = args->args[0]->vtyp->val->{v1};
+	args->args[0]->vtyp->val = types.get(({intorflt})(res{op}));
+	base->vtyp->val = types.get(({intorflt})(res));
+	return true;
+}`;
+
+let types = vec.new('i1', 'i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64', 'f32', 'f64');
+
+let binop = vec.new(
+	# .add, .sub, .mul, .div, .mod, .band, .bor, .bxor, .lshift, .rshift);
+	.assn, .addassn, .subassn, .mulassn, .divassn, .modassn,
+	# .logand, .logor, .eq, .lt, .gt, .le, .ge, .ne);
+	.bandassn, .borassn, .bxorassn, .lshiftassn, .rshiftassn);
+let binoper = vec.new(
+	# '+', '-', '*', '/', '%', '&', '|', '^', '<<', '>>');
+	'=', '+=', '-=', '*=', '/=', '%=',
+	# '&&', '||', '==', '<', '>', '<=', '>=', '!=');
+	'&=', '|=', '^=', '<<=', '>>=');
+
+let unop = vec.new(
+	.xinc, .xdec);
+	# .incx, .decx);
+	# .uadd, .usub, .not, .bnot);
+let unoper = vec.new(
+	'++', '--');
+	# '++', '--');
+	# '+', '-', '!', '~');
+
+
+let arith = fn() {
+	let fdecl = fs.fopen('include/parser/Intrinsics/Arithmetic.def', 'w+');
+	let fdef  = fs.fopen('src/parser/Intrinsics/Arithmetic.cpp', 'w+');
+
+	let binop = vec.new(.add, .sub, .mul, .div, .mod, .band, .bor, .bxor, .lshift, .rshift);
+	let binoper = vec.new('+', '-', '*', '/', '%', '&', '|', '^', '<<', '>>');
+
+	io.fprintln(fdef, fmt.template(license));
+	io.fprintln(fdecl, fmt.template(license));
+	io.fprintln(fdef, fmt.template(basebin));
+	io.fprintln(fdef, fmt.template(nsbegin));
+
+	for let i = 0; i < binop.len(); ++i {
+		let opname = binop[i];
+		let op = binoper[i];
+		for t1 in types.each() {
+			for t2 in types.each() {
+				if t1 == 'i1' || t2 == 'i1' { continue; }
+				let intorflt = 'int64_t';
+				let v1 = 'i';
+				let v2 = 'i';
+				if t1.front() == 'f' || t2.front() == 'f' {
+					intorflt = 'double';
+					if t1.front() == 'f' { v1 = 'f'; }
+					if t2.front() == 'f' { v2 = 'f'; }
+					if op == '%' || op == '&' || op == '|' || op == '^' || op == '<<' || op == '>>' {
+						continue;
+					}
+				}
+				io.fprintln(fdecl, fmt.template(arith_decl));
+				io.fprintln(fdef, fmt.template(arith_def));
+			}
+			io.fprintln(fdecl);
+		}
+	}
+	io.fprintln(fdef, fmt.template(nsend));
+};
+
+let arithassn = fn() {
+	let fdecl = fs.fopen('include/parser/Intrinsics/ArithmeticAssn.def', 'w+');
+	let fdef  = fs.fopen('src/parser/Intrinsics/ArithmeticAssn.cpp', 'w+');
+
+	let binop = vec.new(.assn, .addassn, .subassn, .mulassn, .divassn, .modassn, .bandassn, .borassn, .bxorassn, .lshiftassn, .rshiftassn);
+	let binoper = vec.new('=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=');
+
+	io.fprintln(fdef, fmt.template(license));
+	io.fprintln(fdecl, fmt.template(license));
+	io.fprintln(fdef, fmt.template(basebin));
+	io.fprintln(fdef, fmt.template(nsbegin));
+
+	for let i = 0; i < binop.len(); ++i {
+		let opname = binop[i];
+		let op = binoper[i];
+		for t1 in types.each() {
+			for t2 in types.each() {
+				if t1 == 'i1' || t2 == 'i1' { continue; }
+				let intorflt = 'int64_t';
+				let v1 = 'i';
+				let v2 = 'i';
+				if t1.front() == 'f' || t2.front() == 'f' {
+					intorflt = 'double';
+					if t1.front() == 'f' { v1 = 'f'; }
+					if t2.front() == 'f' { v2 = 'f'; }
+					if op == '%=' || op == '&=' || op == '|=' || op == '^=' || op == '<<=' || op == '>>=' {
+						continue;
+					}
+				}
+				io.fprintln(fdecl, fmt.template(arith_assn_decl));
+				if op == '=' {
+					io.fprintln(fdef, fmt.template(arith_assn_only_def));
+					continue;
+				}
+				io.fprintln(fdef, fmt.template(arith_assn_def));
+			}
+			io.fprintln(fdecl);
+		}
+	}
+	io.fprintln(fdef, fmt.template(nsend));
+};
+
+let logic = fn() {
+	let fdecl = fs.fopen('include/parser/Intrinsics/Logical.def', 'w+');
+	let fdef  = fs.fopen('src/parser/Intrinsics/Logical.cpp', 'w+');
+
+	let binop = vec.new(.logand, .logor, .eq, .lt, .gt, .le, .ge, .ne);
+	let binoper = vec.new('&&', '||', '==', '<', '>', '<=', '>=', '!=');
+
+	io.fprintln(fdef, fmt.template(license));
+	io.fprintln(fdecl, fmt.template(license));
+	io.fprintln(fdef, fmt.template(basebin));
+	io.fprintln(fdef, fmt.template(nsbegin));
+
+	let rettypename = 'i1';
+	for let i = 0; i < binop.len(); ++i {
+		let opname = binop[i];
+		let op = binoper[i];
+		for t1 in types.each() {
+			for t2 in types.each() {
+				let intorflt = 'int64_t';
+				let v1 = 'i';
+				let v2 = 'i';
+				if t1.front() == 'f' || t2.front() == 'f' {
+					if t1.front() == 'f' { v1 = 'f'; }
+					if t2.front() == 'f' { v2 = 'f'; }
+				}
+				io.fprintln(fdecl, fmt.template(arith_decl));
+				io.fprintln(fdef, fmt.template(arith_def));
+			}
+			io.fprintln(fdecl);
+		}
+	}
+	io.fprintln(fdef, fmt.template(nsend));
+};
+
+let unpre = fn() {
+	let fdecl = fs.fopen('include/parser/Intrinsics/UnaryPre.def', 'w+');
+	let fdef  = fs.fopen('src/parser/Intrinsics/UnaryPre.cpp', 'w+');
+
+	let binop = vec.new(.uadd, .usub, .not, .bnot);
+	let binoper = vec.new('+', '-', '!', '~');
+
+	io.fprintln(fdef, fmt.template(license));
+	io.fprintln(fdecl, fmt.template(license));
+	io.fprintln(fdef, fmt.template(baseun));
+	io.fprintln(fdef, fmt.template(nsbegin));
+
+	for let i = 0; i < binop.len(); ++i {
+		let opname = binop[i];
+		let op = binoper[i];
+		for t1 in types.each() {
+			if t1 == 'i1' && op != '!' { continue; }
+			let intorflt = 'int64_t';
+			let v1 = 'i';
+			if t1.front() == 'f' {
+				if op == '~' { continue; }
+				v1 = 'f';
+			}
+			io.fprintln(fdecl, fmt.template(unpre_decl));
+			io.fprintln(fdef, fmt.template(unpre_def));
+		}
+		io.fprintln(fdecl);
+	}
+	io.fprintln(fdef, fmt.template(nsend));
+};
+
+let unpreassn = fn() {
+	let fdecl = fs.fopen('include/parser/Intrinsics/UnaryPreAssn.def', 'w+');
+	let fdef  = fs.fopen('src/parser/Intrinsics/UnaryPreAssn.cpp', 'w+');
+
+	let binop = vec.new(.incx, .decx);
+	let binoper = vec.new('++', '--');
+
+	io.fprintln(fdef, fmt.template(license));
+	io.fprintln(fdecl, fmt.template(license));
+	io.fprintln(fdef, fmt.template(baseun));
+	io.fprintln(fdef, fmt.template(nsbegin));
+
+	for let i = 0; i < binop.len(); ++i {
+		let opname = binop[i];
+		let op = binoper[i];
+		for t1 in types.each() {
+			if t1 == 'i1' { continue; }
+			let intorflt = 'int64_t';
+			let v1 = 'i';
+			if t1.front() == 'f' { continue; }
+			io.fprintln(fdecl, fmt.template(unpre_assn_decl));
+			io.fprintln(fdef, fmt.template(unpre_assn_def));
+		}
+		io.fprintln(fdecl);
+	}
+	io.fprintln(fdef, fmt.template(nsend));
+};
+
+let unpostassn = fn() {
+	let fdecl = fs.fopen('include/parser/Intrinsics/UnaryPostAssn.def', 'w+');
+	let fdef  = fs.fopen('src/parser/Intrinsics/UnaryPostAssn.cpp', 'w+');
+
+	let binop = vec.new(.xinc, .xdec);
+	let binoper = vec.new('++', '--');
+
+	io.fprintln(fdef, fmt.template(license));
+	io.fprintln(fdecl, fmt.template(license));
+	io.fprintln(fdef, fmt.template(baseun));
+	io.fprintln(fdef, fmt.template(nsbegin));
+
+	for let i = 0; i < binop.len(); ++i {
+		let opname = binop[i];
+		let op = binoper[i];
+		for t1 in types.each() {
+			if t1 == 'i1' { continue; }
+			let intorflt = 'int64_t';
+			let v1 = 'i';
+			if t1.front() == 'f' { continue; }
+			io.fprintln(fdecl, fmt.template(unpost_assn_decl));
+			io.fprintln(fdef, fmt.template(unpost_assn_def));
+		}
+		io.fprintln(fdecl);
+	}
+	io.fprintln(fdef, fmt.template(nsend));
+};
+
+arith();
+arithassn();
+logic();
+unpre();
+unpreassn();
+unpostassn();

@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "parser/Stmts.hpp"
+#include "parser/Value.hpp"
 
 inline bool startswith(const std::string &src, const std::string &term)
 {
@@ -50,8 +51,10 @@ enum Types
 	TVARIADIC,
 };
 
-typedef bool (*intrinsic_fn_t)(TypeMgr &types, Stmt *stmt);
-#define INTRINSIC(name) bool intrinsic_##name(TypeMgr &types, Stmt *stmt)
+typedef bool (*intrinsic_fn_t)(TypeMgr &types, StmtExpr *base, TypeFunc *call,
+			       StmtFnCallInfo *args);
+#define INTRINSIC(name) \
+	bool intrinsic_##name(TypeMgr &types, StmtExpr *base, TypeFunc *call, StmtFnCallInfo *args)
 
 struct Type
 {
@@ -60,14 +63,15 @@ struct Type
 	int64_t id;
 	size_t ptr;
 	size_t info;
+	Value *val;
 	intrinsic_fn_t intrin_fn;
 
-	Type(const Types &type, Stmt *parent, const size_t &ptr, const size_t &info);
+	Type(const Types &type, Stmt *parent, const size_t &ptr, const size_t &info, Value *val);
 	Type(const int64_t &id, const Types &type, Stmt *parent, const size_t &ptr,
-	     const size_t &info, intrinsic_fn_t intrin_fn);
+	     const size_t &info, Value *val, intrinsic_fn_t intrin_fn);
 	virtual ~Type();
 
-	virtual Type *copy()					       = 0;
+	virtual Type *copy(const size_t &append_info = 0)	       = 0;
 	virtual Type *specialize(const std::vector<Type *> &templates) = 0;
 	// ignore_id is for templates
 	bool compatible_base(Type *rhs, const bool &is_templ, const size_t &line,
@@ -78,9 +82,10 @@ struct Type
 	{
 		intrin_fn = intrinsic;
 	}
-	inline bool call_intrinsic(TypeMgr &types, Stmt *stmt)
+	inline bool call_intrinsic(TypeMgr &types, StmtExpr *base, TypeFunc *call,
+				   StmtFnCallInfo *args)
 	{
-		return intrin_fn ? intrin_fn(types, stmt) : true;
+		return intrin_fn ? intrin_fn(types, base, call, args) : true;
 	}
 
 	std::string str_base();
@@ -94,11 +99,12 @@ struct TypeSimple : public Type
 	// is template is checked by the condition - name begins with '@'
 	std::string name;
 
-	TypeSimple(Stmt *parent, const size_t &ptr, const size_t &info, const std::string &name);
+	TypeSimple(Stmt *parent, const size_t &ptr, const size_t &info, Value *val,
+		   const std::string &name);
 	TypeSimple(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-		   intrinsic_fn_t intrin_fn, const std::string &name);
+		   Value *val, intrinsic_fn_t intrin_fn, const std::string &name);
 
-	Type *copy();
+	Type *copy(const size_t &append_info = 0);
 	Type *specialize(const std::vector<Type *> &templates);
 	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 
@@ -115,11 +121,12 @@ struct TypeStruct : public Type
 	std::vector<std::string> field_order;
 	std::unordered_map<std::string, Type *> fields;
 
-	TypeStruct(Stmt *parent, const size_t &ptr, const size_t &info, const bool &is_ref,
-		   const size_t &templ, const std::vector<std::string> &field_order,
+	TypeStruct(Stmt *parent, const size_t &ptr, const size_t &info, Value *val,
+		   const bool &is_ref, const size_t &templ,
+		   const std::vector<std::string> &field_order,
 		   const std::unordered_map<std::string, Type *> &fields);
 	TypeStruct(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-		   const bool &is_ref, const bool &is_def, intrinsic_fn_t intrin_fn,
+		   Value *val, const bool &is_ref, const bool &is_def, intrinsic_fn_t intrin_fn,
 		   const size_t &templ, const std::vector<std::string> &field_order,
 		   const std::unordered_map<std::string, Type *> &fields);
 	~TypeStruct();
@@ -129,7 +136,7 @@ struct TypeStruct : public Type
 		is_decl_only = decl_only;
 	}
 
-	Type *copy();
+	Type *copy(const size_t &append_info = 0);
 	Type *specialize(const std::vector<Type *> &templates);
 	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 	// checks if instantiation is viable with callinfo, returns specialized instance of struct
@@ -164,15 +171,15 @@ struct TypeFunc : public Type
 	std::vector<Type *> args;
 	Type *rettype;
 
-	TypeFunc(Stmt *parent, const size_t &ptr, const size_t &info, const size_t &scope,
-		 const size_t &templ, const bool &comptime, const std::vector<Type *> &args,
-		 Type *rettype);
-	TypeFunc(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
+	TypeFunc(Stmt *parent, const size_t &ptr, const size_t &info, Value *val,
+		 const size_t &scope, const size_t &templ, const bool &comptime,
+		 const std::vector<Type *> &args, Type *rettype);
+	TypeFunc(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info, Value *val,
 		 intrinsic_fn_t intrin_fn, const size_t &scope, const size_t &templ,
 		 const bool &comptime, const std::vector<Type *> &args, Type *rettype);
 	~TypeFunc();
 
-	Type *copy();
+	Type *copy(const size_t &append_info = 0);
 	Type *specialize(const std::vector<Type *> &templates);
 	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 	// checks for compatibility and specializes the signature (for templates)
@@ -186,12 +193,12 @@ struct TypeFunc : public Type
 struct TypeFuncMap : public Type
 {
 	std::unordered_map<std::string, TypeFunc *> funcs;
-	TypeFuncMap(Stmt *parent, const size_t &ptr, const size_t &info,
+	TypeFuncMap(Stmt *parent, const size_t &ptr, const size_t &info, Value *val,
 		    const std::unordered_map<std::string, TypeFunc *> &funcs);
 	TypeFuncMap(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-		    const std::unordered_map<std::string, TypeFunc *> &funcs);
+		    Value *val, const std::unordered_map<std::string, TypeFunc *> &funcs);
 
-	Type *copy();
+	Type *copy(const size_t &append_info = 0);
 	Type *specialize(const std::vector<Type *> &templates);
 	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 
@@ -205,13 +212,13 @@ struct TypeFuncMap : public Type
 struct TypeVariadic : public Type
 {
 	std::vector<Type *> args;
-	TypeVariadic(Stmt *parent, const size_t &ptr, const size_t &info,
+	TypeVariadic(Stmt *parent, const size_t &ptr, const size_t &info, Value *val,
 		     const std::vector<Type *> &args);
 	TypeVariadic(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-		     const std::vector<Type *> &args);
+		     Value *val, const std::vector<Type *> &args);
 	~TypeVariadic();
 
-	Type *copy();
+	Type *copy(const size_t &append_info = 0);
 	Type *specialize(const std::vector<Type *> &templates);
 	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 

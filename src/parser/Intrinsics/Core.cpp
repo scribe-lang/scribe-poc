@@ -11,12 +11,18 @@
 	furnished to do so.
 */
 
-#include "parser/Intrinsics.hpp"
-
 #include "Error.hpp"
 #include "FS.hpp"
 #include "Parser.hpp"
 #include "parser/TypeMgr.hpp"
+
+#define HAS_VALID_VAL(vtyp) (vtyp->val && vtyp->val->has_data())
+
+#define VERIFY_VALS_BINOP()                                                     \
+	if(!HAS_VALID_VAL(call->vtyp) || !HAS_VALID_VAL(args->args[0]->vtyp)) { \
+		call->vtyp->val = types.get(VUNKNOWN);                          \
+		return true;                                                    \
+	}
 
 namespace sc
 {
@@ -24,14 +30,16 @@ namespace parser
 {
 INTRINSIC(import)
 {
-	size_t &line = stmt->line;
-	size_t &col  = stmt->col;
+	size_t &line = base->line;
+	size_t &col  = base->col;
 
-	StmtExpr *fncall	= static_cast<StmtExpr *>(stmt);
-	StmtFnCallInfo *arginfo = static_cast<StmtFnCallInfo *>(fncall->rhs);
-
-	StmtSimple *mod		   = static_cast<StmtSimple *>(arginfo->args[0]);
-	const std::string &modname = mod->val.data.s;
+	Value *mod = args->args[0]->vtyp->val;
+	args->disp(false);
+	if(!mod || !mod->has_data() || mod->type != VSTR) {
+		err::set(line, col, "import's argument must be a comptime string");
+		return false;
+	}
+	const std::string &modname = mod->s;
 	if(modname.empty()) {
 		err::set(line, col, "no module provided");
 		return false;
@@ -49,7 +57,6 @@ INTRINSIC(import)
 	if(!parser->add_src(file, src_id)) return false;
 	if(!parser->parse(src_id)) return false;
 	if(!parser->assign_type(src_id)) return false;
-	if(!parser->const_fold(src_id)) return false;
 
 gen_struct:
 	SrcTypes *src	= types.get_src(src_id);
@@ -61,13 +68,13 @@ gen_struct:
 	}
 	std::unordered_map<std::string, Type *> &items = top->get_items();
 	if(items.empty()) return true;
-	TypeStruct *src_st = new TypeStruct(stmt, 0, 0, true, {}, {}, {});
+	TypeStruct *src_st = new TypeStruct(base, 0, 0, nullptr, true, {}, {}, {});
 	src_st->is_def	   = false;
 	for(auto &i : items) {
 		src_st->add_field(i.first, i.second);
 	}
-	if(fncall->vtyp) delete fncall->vtyp;
-	fncall->vtyp = src_st;
+	if(base->vtyp) delete base->vtyp;
+	base->vtyp = src_st;
 	return true;
 }
 INTRINSIC(as)
@@ -87,24 +94,22 @@ INTRINSIC(typid)
 }
 INTRINSIC(va_len)
 {
-	printf("called va_len intrinsic\n");
-	// StmtFnDef *fn = static_cast<StmtFnDef *>(stmt->get_parent_with_type(FNDEF));
-	// if(!fn) {
-	// 	err::set(stmt->line, stmt->col, "this function must be called within a function");
-	// 	return false;
-	// }
-	// if(!fn->vtyp) {
-	// 	err::set(stmt->line, stmt->col,
-	// 		 "the function enclosing this intrinsic is not a variadic function");
-	// 	return false;
-	// }
-	// size_t variadics = 0;
-	// for(auto &a : static_cast<TypeFunc *>(fn->sig->vtyp)->args) {
-	// 	if(a->info & VARIADIC) ++variadics;
-	// }
-	// printf("function contains %zu variadics\n", variadics);
-	if(stmt->vtyp) delete stmt->vtyp;
-	stmt->vtyp = types.get_copy("i32", stmt->parent);
+	StmtFnDef *fn = static_cast<StmtFnDef *>(base->get_parent_with_type(FNDEF));
+	if(!fn) {
+		err::set(base->line, base->col,
+			 "the function enclosing this intrinsic is not a variadic function");
+		return false;
+	}
+	TypeVariadic *va = nullptr;
+	for(auto &a : static_cast<TypeFunc *>(fn->sig->vtyp)->args) {
+		if(a->type == TVARIADIC) va = static_cast<TypeVariadic *>(a);
+	}
+	if(!va) {
+		err::set(base->line, base->col,
+			 "the enclosing function for va_len() must be a variadic");
+		return false;
+	}
+	base->vtyp->val = types.get((int64_t)va->args.size());
 	return true;
 }
 } // namespace parser

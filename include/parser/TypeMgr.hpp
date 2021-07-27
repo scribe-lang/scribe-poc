@@ -19,6 +19,7 @@
 #include <unordered_map>
 
 #include "Type.hpp"
+#include "ValueMgr.hpp"
 
 namespace sc
 {
@@ -90,6 +91,7 @@ class TypeMgr
 	// types that function returns (for type checking return statement)
 	std::vector<Type *> funcreturns;
 	std::vector<size_t> lockedlayers;
+	ValueMgr vals;
 	bool init_typefuncs_called; // init_typefns() has been called or not
 
 public:
@@ -169,6 +171,27 @@ public:
 	inline bool hasfret()
 	{
 		return !funcreturns.empty();
+	}
+	inline Value *get(const int64_t &idata)
+	{
+		return vals.get(idata);
+	}
+	inline Value *get(const double &fdata)
+	{
+		return vals.get(fdata);
+	}
+	inline Value *get(const std::string &sdata)
+	{
+		return vals.get(sdata);
+	}
+	inline Value *get(const std::unordered_map<std::string, Value *> &stdata)
+	{
+		return vals.get(stdata);
+	}
+	// this is for unknown and void values
+	inline Value *get(const Values &type)
+	{
+		return vals.get(type);
 	}
 };
 } // namespace parser

@@ -28,7 +28,6 @@ include/Config.hpp
 #######################
 tmp*
 tests/*.json
-/*.fer
 *.zip
 vgcore.*
 
