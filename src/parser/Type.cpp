@@ -143,6 +143,10 @@ std::string TypeSimple::mangled_name()
 	std::string tname = mangled_name_base();
 	return tname.empty() ? "_" + name : tname + name;
 }
+void TypeSimple::set_all_val(Value *v)
+{
+	val = v;
+}
 
 TypeStruct::TypeStruct(Stmt *parent, const size_t &ptr, const size_t &info, Value *val,
 		       const bool &is_ref, const size_t &templ,
@@ -217,6 +221,7 @@ bool TypeStruct::compatible(Type *rhs, const size_t &line, const size_t &col)
 TypeStruct *TypeStruct::specialize_compatible_call(StmtFnCallInfo *callinfo,
 						   std::vector<Type *> &templates)
 {
+	templates.clear();
 	if(this->templ < callinfo->templates.size()) return nullptr;
 	if(this->fields.size() != callinfo->args.size()) return nullptr;
 	for(auto &t : callinfo->templates) {
@@ -274,6 +279,13 @@ std::string TypeStruct::mangled_name()
 	// }
 	// tname += "}";
 	return tname;
+}
+void TypeStruct::set_all_val(Value *v)
+{
+	for(auto &f : fields) {
+		f.second->set_all_val(v);
+	}
+	val = v;
 }
 bool TypeStruct::add_field(const std::string &name, Type *val)
 {
@@ -391,6 +403,7 @@ bool TypeFunc::compatible(Type *rhs, const size_t &line, const size_t &col)
 TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
 					       std::vector<Type *> &templates)
 {
+	templates.clear();
 	if(this->templ < callinfo->templates.size()) return nullptr;
 	if(this->args.size() > 0 && (this->args.back()->info & TypeInfoMask::VARIADIC)) {
 		if(this->args.size() - 1 > callinfo->args.size()) return nullptr;
@@ -428,8 +441,10 @@ TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
 	}
 	for(auto &sa : specializedargs) delete sa;
 	if(!is_arg_compatible) return nullptr;
+	size_t val_len = this->args.size();
+	TypeFunc *tmp  = static_cast<TypeFunc *>(this->copy());
 	if(!variadics.empty()) {
-		TypeFunc *tmp = static_cast<TypeFunc *>(this->copy());
+		--val_len;
 		delete tmp->args.back();
 		tmp->args.pop_back();
 		TypeVariadic *va = new TypeVariadic(nullptr, 0, 0, nullptr, {});
@@ -438,11 +453,13 @@ TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
 			va->args.push_back(v);
 		}
 		tmp->args.push_back(va);
-		TypeFunc *res = static_cast<TypeFunc *>(tmp->specialize(templates));
-		delete tmp;
-		return res;
 	}
-	return static_cast<TypeFunc *>(specialize(templates));
+	TypeFunc *res = static_cast<TypeFunc *>(tmp->specialize(templates));
+	delete tmp;
+	for(size_t i = 0; i < val_len; ++i) {
+		res->args[i]->val = callinfo->args[i]->vtyp->val;
+	}
+	return res;
 }
 std::string TypeFunc::str()
 {
@@ -465,6 +482,11 @@ std::string TypeFunc::mangled_name()
 		tname += a->mangled_name();
 	}
 	return tname;
+}
+void TypeFunc::set_all_val(Value *v)
+{
+	for(auto &a : args) a->set_all_val(v);
+	val = v;
 }
 
 TypeFuncMap::TypeFuncMap(Stmt *parent, const size_t &ptr, const size_t &info, Value *val,
@@ -496,16 +518,18 @@ std::string TypeFuncMap::mangled_name()
 {
 	return "<function map>";
 }
+void TypeFuncMap::set_all_val(Value *v)
+{
+	val = v;
+}
 TypeFunc *TypeFuncMap::decide_func(StmtFnCallInfo *callinfo, std::vector<Type *> &templates)
 {
 	for(auto &fn : funcs) {
-		templates.clear();
 		err::reset();
 		// printf("option: %s -> %s\n", fn.first.c_str(), fn.second->str().c_str());
 		TypeFunc *f = fn.second;
 		if(!(f = f->specialize_compatible_call(callinfo, templates))) continue;
 		// printf("matched: %s -> %s\n", fn.first.c_str(), f->str().c_str());
-		templates.clear();
 		err::reset();
 		return f;
 	}
@@ -580,7 +604,10 @@ std::string TypeVariadic::mangled_name()
 	}
 	return tname;
 }
-
+void TypeVariadic::set_all_val(Value *v)
+{
+	val = v;
+}
 Type *TypeVariadic::get_arg(const size_t &idx)
 {
 	return args[idx]->copy();

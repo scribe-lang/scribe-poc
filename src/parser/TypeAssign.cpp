@@ -64,28 +64,44 @@ static bool init_templ_func(TypeMgr &types, Stmt *lhs, const std::vector<Type *>
 	// for each types add signature variables
 	for(size_t i = 0; i < fn->sig->templates.size(); ++i) {
 		const std::string &t = fn->sig->templates[i].data.s;
-		types.add_copy(t, calltemplates[i]);
+		Type *cp	     = calltemplates[i]->copy();
+		cp->set_all_val(types.get(VUNKNOWN));
+		types.add(t, cp);
 	}
 	fn->sig->templates.clear();
 	if(origsig->args.size() > 0 && origsig->args.back()->type == TVARIADIC) {
 		std::string tname = fn->sig->params.back()->vtype->getname();
 		types.add_copy(tname, origsig->args.back());
 	}
-	fn->sig->comptime = false; // because body of function is not read if comptime is true
-	if(!fn->assign_type(types)) {
+	for(size_t i = 0; i < fn->sig->params.size(); ++i) {
+		types.add_copy(fn->sig->params[i]->name.data.s, origsig->args[i]);
+	}
+	// sig and blk must be separately assigned as variables added above will be shadowed
+	// by new layer created in fn->assign_type()
+	if(!fn->sig->assign_type(types)) {
+		delete fndefvar;
+		return false;
+	}
+	if(!fn->blk->assign_type(types)) {
 		err::set(lhs->line, lhs->col,
 			 "failed to specialize template function definition: %s",
 			 lhs->vtyp->str().c_str());
 		delete fndefvar;
 		return false;
 	}
-	fn->sig->comptime = comptime;
+	fn->vtyp = fn->sig->vtyp->copy();
+	// TODO: execute comptime() here
 	types.popfret();
 	types.poplayer();
 	if(types.current_src() == fn->src_id) {
 		types.unlock_scope();
 	}
 	var->is_specialized = true;
+
+	// lhs must point to correct vtyp
+	delete lhs->vtyp;
+	lhs->vtyp	  = fn->vtyp->copy();
+	lhs->vtyp->parent = lhs;
 
 	StmtBlock *tfnparent = static_cast<StmtBlock *>(templfnparent);
 	tfnparent->stmts.push_back(var);
@@ -176,6 +192,7 @@ bool StmtType::assign_type(TypeMgr &types)
 
 bool StmtSimple::assign_type(TypeMgr &types)
 {
+	CHECK_VALUE();
 	switch(val.tok.val) {
 	case lex::VOID: vtyp = types.get_copy("void", this); break;
 	case lex::TRUE:	 // fallthrough
@@ -192,7 +209,6 @@ bool StmtSimple::assign_type(TypeMgr &types)
 		err::set(val, "failed to determine type of this statement");
 		return false;
 	}
-	CHECK_VALUE();
 	switch(val.tok.val) {
 	case lex::VOID: vtyp->val = types.get(VVOID); break;
 	case lex::TRUE: vtyp->val = types.get((int64_t)1); break;
@@ -531,10 +547,21 @@ bool StmtVar::assign_type(TypeMgr &types)
 		err::set(name, "unable to determine type from the given type of this variable");
 		return false;
 	}
-	if(vtype) {
-		vtyp = vtype->vtyp->copy();
-	} else if(val) {
+	if(val && val->vtyp->type == TSIMPLE) {
+		if(static_cast<TypeSimple *>(val->vtyp)->name == "void") {
+			err::set(line, col,
+				 "expression returns void, which cannot be assigned to a var");
+			return false;
+		}
+	}
+	if(vtype && val && !vtype->vtyp->compatible(val->vtyp, line, col)) {
+		err::set(line, col, "incompatible given type and value of the variable decl");
+		return false;
+	}
+	if(val) {
 		vtyp = val->vtyp->copy();
+	} else if(vtype) {
+		vtyp = vtype->vtyp->copy();
 	}
 	if(val && val->type == FNDEF) return types.add_func_copy(name.data.s, vtyp);
 	return types.add_copy(name.data.s, vtyp);
@@ -552,6 +579,11 @@ bool StmtFnSig::assign_type(TypeMgr &types)
 		types.add(templates[i].data.s, new TypeSimple(nullptr, 0, 0, nullptr, tname));
 	}
 	for(auto &p : params) {
+		// this is added because init_templ_func() generates values for this by itself
+		if(types.exists(p->name.data.s, true, false)) {
+			p->vtyp = types.get_copy(p->name.data.s, this);
+			continue;
+		}
 		if(!p->assign_type(types)) {
 			err::set(p->line, p->col, "failed to assign type of this function param");
 			return false;

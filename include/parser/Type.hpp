@@ -92,6 +92,7 @@ struct Type
 	virtual std::string str() = 0;
 	std::string mangled_name_base();
 	virtual std::string mangled_name() = 0;
+	virtual void set_all_val(Value *v)	   = 0;
 };
 
 struct TypeSimple : public Type
@@ -110,6 +111,7 @@ struct TypeSimple : public Type
 
 	std::string str();
 	std::string mangled_name();
+	void set_all_val(Value *v);
 };
 
 struct TypeStruct : public Type
@@ -146,6 +148,7 @@ struct TypeStruct : public Type
 
 	std::string str();
 	std::string mangled_name();
+	void set_all_val(Value *v);
 
 	bool add_field(const std::string &name, Type *val);
 	bool add_field_copy(const std::string &name, Type *val);
@@ -188,6 +191,7 @@ struct TypeFunc : public Type
 
 	std::string str();
 	std::string mangled_name();
+	void set_all_val(Value *v);
 };
 
 struct TypeFuncMap : public Type
@@ -204,6 +208,7 @@ struct TypeFuncMap : public Type
 
 	std::string str();
 	std::string mangled_name();
+	void set_all_val(Value *v);
 
 	TypeFunc *decide_func(StmtFnCallInfo *callinfo, std::vector<Type *> &templates);
 	TypeFunc *decide_func(Type *vartype);
@@ -224,6 +229,7 @@ struct TypeVariadic : public Type
 
 	std::string str();
 	std::string mangled_name();
+	void set_all_val(Value *v);
 
 	Type *get_arg(const size_t &idx);
 };
