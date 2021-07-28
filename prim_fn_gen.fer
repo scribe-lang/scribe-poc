@@ -21,9 +21,11 @@ let arith = fn() {
 	io.fprintln(f, "// Basic Arithmetic\n");
 
 	for t1 in types.each() {
+		if t1 == 'i1' { continue; }
 		let base1 = fmt.template(template_base1);
 		io.fprintln(f, base1);
 		for t2 in types.each() {
+			if t2 == 'i1' { continue; }
 			let base2 = fmt.template(template_base2);
 			io.fprintln(f, base2);
 			for let i = 0; i < binop.len(); ++i {
@@ -57,13 +59,14 @@ let arithassn = fn() {
 	io.fprintln(f, "// Assign Arithmetic\n");
 
 	for t1 in types.each() {
+		if t1 == 'i1' { continue; }
 		let base1 = fmt.template(template_base1);
 		io.fprintln(f, base1);
 		for t2 in types.each() {
+			if t2 == 'i1' { continue; }
 			let base2 = fmt.template(template_base2);
 			io.fprintln(f, base2);
 			for let i = 0; i < binop.len(); ++i {
-				if t1 == 'i1' || t2 == 'i1' { continue; }
 				let opname = binop[i];
 				let op = binoper[i];
 				let rest = 't1';
@@ -179,9 +182,9 @@ let unpostassn = fn() {
 
 	for t1 in types.each() {
 		let base1 = fmt.template(template_base1);
+		if t1 == 'i1' { continue; }
 		io.fprintln(f, base1);
 		for let i = 0; i < binop.len(); ++i {
-			if t1 == 'i1' { continue; }
 			let opname = binop[i];
 			let op = binoper[i];
 			let opl = binoperlex[i];

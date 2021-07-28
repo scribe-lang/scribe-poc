@@ -1,32 +1,6 @@
 // Basic Arithmetic
 
-t1 = static_cast<TypeSimple *>(types.get("i1", nullptr));
-
-t2 = static_cast<TypeSimple *>(types.get("i1", nullptr));
-
-t2 = static_cast<TypeSimple *>(types.get("i8", nullptr));
-
-t2 = static_cast<TypeSimple *>(types.get("i16", nullptr));
-
-t2 = static_cast<TypeSimple *>(types.get("i32", nullptr));
-
-t2 = static_cast<TypeSimple *>(types.get("i64", nullptr));
-
-t2 = static_cast<TypeSimple *>(types.get("u8", nullptr));
-
-t2 = static_cast<TypeSimple *>(types.get("u16", nullptr));
-
-t2 = static_cast<TypeSimple *>(types.get("u32", nullptr));
-
-t2 = static_cast<TypeSimple *>(types.get("u64", nullptr));
-
-t2 = static_cast<TypeSimple *>(types.get("f32", nullptr));
-
-t2 = static_cast<TypeSimple *>(types.get("f64", nullptr));
-
 t1 = static_cast<TypeSimple *>(types.get("i8", nullptr));
-
-t2 = static_cast<TypeSimple *>(types.get("i1", nullptr));
 
 t2 = static_cast<TypeSimple *>(types.get("i8", nullptr));
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t1->copy()); fn->intrin_fn = intrinsic_add_i8_i8; types.add_func("+", fn, true);
@@ -138,8 +112,6 @@ fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t2->copy()); fn
 
 t1 = static_cast<TypeSimple *>(types.get("i16", nullptr));
 
-t2 = static_cast<TypeSimple *>(types.get("i1", nullptr));
-
 t2 = static_cast<TypeSimple *>(types.get("i8", nullptr));
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t1->copy()); fn->intrin_fn = intrinsic_add_i16_i8; types.add_func("+", fn, true);
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t1->copy()); fn->intrin_fn = intrinsic_sub_i16_i8; types.add_func("-", fn, true);
@@ -249,8 +221,6 @@ fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t2->copy()); fn
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t2->copy()); fn->intrin_fn = intrinsic_div_i16_f64; types.add_func("/", fn, true);
 
 t1 = static_cast<TypeSimple *>(types.get("i32", nullptr));
-
-t2 = static_cast<TypeSimple *>(types.get("i1", nullptr));
 
 t2 = static_cast<TypeSimple *>(types.get("i8", nullptr));
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t1->copy()); fn->intrin_fn = intrinsic_add_i32_i8; types.add_func("+", fn, true);
@@ -362,8 +332,6 @@ fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t2->copy()); fn
 
 t1 = static_cast<TypeSimple *>(types.get("i64", nullptr));
 
-t2 = static_cast<TypeSimple *>(types.get("i1", nullptr));
-
 t2 = static_cast<TypeSimple *>(types.get("i8", nullptr));
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t1->copy()); fn->intrin_fn = intrinsic_add_i64_i8; types.add_func("+", fn, true);
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t1->copy()); fn->intrin_fn = intrinsic_sub_i64_i8; types.add_func("-", fn, true);
@@ -473,8 +441,6 @@ fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t2->copy()); fn
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t2->copy()); fn->intrin_fn = intrinsic_div_i64_f64; types.add_func("/", fn, true);
 
 t1 = static_cast<TypeSimple *>(types.get("u8", nullptr));
-
-t2 = static_cast<TypeSimple *>(types.get("i1", nullptr));
 
 t2 = static_cast<TypeSimple *>(types.get("i8", nullptr));
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t1->copy()); fn->intrin_fn = intrinsic_add_u8_i8; types.add_func("+", fn, true);
@@ -586,8 +552,6 @@ fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t2->copy()); fn
 
 t1 = static_cast<TypeSimple *>(types.get("u16", nullptr));
 
-t2 = static_cast<TypeSimple *>(types.get("i1", nullptr));
-
 t2 = static_cast<TypeSimple *>(types.get("i8", nullptr));
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t1->copy()); fn->intrin_fn = intrinsic_add_u16_i8; types.add_func("+", fn, true);
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t1->copy()); fn->intrin_fn = intrinsic_sub_u16_i8; types.add_func("-", fn, true);
@@ -697,8 +661,6 @@ fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t2->copy()); fn
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t2->copy()); fn->intrin_fn = intrinsic_div_u16_f64; types.add_func("/", fn, true);
 
 t1 = static_cast<TypeSimple *>(types.get("u32", nullptr));
-
-t2 = static_cast<TypeSimple *>(types.get("i1", nullptr));
 
 t2 = static_cast<TypeSimple *>(types.get("i8", nullptr));
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t1->copy()); fn->intrin_fn = intrinsic_add_u32_i8; types.add_func("+", fn, true);
@@ -810,8 +772,6 @@ fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t2->copy()); fn
 
 t1 = static_cast<TypeSimple *>(types.get("u64", nullptr));
 
-t2 = static_cast<TypeSimple *>(types.get("i1", nullptr));
-
 t2 = static_cast<TypeSimple *>(types.get("i8", nullptr));
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t1->copy()); fn->intrin_fn = intrinsic_add_u64_i8; types.add_func("+", fn, true);
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t1->copy()); fn->intrin_fn = intrinsic_sub_u64_i8; types.add_func("-", fn, true);
@@ -922,8 +882,6 @@ fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t2->copy()); fn
 
 t1 = static_cast<TypeSimple *>(types.get("f32", nullptr));
 
-t2 = static_cast<TypeSimple *>(types.get("i1", nullptr));
-
 t2 = static_cast<TypeSimple *>(types.get("i8", nullptr));
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t1->copy()); fn->intrin_fn = intrinsic_add_f32_i8; types.add_func("+", fn, true);
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t1->copy()); fn->intrin_fn = intrinsic_sub_f32_i8; types.add_func("-", fn, true);
@@ -985,8 +943,6 @@ fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t2->copy()); fn
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t2->copy()); fn->intrin_fn = intrinsic_div_f32_f64; types.add_func("/", fn, true);
 
 t1 = static_cast<TypeSimple *>(types.get("f64", nullptr));
-
-t2 = static_cast<TypeSimple *>(types.get("i1", nullptr));
 
 t2 = static_cast<TypeSimple *>(types.get("i8", nullptr));
 fn = func(types, {t1->copy(CONST | REF), t2->copy(CONST | REF)}, t1->copy()); fn->intrin_fn = intrinsic_add_f64_i8; types.add_func("+", fn, true);

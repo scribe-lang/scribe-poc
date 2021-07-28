@@ -1,7 +1,5 @@
 // Unary Assn (Post) Arithmetic
 
-t1 = static_cast<TypeSimple *>(types.get("i1", nullptr));
-
 t1 = static_cast<TypeSimple *>(types.get("i8", nullptr));
 fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_xinc_i8; types.add_func("x++", fn, true);
 fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_xdec_i8; types.add_func("x--", fn, true);
