@@ -12,13 +12,13 @@
 */
 
 #include <cassert>
+#include <cinttypes>
 
 #include "Error.hpp"
 #include "parser/Stmts.hpp"
 #include "parser/TypeMgr.hpp"
 
-#define CHECK_VALUE() \
-	if(vtyp && vtyp->val && vtyp->val->type != VUNKNOWN) return true
+#define CHECK_VALUE(x) (x->vtyp && x->vtyp->val && x->vtyp->val->type != VUNKNOWN)
 
 namespace sc
 {
@@ -90,7 +90,9 @@ static bool init_templ_func(TypeMgr &types, Stmt *lhs, const std::vector<Type *>
 		return false;
 	}
 	fn->vtyp = fn->sig->vtyp->copy();
-	// TODO: execute comptime() here
+	if(comptime) {
+		// TODO: execute comptime() here
+	}
 	types.popfret();
 	types.poplayer();
 	if(types.current_src() == fn->src_id) {
@@ -192,7 +194,7 @@ bool StmtType::assign_type(TypeMgr &types)
 
 bool StmtSimple::assign_type(TypeMgr &types)
 {
-	CHECK_VALUE();
+	if(CHECK_VALUE(this)) return true;
 	switch(val.tok.val) {
 	case lex::VOID: vtyp = types.get_copy("void", this); break;
 	case lex::TRUE:	 // fallthrough
@@ -381,6 +383,7 @@ bool StmtExpr::assign_type(TypeMgr &types)
 					break;
 				}
 			}
+			err::reset();
 			if(!found_compat) {
 				err::set(line, col,
 					 "variadics can only take one of the "
@@ -388,8 +391,20 @@ bool StmtExpr::assign_type(TypeMgr &types)
 					 rhs->vtyp->str().c_str());
 				return false;
 			}
-			err::reset();
-			vtyp = types.get_copy("any", this);
+			if(!CHECK_VALUE(rhs) || rhs->vtyp->val->type != VINT) {
+				err::set(line, col,
+					 "variadic subscript expression MUST be an integral value "
+					 "that can be determined at compile time");
+				return false;
+			}
+			TypeVariadic *va   = static_cast<TypeVariadic *>(lhs->vtyp);
+			const int64_t &idx = rhs->vtyp->val->i;
+			if(va->args.size() <= idx) {
+				err::set(line, col, "variadic index '" PRId64 "' out of bounds",
+					 idx);
+				return false;
+			}
+			vtyp = va->args[idx]->copy();
 			break;
 		}
 		if(lhs->vtyp->ptr > 0) {

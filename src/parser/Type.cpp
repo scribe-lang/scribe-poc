@@ -126,7 +126,10 @@ Type *TypeSimple::copy(const size_t &append_info)
 Type *TypeSimple::specialize(const std::vector<Type *> &templates)
 {
 	if(name[0] != '@') return copy();
-	return templates[std::stoi(name.substr(1))]->copy();
+	Type *res = templates[std::stoi(name.substr(1))]->copy();
+	res->ptr += ptr;
+	res->info |= info;
+	return res;
 }
 bool TypeSimple::compatible(Type *rhs, const size_t &line, const size_t &col)
 {
@@ -136,7 +139,7 @@ bool TypeSimple::compatible(Type *rhs, const size_t &line, const size_t &col)
 }
 std::string TypeSimple::str()
 {
-	return str_base() + name + (val ? (" -> " + val->stringify()) : "");
+	return str_base() + name + (val && val->has_data() ? (" -> " + val->stringify()) : "");
 }
 std::string TypeSimple::mangled_name()
 {
@@ -264,7 +267,7 @@ std::string TypeStruct::str()
 		tname.pop_back();
 	}
 	tname += "}";
-	return tname + (val ? (" -> " + val->stringify()) : "");
+	return tname + (val && val->has_data() ? (" -> " + val->stringify()) : "");
 }
 std::string TypeStruct::mangled_name()
 {
@@ -473,7 +476,7 @@ std::string TypeFunc::str()
 		tname.pop_back();
 	}
 	tname += "): " + rettype->str();
-	return tname + (val ? (" -> " + val->stringify()) : "");
+	return tname + (val && val->has_data() ? (" -> " + val->stringify()) : "");
 }
 std::string TypeFunc::mangled_name()
 {
@@ -512,7 +515,7 @@ bool TypeFuncMap::compatible(Type *rhs, const size_t &line, const size_t &col)
 std::string TypeFuncMap::str()
 {
 	return str_base() + "<function map (" + std::to_string(funcs.size()) + ")>" +
-	       (val ? (" -> " + val->stringify()) : "");
+	       (val && val->has_data() ? (" -> " + val->stringify()) : "");
 }
 std::string TypeFuncMap::mangled_name()
 {
@@ -594,7 +597,7 @@ std::string TypeVariadic::str()
 		tname.pop_back();
 	}
 	tname += "}";
-	return tname + (val ? (" -> " + val->stringify()) : "");
+	return tname + (val && val->has_data() ? (" -> " + val->stringify()) : "");
 }
 std::string TypeVariadic::mangled_name()
 {
