@@ -31,7 +31,10 @@ static bool init_templ_func(TypeMgr &types, Stmt *lhs, const std::vector<Type *>
 {
 	if(calltemplates.empty() && !comptime) return true;
 	// TODO: handle comptime
-	assert(lhs->vtyp && lhs->vtyp->parent && "LHS has no vtype or parent assigned!");
+	assert(lhs->vtyp && "LHS has no vtype assigned!");
+	// if this function has no definition (template intrinsic, extern, for example)
+	// do nothing
+	if(!lhs->vtyp->parent) return true;
 	Stmt *templfnparent = lhs->vtyp->parent->get_parent_with_type(BLOCK);
 	TypeFunc *origsig   = static_cast<TypeFunc *>(lhs->vtyp);
 	if(!templfnparent) {

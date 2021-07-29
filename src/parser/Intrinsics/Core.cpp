@@ -112,5 +112,11 @@ INTRINSIC(va_len)
 	base->vtyp->val = types.get((int64_t)va->args.size());
 	return true;
 }
+INTRINSIC(array)
+{
+	args->disp(false);
+	printf("call: %s\n", call->str().c_str());
+	return true;
+}
 } // namespace parser
 } // namespace sc

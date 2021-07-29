@@ -3,3 +3,4 @@ INTRINSIC(as);
 INTRINSIC(szof);
 INTRINSIC(typid);
 INTRINSIC(va_len);
+INTRINSIC(array);

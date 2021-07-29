@@ -87,8 +87,10 @@ TypeMgr::TypeMgr(RAIIParser *parser) : parser(parser), vals(parser), init_typefu
 	globals["nil"] = globals["i1"]->copy();
 
 	// intrinsics
-	TypeSimple *templ0 = new TypeSimple(nullptr, 0, 0, vals.get(VUNKNOWN), "@0");
-	TypeSimple *templ1 = new TypeSimple(nullptr, 0, 0, vals.get(VUNKNOWN), "@1");
+	TypeSimple *templ0    = new TypeSimple(nullptr, 0, 0, vals.get(VUNKNOWN), "@0");
+	TypeSimple *templ1    = new TypeSimple(nullptr, 0, 0, vals.get(VUNKNOWN), "@1");
+	TypeSimple *templ0va  = new TypeSimple(nullptr, 0, VARIADIC, vals.get(VUNKNOWN), "@0");
+	TypeSimple *templ0ptr = new TypeSimple(nullptr, 1, 0, vals.get(VUNKNOWN), "@0");
 	TypeStruct *empty_struct =
 	new TypeStruct(nullptr, 0, 0, vals.get(VUNKNOWN), false, {}, {}, {});
 	Type *cstr = globals["*const u8"]->copy();
@@ -117,6 +119,11 @@ TypeMgr::TypeMgr(RAIIParser *parser) : parser(parser), vals(parser), init_typefu
 	new TypeFunc(nullptr, 0, 0, vals.get(VUNKNOWN), 0, 0, false, {}, globals["i32"]->copy());
 	valenfn->intrin_fn = intrinsic_va_len;
 	globals["va_len"]  = valenfn;
+
+	TypeFunc *arrayfn =
+	new TypeFunc(nullptr, 0, 0, vals.get(VUNKNOWN), 0, 1, false, {templ0va}, templ0ptr);
+	arrayfn->intrin_fn = intrinsic_array;
+	globals["array"]   = arrayfn;
 }
 TypeMgr::~TypeMgr()
 {

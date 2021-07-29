@@ -440,7 +440,7 @@ TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
 			is_arg_compatible = false;
 			break;
 		}
-		if(variadic) variadics.push_back(fciarg->vtyp->copy());
+		if(variadic) variadics.push_back(fciarg->vtyp);
 	}
 	for(auto &sa : specializedargs) delete sa;
 	if(!is_arg_compatible) return nullptr;
@@ -451,7 +451,8 @@ TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
 		delete tmp->args.back();
 		tmp->args.pop_back();
 		TypeVariadic *va = new TypeVariadic(nullptr, 0, 0, nullptr, {});
-		for(auto &v : variadics) {
+		for(auto &vtmp : variadics) {
+			Type *v = vtmp->copy();
 			v->info &= ~VARIADIC;
 			va->args.push_back(v);
 		}
@@ -462,6 +463,7 @@ TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
 	for(size_t i = 0; i < val_len; ++i) {
 		res->args[i]->val = callinfo->args[i]->vtyp->val;
 	}
+	res->rettype->val = nullptr;
 	return res;
 }
 std::string TypeFunc::str()
