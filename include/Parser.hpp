@@ -41,14 +41,18 @@ class RAIIParser
 	TypeMgr types;
 	ValueMgr vals;
 
+	bool add_src(const std::string &file_path, size_t &src_id);
+	bool parse_src(const size_t &src_id);
+	bool assign_type(const size_t &src_id);
+
 public:
 	RAIIParser(args::ArgParser &args);
 	~RAIIParser();
 
-	bool add_src(const std::string &file_path, size_t &src_id);
+	bool src_exists(const std::string &file_path);
+	size_t get_srcid(const std::string &file_path);
 
-	bool parse(const size_t &src_id);
-	bool assign_type(const size_t &src_id);
+	bool parse(const std::string &file_path);
 
 	inline std::vector<lex::Lexeme> &get_toks(const size_t &src_id)
 	{

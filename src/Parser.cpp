@@ -13,6 +13,8 @@
 
 #include "Parser.hpp"
 
+#include <unistd.h>
+
 #include "Error.hpp"
 #include "FS.hpp"
 #include "parser/TypeMgr.hpp"
@@ -31,7 +33,7 @@ RAIIParser::~RAIIParser()
 bool RAIIParser::add_src(const std::string &file_path, size_t &src_id)
 {
 	for(size_t i = 0; i < srcstack.size(); ++i) {
-		if(srcstack[i] == file_path) return i;
+		if(srcstack[i] == file_path) return false;
 	}
 
 	src_id = srcstack.size();
@@ -53,8 +55,7 @@ bool RAIIParser::add_src(const std::string &file_path, size_t &src_id)
 	srcstack.push_back(file_path);
 	return true;
 }
-
-bool RAIIParser::parse(const size_t &src_id)
+bool RAIIParser::parse_src(const size_t &src_id)
 {
 	ParseHelper p(srctoks[src_id], src_id);
 	StmtBlock *tree = nullptr;
@@ -78,6 +79,36 @@ bool RAIIParser::assign_type(const size_t &src_id)
 		return false;
 	}
 	types.popsrc();
+	return true;
+}
+bool RAIIParser::src_exists(const std::string &file_path)
+{
+	for(auto &s : srcstack) {
+		if(s == file_path) return true;
+	}
+	return false;
+}
+size_t RAIIParser::get_srcid(const std::string &file_path)
+{
+	for(size_t i = 0; i < srcstack.size(); ++i) {
+		if(srcstack[i] == file_path) return i;
+	}
+	return size_t(-1);
+}
+bool RAIIParser::parse(const std::string &file_path)
+{
+	if(src_exists(file_path)) {
+		fprintf(stderr, "cannot parse an existing source: %s\n", file_path.c_str());
+		return false;
+	}
+
+	std::string wd = fs::cwd();
+	fs::scwd(fs::parentdir(file_path));
+	size_t src_id = 0;
+	if(!add_src(file_path, src_id)) return false;
+	if(!parse_src(src_id)) return false;
+	if(!assign_type(src_id)) return false;
+	fs::scwd(wd);
 	return true;
 }
 void RAIIParser::show_toks(const bool &force)

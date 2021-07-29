@@ -319,9 +319,6 @@ bool StmtExpr::assign_type(TypeMgr &types)
 				 lhs->vtyp->str().c_str());
 			return false;
 		}
-		// TODO: move -> <value> display in parse tree from Type to Stmt
-		// & rename Type to Info
-		// x;
 		if(lhs->vtyp->type == TFUNCMAP) {
 			TypeFuncMap *fmap = static_cast<TypeFuncMap *>(lhs->vtyp);
 			if(!(vtyp = fmap->decide_func(finfo, calltemplates))) {

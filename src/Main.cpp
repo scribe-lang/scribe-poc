@@ -55,10 +55,7 @@ int main(int argc, char **argv)
 	file = fs::abs_path(file);
 
 	parser::RAIIParser parser(args);
-	size_t src_id = 0;
-	if(!parser.add_src(file, src_id)) return 1;
-	if(!parser.parse(src_id)) return 1;
-	if(!parser.assign_type(src_id)) return 1;
+	if(!parser.parse(file)) return 1;
 
 	parser.show_toks(false);
 	parser.show_ptrees(false);

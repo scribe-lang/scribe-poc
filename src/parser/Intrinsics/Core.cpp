@@ -34,7 +34,6 @@ INTRINSIC(import)
 	size_t &col  = base->col;
 
 	Value *mod = args->args[0]->vtyp->val;
-	args->disp(false);
 	if(!mod || !mod->has_data() || mod->type != VSTR) {
 		err::set(line, col, "import's argument must be a comptime string");
 		return false;
@@ -51,12 +50,18 @@ INTRINSIC(import)
 		return false;
 	}
 	file = fs::abs_path(file);
-	// do here
-	size_t src_id	   = 0;
+
 	RAIIParser *parser = types.get_parser();
-	if(!parser->add_src(file, src_id)) return false;
-	if(!parser->parse(src_id)) return false;
-	if(!parser->assign_type(src_id)) return false;
+	size_t src_id	   = 0;
+	if(parser->src_exists(file)) {
+		src_id = parser->get_srcid(file);
+		goto gen_struct;
+	}
+	if(!parser->parse(file)) {
+		err::set(line, col, "failed to parse source: %s", file.c_str());
+		return false;
+	}
+	src_id = parser->get_srcid(file);
 
 gen_struct:
 	SrcTypes *src	= types.get_src(src_id);
@@ -114,7 +119,6 @@ INTRINSIC(va_len)
 }
 INTRINSIC(array)
 {
-	args->disp(false);
 	printf("call: %s\n", call->str().c_str());
 	return true;
 }

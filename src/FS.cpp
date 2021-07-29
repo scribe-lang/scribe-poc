@@ -74,6 +74,16 @@ std::string cwd()
 	return "";
 }
 
+bool scwd(const std::string &path)
+{
+	return chdir(path.c_str()) != 0;
+}
+
+std::string parentdir(const std::string &path)
+{
+	return path.substr(0, path.find_last_of("/\\"));
+}
+
 std::string home()
 {
 	static std::string _home = env::get("HOME");

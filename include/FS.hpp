@@ -31,6 +31,10 @@ std::string abs_path(const std::string &loc);
 
 std::string cwd();
 
+bool scwd(const std::string &path);
+
+std::string parentdir(const std::string &path);
+
 std::string home();
 } // namespace fs
 } // namespace sc
