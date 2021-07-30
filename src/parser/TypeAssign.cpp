@@ -681,6 +681,8 @@ bool StmtExtern::assign_type(TypeMgr &types)
 		err::set(libs->line, libs->col, "failed to assign lib type");
 		return false;
 	}
+	vtyp	     = sig->vtyp->copy();
+	vtyp->parent = this;
 	types.poplayer();
 	return true;
 }
