@@ -92,7 +92,7 @@ struct Type
 	virtual std::string str() = 0;
 	std::string mangled_name_base();
 	virtual std::string mangled_name() = 0;
-	virtual void set_all_val(Value *v)	   = 0;
+	virtual void set_all_val(Value *v) = 0;
 };
 
 struct TypeSimple : public Type

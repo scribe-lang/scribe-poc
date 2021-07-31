@@ -122,5 +122,16 @@ INTRINSIC(array)
 	printf("call: %s\n", call->str().c_str());
 	return true;
 }
+INTRINSIC(comptime_strlen)
+{
+	Value *mod = args->args[0]->vtyp->val;
+	if(!mod || !mod->has_data() || mod->type != VSTR) {
+		err::set(base->line, base->col,
+			 "comptime_strlen's argument must be a comptime string");
+		return false;
+	}
+	base->vtyp->val = types.get((int64_t)mod->s.size());
+	return true;
+}
 } // namespace parser
 } // namespace sc

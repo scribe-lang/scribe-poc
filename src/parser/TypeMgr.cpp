@@ -82,9 +82,12 @@ TypeMgr::TypeMgr(RAIIParser *parser) : parser(parser), vals(parser), init_typefu
 	globals["u64"]	= new TypeSimple(nullptr, 0, 0, vals.get(VUNKNOWN), "u64");
 	globals["f32"]	= new TypeSimple(nullptr, 0, 0, vals.get(VUNKNOWN), "f32");
 	globals["f64"]	= new TypeSimple(nullptr, 0, 0, vals.get(VUNKNOWN), "f64");
-	globals["*const u8"] =
-	new TypeSimple(nullptr, 1, TypeInfoMask::CONST, vals.get(VUNKNOWN), "u8"); // cstr
-	globals["nil"] = globals["i1"]->copy();
+	globals["nil"]	= globals["i1"]->copy();
+	// cstr
+	TypeSimple *cstr = static_cast<TypeSimple *>(globals["u8"]->copy());
+	cstr->ptr	 = 1;
+	cstr->info |= CONST;
+	globals["*const u8"] = cstr;
 
 	// intrinsics
 	TypeSimple *templ0    = new TypeSimple(nullptr, 0, 0, vals.get(VUNKNOWN), "@0");
@@ -93,10 +96,9 @@ TypeMgr::TypeMgr(RAIIParser *parser) : parser(parser), vals(parser), init_typefu
 	TypeSimple *templ0ptr = new TypeSimple(nullptr, 1, 0, vals.get(VUNKNOWN), "@0");
 	TypeStruct *empty_struct =
 	new TypeStruct(nullptr, 0, 0, vals.get(VUNKNOWN), false, {}, {}, {});
-	Type *cstr = globals["*const u8"]->copy();
 
 	TypeFunc *importfn =
-	new TypeFunc(nullptr, 0, 0, vals.get(VUNKNOWN), 0, 0, false, {cstr}, empty_struct);
+	new TypeFunc(nullptr, 0, 0, vals.get(VUNKNOWN), 0, 0, false, {cstr->copy()}, empty_struct);
 	importfn->intrin_fn = intrinsic_import;
 	globals["import"]   = importfn;
 
@@ -124,6 +126,11 @@ TypeMgr::TypeMgr(RAIIParser *parser) : parser(parser), vals(parser), init_typefu
 	new TypeFunc(nullptr, 0, 0, vals.get(VUNKNOWN), 0, 1, false, {templ0va}, templ0ptr);
 	arrayfn->intrin_fn = intrinsic_array;
 	globals["array"]   = arrayfn;
+
+	TypeFunc *comptime_strlenfn  = new TypeFunc(nullptr, 0, 0, vals.get(VUNKNOWN), 0, 0, true,
+						    {cstr->copy()}, globals["u64"]->copy());
+	comptime_strlenfn->intrin_fn = intrinsic_comptime_strlen;
+	globals["comptime_strlen"]   = comptime_strlenfn;
 }
 TypeMgr::~TypeMgr()
 {

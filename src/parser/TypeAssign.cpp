@@ -817,10 +817,6 @@ bool StmtFor::assign_type(TypeMgr &types)
 			 "failed to determine type of 'increment' expression");
 		return false;
 	}
-	// if(types.hasfunc() && types.getfunc()->comptime) {
-	// 	if(!CHECK_VALUE(init) || !CHECK_VALUE(cond) || !CHECK_VALUE(incr)) {
-	// 	}
-	// }
 	if(!blk->assign_type(types)) {
 		err::set(blk->line, blk->col, "failed to determine type of block");
 		return false;

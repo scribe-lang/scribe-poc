@@ -993,7 +993,7 @@ val:
 	// } else
 	if(p.accept(lex::STRUCT)) {
 		if(!parse_struct(p, val)) goto fail;
-	} else if(p.accept(lex::COMPTIME, lex::FN)) {
+	} else if(p.accept(lex::FN)) {
 		if(!parse_fndef(p, val)) goto fail;
 	} else if(p.accept(lex::EXTERN)) {
 		if(!parse_extern(p, val)) goto fail;
@@ -1049,8 +1049,6 @@ bool parse_fnsig(ParseHelper &p, Stmt *&fsig)
 	bool comptime	  = false;
 	std::unordered_set<std::string> templnames;
 	lex::Lexeme &start = p.peak();
-
-	if(p.acceptn(lex::COMPTIME)) comptime = true;
 
 	if(!p.acceptn(lex::FN)) {
 		err::set(p.peak(), "expected 'fn' here, found: %s", p.peak().tok.str().c_str());
@@ -1108,10 +1106,7 @@ after_templates:
 		}
 		if(var->vtype->info & TypeInfoMask::VARIADIC) {
 			found_va = true;
-			if(!comptime) {
-				err::set(start, "variadic function call must be compile time");
-				goto fail;
-			}
+			comptime = true;
 		}
 		if(var->name.data.s == "any" && !found_va) {
 			err::set(start, "type 'any' can be only used for variadic functions");
@@ -1553,11 +1548,6 @@ bool parse_while(ParseHelper &p, Stmt *&w)
 	}
 
 	if(!parse_expr_16(p, cond)) goto fail;
-	if(!p.acceptn(lex::COLS)) {
-		err::set(p.peak(), "expected semicolon here, found: %s",
-			 p.peak().tok.str().c_str());
-		goto fail;
-	}
 
 	if(!parse_block(p, blk)) {
 		err::set(p.peak(), "failed to parse block for 'for' construct");

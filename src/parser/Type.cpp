@@ -446,8 +446,8 @@ TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
 	if(!is_arg_compatible) return nullptr;
 	size_t val_len = this->args.size();
 	TypeFunc *tmp  = static_cast<TypeFunc *>(this->copy());
+	if(tmp->args.size() > 0 && tmp->args.back()->info & VARIADIC) --val_len;
 	if(!variadics.empty()) {
-		--val_len;
 		delete tmp->args.back();
 		tmp->args.pop_back();
 		TypeVariadic *va = new TypeVariadic(nullptr, 0, 0, nullptr, {});
