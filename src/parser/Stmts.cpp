@@ -273,8 +273,8 @@ void StmtExpr::disp(const bool &has_next)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 StmtVar::StmtVar(const size_t &src_id, const size_t &line, const size_t &col,
-		 const lex::Lexeme &name, StmtType *vtype, Stmt *val)
-	: Stmt(VAR, src_id, line, col), name(name), vtype(vtype), val(val)
+		 const lex::Lexeme &name, StmtType *vtype, Stmt *val, const bool &comptime)
+	: Stmt(VAR, src_id, line, col), name(name), vtype(vtype), val(val), comptime(comptime)
 {}
 StmtVar::~StmtVar()
 {
@@ -285,7 +285,8 @@ StmtVar::~StmtVar()
 void StmtVar::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Variable: %s\n", name.data.s.c_str());
+	tio::print(has_next, "Variable: %s [comptime = %s]\n", name.data.s.c_str(),
+		   comptime ? "true" : "false");
 	if(vtype) {
 		tio::taba(val);
 		tio::print(val, "Type:\n");
@@ -306,24 +307,24 @@ void StmtVar::disp(const bool &has_next)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 StmtFnSig::StmtFnSig(const size_t &src_id, const size_t &line, const size_t &col,
-		     const std::vector<lex::Lexeme> &templates, std::vector<StmtVar *> &params,
-		     StmtType *rettype, const bool &comptime)
-	: Stmt(FNSIG, src_id, line, col), templates(templates), params(params), rettype(rettype),
-	  comptime(comptime)
+		     const std::vector<lex::Lexeme> &templates, std::vector<StmtVar *> &args,
+		     StmtType *rettype, const bool &has_variadic)
+	: Stmt(FNSIG, src_id, line, col), templates(templates), args(args), rettype(rettype),
+	  has_variadic(has_variadic)
 {}
 StmtFnSig::~StmtFnSig()
 {
-	for(auto &p : params) delete p;
+	for(auto &p : args) delete p;
 	if(rettype) delete rettype;
 }
 
 void StmtFnSig::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Function signature [comptime = %s]\n", comptime ? "yes" : "no");
+	tio::print(has_next, "Function signature [variadic = %s]\n", has_variadic ? "yes" : "no");
 	if(!templates.empty()) {
-		tio::taba(params.size() > 0 || rettype);
-		tio::print(params.size() > 0 || rettype, "Templates:\n");
+		tio::taba(args.size() > 0 || rettype);
+		tio::print(args.size() > 0 || rettype, "Templates:\n");
 		for(size_t i = 0; i < templates.size(); ++i) {
 			tio::taba(i != templates.size() - 1);
 			tio::print(i != templates.size() - 1, "%s\n", templates[i].data.s.c_str());
@@ -331,11 +332,11 @@ void StmtFnSig::disp(const bool &has_next)
 		}
 		tio::tabr();
 	}
-	if(params.size() > 0) {
+	if(args.size() > 0) {
 		tio::taba(rettype);
 		tio::print(rettype, "Parameters:\n");
-		for(size_t i = 0; i < params.size(); ++i) {
-			params[i]->disp(i != params.size() - 1);
+		for(size_t i = 0; i < args.size(); ++i) {
+			args[i]->disp(i != args.size() - 1);
 		}
 		tio::tabr();
 	}
@@ -466,15 +467,22 @@ void StmtExtern::disp(const bool &has_next)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 StmtEnum::StmtEnum(const size_t &src_id, const size_t &line, const size_t &col,
-		   const std::vector<StmtVar *> &items)
+		   const std::vector<lex::Lexeme> &items)
 	: Stmt(ENUMDEF, src_id, line, col), items(items)
 {}
-StmtEnum::~StmtEnum()
-{
-	for(auto &item : items) delete item;
-}
+StmtEnum::~StmtEnum() {}
 
-void StmtEnum::disp(const bool &has_next) {}
+void StmtEnum::disp(const bool &has_next)
+{
+	tio::taba(has_next);
+	tio::print(has_next, "Enumerations:\n");
+	for(size_t i = 0; i < items.size(); ++i) {
+		tio::taba(i != items.size() - 1);
+		tio::print(i != items.size() - 1, "%s\n", items[i].str(0).c_str());
+		tio::tabr();
+	}
+	tio::tabr();
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////// StmtStruct //////////////////////////////////////////
@@ -493,14 +501,14 @@ StmtStruct::~StmtStruct()
 void StmtStruct::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "struct [declaration = %s]\n", decl ? "yes" : "no");
+	tio::print(has_next, "Struct [declaration = %s]\n", decl ? "yes" : "no");
 
 	if(!templates.empty()) {
 		tio::taba(!fields.empty());
 		tio::print(!fields.empty(), "Templates:\n");
 		for(size_t i = 0; i < templates.size(); ++i) {
 			tio::taba(i != templates.size() - 1);
-			tio::print(false, "%s\n", templates[i].str(0).c_str());
+			tio::print(i != templates.size() - 1, "%s\n", templates[i].str(0).c_str());
 			tio::tabr();
 		}
 		tio::tabr();
@@ -546,8 +554,8 @@ void StmtVarDecl::disp(const bool &has_next)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 StmtCond::StmtCond(const size_t &src_id, const size_t &line, const size_t &col,
-		   const std::vector<cond_t> &conds)
-	: Stmt(COND, src_id, line, col), conds(conds)
+		   const std::vector<cond_t> &conds, const bool &comptime)
+	: Stmt(COND, src_id, line, col), conds(conds), comptime(comptime)
 {}
 StmtCond::~StmtCond()
 {
@@ -560,7 +568,7 @@ StmtCond::~StmtCond()
 void StmtCond::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Conditional\n");
+	tio::print(has_next, "Conditional [comptime = %s]\n", comptime ? "true" : "false");
 	for(size_t i = 0; i < conds.size(); ++i) {
 		tio::taba(i != conds.size() - 1);
 		tio::print(i != conds.size() - 1, "Branch:\n");
@@ -595,8 +603,8 @@ StmtForIn::~StmtForIn()
 void StmtForIn::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "For in with iterator %s [comptime = %s]", iter.data.s.c_str(),
-		   comptime ? "yes" : "no");
+	tio::print(has_next, "For-in loop with iterator: %s [comptime = %s]", iter.data.s.c_str(),
+		   comptime ? "true" : "false");
 	tio::taba(true);
 	tio::print(true, "In:\n");
 	in->disp(true);

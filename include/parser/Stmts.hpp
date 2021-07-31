@@ -166,8 +166,9 @@ struct StmtVar : public Stmt
 	StmtType *vtype;
 	Stmt *val; // either of expr, funcdef, enumdef, or structdef
 	// at least one of type or val must be present
+	bool comptime;
 	StmtVar(const size_t &src_id, const size_t &line, const size_t &col,
-		const lex::Lexeme &name, StmtType *vtype, Stmt *val);
+		const lex::Lexeme &name, StmtType *vtype, Stmt *val, const bool &comptime);
 	~StmtVar();
 
 	Stmt *hidden_copy(Stmt *par);
@@ -179,12 +180,12 @@ struct StmtFnSig : public Stmt
 {
 	std::vector<lex::Lexeme> templates;
 	// StmtVar contains only type here, no val
-	std::vector<StmtVar *> params;
+	std::vector<StmtVar *> args;
 	StmtType *rettype;
-	bool comptime;
+	bool has_variadic;
 	StmtFnSig(const size_t &src_id, const size_t &line, const size_t &col,
-		  const std::vector<lex::Lexeme> &templates, std::vector<StmtVar *> &params,
-		  StmtType *rettype, const bool &comptime);
+		  const std::vector<lex::Lexeme> &templates, std::vector<StmtVar *> &args,
+		  StmtType *rettype, const bool &has_variadic);
 	~StmtFnSig();
 
 	Stmt *hidden_copy(Stmt *par);
@@ -248,10 +249,10 @@ struct StmtExtern : public Stmt
 
 struct StmtEnum : public Stmt
 {
-	std::vector<StmtVar *> items;
+	std::vector<lex::Lexeme> items;
 	// StmtVar contains only val(expr) here, no type
 	StmtEnum(const size_t &src_id, const size_t &line, const size_t &col,
-		 const std::vector<StmtVar *> &items);
+		 const std::vector<lex::Lexeme> &items);
 	~StmtEnum();
 
 	Stmt *hidden_copy(Stmt *par);
@@ -297,8 +298,9 @@ struct cond_t
 struct StmtCond : public Stmt
 {
 	std::vector<cond_t> conds;
+	bool comptime;
 	StmtCond(const size_t &src_id, const size_t &line, const size_t &col,
-		 const std::vector<cond_t> &conds);
+		 const std::vector<cond_t> &conds, const bool &comptime);
 	~StmtCond();
 
 	Stmt *hidden_copy(Stmt *par);

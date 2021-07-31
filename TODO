@@ -18,3 +18,5 @@ The code will be read from all sources as necessary, but only be written to the 
 
 
 move intrinsic members to Stmt from Type(?)
+
+Only copy the value of an entity if it is being stored/moved in a non reference/non pointer fashion

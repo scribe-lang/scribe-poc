@@ -93,7 +93,7 @@ void StmtVar::set_parent(Stmt *parent)
 void StmtFnSig::set_parent(Stmt *parent)
 {
 	this->parent = parent;
-	for(auto &p : params) {
+	for(auto &p : args) {
 		p->set_parent(this);
 	}
 	if(rettype) rettype->set_parent(this);
@@ -147,9 +147,6 @@ void StmtExtern::set_parent(Stmt *parent)
 void StmtEnum::set_parent(Stmt *parent)
 {
 	this->parent = parent;
-	for(auto &i : items) {
-		i->set_parent(this);
-	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

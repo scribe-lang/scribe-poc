@@ -108,7 +108,7 @@ Stmt *StmtVar::hidden_copy(Stmt *par)
 	StmtType *newvtype = vtype ? static_cast<StmtType *>(vtype->hidden_copy(this)) : nullptr;
 	Stmt *newval	   = val ? val->hidden_copy(this) : nullptr;
 
-	Stmt *res      = new StmtVar(src_id, line, col, name, newvtype, newval);
+	Stmt *res      = new StmtVar(src_id, line, col, name, newvtype, newval, comptime);
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -121,13 +121,14 @@ Stmt *StmtVar::hidden_copy(Stmt *par)
 Stmt *StmtFnSig::hidden_copy(Stmt *par)
 {
 	std::vector<StmtVar *> newparams;
-	for(auto &p : params) {
+	for(auto &p : args) {
 		newparams.push_back(static_cast<StmtVar *>(p->hidden_copy(this)));
 	}
 	StmtType *newrettype =
 	rettype ? static_cast<StmtType *>(rettype->hidden_copy(this)) : nullptr;
 
-	Stmt *res = new StmtFnSig(src_id, line, col, templates, newparams, newrettype, comptime);
+	Stmt *res =
+	new StmtFnSig(src_id, line, col, templates, newparams, newrettype, has_variadic);
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -193,11 +194,7 @@ Stmt *StmtExtern::hidden_copy(Stmt *par)
 
 Stmt *StmtEnum::hidden_copy(Stmt *par)
 {
-	std::vector<StmtVar *> newitems;
-	for(auto &i : items) {
-		newitems.push_back(static_cast<StmtVar *>(i->hidden_copy(this)));
-	}
-	Stmt *res      = new StmtEnum(src_id, line, col, newitems);
+	Stmt *res      = new StmtEnum(src_id, line, col, items);
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;
@@ -247,7 +244,7 @@ Stmt *StmtCond::hidden_copy(Stmt *par)
 			  static_cast<StmtBlock *>(c.blk->hidden_copy(this))};
 		newconds.push_back(nc);
 	}
-	Stmt *res      = new StmtCond(src_id, line, col, newconds);
+	Stmt *res      = new StmtCond(src_id, line, col, newconds, comptime);
 	res->is_intrin = is_intrin;
 	res->parent    = par;
 	return res;

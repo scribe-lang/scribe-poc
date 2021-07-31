@@ -48,24 +48,20 @@ bool parse_block(ParseHelper &p, StmtBlock *&tree, const bool &with_brace)
 		} else if(p.accept(lex::IF)) {
 			if(!parse_conds(p, stmt)) goto fail;
 			skip_cols = true;
-		} else if(p.accept(lex::COMPTIME, lex::FOR)) {
-			if(p.accept(lex::COMPTIME)) {
-				if(p.peakt(1) == lex::FOR && p.peakt(2) == lex::IDEN &&
-				   p.peakt(3) == lex::IN) {
-					if(!parse_forin(p, stmt)) goto fail;
-				} else {
-					err::set(p.peak(),
-						 "'comptime' is only applicable on for-in loop");
-					goto fail;
-				}
+		} else if(p.accept(lex::COMPTIME)) {
+			if(p.peakt(1) == lex::FOR && p.peakt(2) == lex::IDEN &&
+			   p.peakt(3) == lex::IN) {
+				if(!parse_forin(p, stmt)) goto fail;
+				skip_cols = true;
+			} else if(p.peakt(1) == lex::IF) {
+				if(!parse_conds(p, stmt)) goto fail;
+				skip_cols = true;
 			} else {
-				if(p.peakt(1) == lex::IDEN && p.peakt(2) == lex::IN) {
-					if(!parse_forin(p, stmt)) goto fail;
-				} else {
-					if(!parse_for(p, stmt)) goto fail;
-				}
+				err::set(p.peak(1),
+					 "'comptime' is not applicable on '%s' statement",
+					 p.peak(1).tok.str().c_str());
+				goto fail;
 			}
-			skip_cols = true;
 		} else if(p.accept(lex::FOR)) {
 			if(p.peakt(1) == lex::IDEN && p.peakt(2) == lex::IN) {
 				if(!parse_forin(p, stmt)) goto fail;
@@ -961,6 +957,8 @@ bool parse_var(ParseHelper &p, StmtVar *&var, const Occurs &intype, const Occurs
 {
 	var = nullptr;
 
+	bool comptime = p.acceptn(lex::COMPTIME);
+
 	if(!p.accept(lex::IDEN)) {
 		err::set(p.peak(), "expected identifier for variable name, found: %s",
 			 p.peak().tok.str().c_str());
@@ -979,6 +977,10 @@ in:
 	}
 	if(!p.acceptn(lex::IN)) {
 		goto type;
+	}
+	if(comptime) {
+		err::set(p.peak(), "comptime can be used only for data variables");
+		goto fail;
 	}
 	if(!parse_type(p, in)) {
 		err::set(p.peak(), "failed to parse in-type for variable: %s", name.data.s.c_str());
@@ -1006,10 +1008,13 @@ val:
 	if(!p.acceptn(lex::ASSN)) {
 		goto done;
 	}
-	// if(p.accept(lex::ENUM)) {
-	// 	if(!parse_enum(p, val)) goto fail;
-	// } else
-	if(p.accept(lex::STRUCT)) {
+	if(comptime && (p.accept(lex::ENUM, lex::STRUCT) || p.accept(lex::FN, lex::EXTERN))) {
+		err::set(p.peak(), "comptime declaration can only have an expression as value");
+		goto fail;
+	}
+	if(p.accept(lex::ENUM)) {
+		if(!parse_enum(p, val)) goto fail;
+	} else if(p.accept(lex::STRUCT)) {
 		if(!parse_struct(p, val)) goto fail;
 	} else if(p.accept(lex::FN)) {
 		if(!parse_fndef(p, val)) goto fail;
@@ -1024,6 +1029,10 @@ done:
 		err::set(name, "invalid variable declaration - no type or value set");
 		goto fail;
 	}
+	if(comptime && !val && oval != Occurs::NO) {
+		err::set(name, "comptime variable cannot be declared without an expression");
+		goto fail;
+	}
 	if(in) {
 		if(type) {
 			err::set(name, "let-in statements can only have values (function "
@@ -1036,16 +1045,17 @@ done:
 		}
 		in->info |= TypeInfoMask::REF;
 		lex::Lexeme selfeme = lex::Lexeme(in->line, in->col, in->col, lex::IDEN, "self");
-		StmtVar *self = new StmtVar(p.get_src(), in->line, in->col, selfeme, in, nullptr);
+		StmtVar *self =
+		new StmtVar(p.get_src(), in->line, in->col, selfeme, in, nullptr, false);
 		StmtFnSig *valsig = as<StmtFnDef>(val)->sig;
 		for(auto &t : in->templates) {
 			valsig->templates.push_back(t);
 		}
 		in->templates.clear();
-		std::vector<StmtVar *> &params = valsig->params;
-		params.insert(params.begin(), self);
+		std::vector<StmtVar *> &args = valsig->args;
+		args.insert(args.begin(), self);
 	}
-	var = new StmtVar(p.get_src(), name.line, name.col_beg, name, type, val);
+	var = new StmtVar(p.get_src(), name.line, name.col_beg, name, type, val, comptime);
 	return true;
 fail:
 	if(in) delete in;
@@ -1059,12 +1069,11 @@ bool parse_fnsig(ParseHelper &p, Stmt *&fsig)
 	fsig = nullptr;
 
 	std::vector<lex::Lexeme> templates;
-	std::vector<StmtVar *> params;
+	std::vector<StmtVar *> args;
 	StmtVar *var = nullptr;
 	std::unordered_set<std::string> argnames;
 	bool found_va	  = false;
 	StmtType *rettype = nullptr;
-	bool comptime	  = false;
 	std::unordered_set<std::string> templnames;
 	lex::Lexeme &start = p.peak();
 
@@ -1124,13 +1133,12 @@ after_templates:
 		}
 		if(var->vtype->info & TypeInfoMask::VARIADIC) {
 			found_va = true;
-			comptime = true;
 		}
 		if(var->name.data.s == "any" && !found_va) {
 			err::set(start, "type 'any' can be only used for variadic functions");
 			goto fail;
 		}
-		params.push_back(var);
+		args.push_back(var);
 		var = nullptr;
 		if(!p.acceptn(lex::COMMA)) break;
 		if(found_va) {
@@ -1158,11 +1166,11 @@ post_args:
 	}
 
 	fsig =
-	new StmtFnSig(p.get_src(), start.line, start.col_beg, templates, params, rettype, comptime);
+	new StmtFnSig(p.get_src(), start.line, start.col_beg, templates, args, rettype, found_va);
 	return true;
 fail:
 	if(var) delete var;
-	for(auto &p : params) delete p;
+	for(auto &p : args) delete p;
 	if(rettype) delete rettype;
 	return false;
 }
@@ -1285,6 +1293,40 @@ fail:
 	return false;
 }
 
+bool parse_enum(ParseHelper &p, Stmt *&ed)
+{
+	std::vector<lex::Lexeme> enumvars;
+
+	lex::Lexeme &start = p.peak();
+
+	if(!p.acceptn(lex::ENUM)) {
+		err::set(p.peak(), "expected 'enum' keyword here, found: %s",
+			 p.peak().tok.str().c_str());
+		return false;
+	}
+	if(!p.acceptn(lex::LBRACE)) {
+		err::set(p.peak(), "expected left braces for beginning of enum list, found: %s",
+			 p.peak().tok.str().c_str());
+		return false;
+	}
+	while(p.accept(lex::IDEN)) {
+		enumvars.push_back(p.peak());
+		p.next();
+		if(!p.acceptn(lex::COMMA)) break;
+	}
+	if(!p.acceptn(lex::RBRACE)) {
+		err::set(p.peak(), "expected right braces for end of enum list, found: %s",
+			 p.peak().tok.str().c_str());
+		return false;
+	}
+	if(enumvars.empty()) {
+		err::set(start, "cannot have empty enumeration");
+		return false;
+	}
+	ed = new StmtEnum(p.get_src(), start.line, start.col_beg, enumvars);
+	return true;
+}
+
 bool parse_struct(ParseHelper &p, Stmt *&sd)
 {
 	sd = nullptr;
@@ -1376,8 +1418,11 @@ bool parse_vardecl(ParseHelper &p, Stmt *&vd)
 		return false;
 	}
 
-	while(p.accept(lex::IDEN)) {
-		if(!parse_var(p, decl, Occurs::MAYBE, Occurs::MAYBE, Occurs::MAYBE)) goto fail;
+	while(p.accept(lex::IDEN, lex::COMPTIME)) {
+		bool comptime = p.accept(lex::COMPTIME);
+		Occurs in     = comptime ? Occurs::NO : Occurs::MAYBE;
+		Occurs val    = comptime ? Occurs::YES : Occurs::MAYBE;
+		if(!parse_var(p, decl, in, Occurs::MAYBE, val)) goto fail;
 		decls.push_back(decl);
 		decl = nullptr;
 		if(!p.acceptn(lex::COMMA)) break;
@@ -1395,6 +1440,8 @@ fail:
 bool parse_conds(ParseHelper &p, Stmt *&conds)
 {
 	conds = nullptr;
+
+	bool comptime = p.acceptn(lex::COMPTIME);
 
 	std::vector<cond_t> cvec;
 	cond_t c	   = {nullptr, nullptr};
@@ -1426,7 +1473,7 @@ blk:
 		goto blk;
 	}
 
-	conds = new StmtCond(p.get_src(), start.line, start.col_beg, cvec);
+	conds = new StmtCond(p.get_src(), start.line, start.col_beg, cvec, comptime);
 	return true;
 
 fail:
