@@ -48,6 +48,24 @@ bool parse_block(ParseHelper &p, StmtBlock *&tree, const bool &with_brace)
 		} else if(p.accept(lex::IF)) {
 			if(!parse_conds(p, stmt)) goto fail;
 			skip_cols = true;
+		} else if(p.accept(lex::COMPTIME, lex::FOR)) {
+			if(p.accept(lex::COMPTIME)) {
+				if(p.peakt(1) == lex::FOR && p.peakt(2) == lex::IDEN &&
+				   p.peakt(3) == lex::IN) {
+					if(!parse_forin(p, stmt)) goto fail;
+				} else {
+					err::set(p.peak(),
+						 "'comptime' is only applicable on for-in loop");
+					goto fail;
+				}
+			} else {
+				if(p.peakt(1) == lex::IDEN && p.peakt(2) == lex::IN) {
+					if(!parse_forin(p, stmt)) goto fail;
+				} else {
+					if(!parse_for(p, stmt)) goto fail;
+				}
+			}
+			skip_cols = true;
 		} else if(p.accept(lex::FOR)) {
 			if(p.peakt(1) == lex::IDEN && p.peakt(2) == lex::IN) {
 				if(!parse_forin(p, stmt)) goto fail;
@@ -1428,6 +1446,9 @@ bool parse_forin(ParseHelper &p, Stmt *&fin)
 	Stmt *in	   = nullptr; // L01
 	StmtBlock *blk	   = nullptr;
 	lex::Lexeme &start = p.peak();
+	bool comptime	   = false;
+
+	if(p.acceptn(lex::COMPTIME)) comptime = true;
 
 	if(!p.acceptn(lex::FOR)) {
 		err::set(p.peak(), "expected 'for' here, found: %s", p.peak().tok.str().c_str());
@@ -1463,7 +1484,7 @@ bool parse_forin(ParseHelper &p, Stmt *&fin)
 		goto fail;
 	}
 
-	fin = new StmtForIn(p.get_src(), start.line, start.col_beg, iter, in, blk);
+	fin = new StmtForIn(p.get_src(), start.line, start.col_beg, iter, in, blk, comptime);
 	return true;
 fail:
 	if(in) delete in;

@@ -600,8 +600,8 @@ void StmtCond::disp(const bool &has_next)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 StmtForIn::StmtForIn(const size_t &src_id, const size_t &line, const size_t &col,
-		     const lex::Lexeme &iter, Stmt *in, StmtBlock *blk)
-	: Stmt(FORIN, src_id, line, col), iter(iter), in(in), blk(blk)
+		     const lex::Lexeme &iter, Stmt *in, StmtBlock *blk, const bool &comptime)
+	: Stmt(FORIN, src_id, line, col), iter(iter), in(in), blk(blk), comptime(comptime)
 {}
 StmtForIn::~StmtForIn()
 {
@@ -612,7 +612,8 @@ StmtForIn::~StmtForIn()
 void StmtForIn::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "For in with iterator %s", iter.data.s.c_str());
+	tio::print(has_next, "For in with iterator %s [comptime = %s]", iter.data.s.c_str(),
+		   comptime ? "yes" : "no");
 	tio::taba(true);
 	tio::print(true, "In:\n");
 	in->disp(true);

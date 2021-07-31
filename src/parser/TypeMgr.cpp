@@ -83,6 +83,7 @@ TypeMgr::TypeMgr(RAIIParser *parser) : parser(parser), vals(parser), init_typefu
 	globals["f32"]	= new TypeSimple(nullptr, 0, 0, vals.get(VUNKNOWN), "f32");
 	globals["f64"]	= new TypeSimple(nullptr, 0, 0, vals.get(VUNKNOWN), "f64");
 	globals["nil"]	= globals["i1"]->copy();
+	globals["bool"] = globals["i1"]->copy();
 	// cstr
 	TypeSimple *cstr = static_cast<TypeSimple *>(globals["u8"]->copy());
 	cstr->ptr	 = 1;

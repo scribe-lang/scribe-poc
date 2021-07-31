@@ -342,8 +342,9 @@ struct StmtForIn : public Stmt
 	lex::Lexeme iter;
 	Stmt *in; // L01
 	StmtBlock *blk;
+	bool comptime;
 	StmtForIn(const size_t &src_id, const size_t &line, const size_t &col,
-		  const lex::Lexeme &iter, Stmt *in, StmtBlock *blk);
+		  const lex::Lexeme &iter, Stmt *in, StmtBlock *blk, const bool &comptime);
 	~StmtForIn();
 
 	Stmt *hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *par);

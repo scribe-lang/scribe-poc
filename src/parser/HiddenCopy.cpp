@@ -290,7 +290,7 @@ Stmt *StmtForIn::hidden_copy(const bool &copy_vtyp, const bool &copy_val, Stmt *
 {
 	Stmt *newin	  = in->hidden_copy(copy_vtyp, copy_val, this);
 	StmtBlock *newblk = static_cast<StmtBlock *>(blk->hidden_copy(copy_vtyp, copy_val, this));
-	Stmt *res	  = new StmtForIn(src_id, line, col, iter, newin, newblk);
+	Stmt *res	  = new StmtForIn(src_id, line, col, iter, newin, newblk, comptime);
 	if(copy_vtyp) res->vtyp = vtyp ? vtyp->copy() : nullptr;
 	res->is_intrin = is_intrin;
 	res->parent    = par;

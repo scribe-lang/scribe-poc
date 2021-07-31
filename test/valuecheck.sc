@@ -4,7 +4,7 @@ let Box = struct<T> {
 
 let factor = 10;
 
-let func = comptime fn<T>(e: ...Box<T>): i32 {
+let func = fn<T>(e: ...Box<T>): i32 {
 	return (e[0].d + e[1].d) * factor;
 };
 
