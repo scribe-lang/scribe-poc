@@ -18,7 +18,7 @@
 #include "parser/Stmts.hpp"
 #include "parser/TypeMgr.hpp"
 
-#define CHECK_VALUE(x) (x->vtyp && x->vtyp->val && x->vtyp->val->type != VUNKNOWN)
+#define CHECK_VALUE(x) (x && x->vtyp && x->vtyp->val && x->vtyp->val->type != VUNKNOWN)
 
 namespace sc
 {
@@ -63,7 +63,7 @@ static bool init_templ_func(TypeMgr &types, Stmt *lhs, const std::vector<Type *>
 		types.pushsrc(fn->src_id);
 	}
 	types.pushlayer();
-	types.pushfret(origsig->rettype);
+	types.pushfunc(origsig);
 	// for each types add signature variables
 	for(size_t i = 0; i < fn->sig->templates.size(); ++i) {
 		const std::string &t = fn->sig->templates[i].data.s;
@@ -72,6 +72,7 @@ static bool init_templ_func(TypeMgr &types, Stmt *lhs, const std::vector<Type *>
 		types.add(t, cp);
 	}
 	fn->sig->templates.clear();
+	fn->sig->comptime = false;
 	if(origsig->args.size() > 0 && origsig->args.back()->type == TVARIADIC) {
 		std::string tname = fn->sig->params.back()->vtype->getname();
 		types.add_copy(tname, origsig->args.back());
@@ -96,7 +97,9 @@ static bool init_templ_func(TypeMgr &types, Stmt *lhs, const std::vector<Type *>
 	if(comptime) {
 		// TODO: execute comptime() here
 	}
-	types.popfret();
+	fn->sig->comptime = comptime;
+	fn->sig->templates.clear();
+	types.popfunc();
 	types.poplayer();
 	if(types.current_src() == fn->src_id) {
 		types.unlock_scope();
@@ -631,12 +634,12 @@ bool StmtFnDef::assign_type(TypeMgr &types)
 		return false;
 	}
 	if(sig->templates.empty() && !sig->comptime && blk) {
-		types.pushfret(sig->rettype->vtyp);
+		types.pushfunc(static_cast<TypeFunc *>(sig->vtyp));
 		if(!blk->assign_type(types)) {
 			err::set(blk->line, blk->col, "failed to assign type in function block");
 			return false;
 		}
-		types.popfret();
+		types.popfunc();
 	}
 	vtyp	     = sig->vtyp->copy();
 	vtyp->parent = this;
@@ -814,6 +817,10 @@ bool StmtFor::assign_type(TypeMgr &types)
 			 "failed to determine type of 'increment' expression");
 		return false;
 	}
+	// if(types.hasfunc() && types.getfunc()->comptime) {
+	// 	if(!CHECK_VALUE(init) || !CHECK_VALUE(cond) || !CHECK_VALUE(incr)) {
+	// 	}
+	// }
 	if(!blk->assign_type(types)) {
 		err::set(blk->line, blk->col, "failed to determine type of block");
 		return false;
@@ -851,15 +858,16 @@ bool StmtRet::assign_type(TypeMgr &types)
 		return false;
 	}
 	Type *valtype = val ? val->vtyp->copy() : types.get_copy("void", parent);
-	if(!types.hasfret()) {
+	if(!types.hasfunc()) {
 		err::set(line, col, "return statements can be in functions only");
 		return false;
 	}
-	if(!types.getfret()->compatible(valtype, val ? val->line : line, val ? val->col : col)) {
+	if(!types.getfunc()->rettype->compatible(valtype, val ? val->line : line,
+						 val ? val->col : col)) {
 		err::set(val ? val->line : line, val ? val->col : col,
 			 "function return type and deduced return type are"
 			 " incompatible (function return type: %s, deduced: %s)",
-			 types.getfret()->str().c_str(), valtype->str().c_str());
+			 types.getfunc()->rettype->str().c_str(), valtype->str().c_str());
 		delete valtype;
 		return false;
 	}

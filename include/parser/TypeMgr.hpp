@@ -88,8 +88,8 @@ class TypeMgr
 	std::vector<SrcTypes *> srcstack;
 	std::vector<size_t> srcidstack;
 	std::vector<TypeFuncMap *> managedfnmaps;
-	// types that function returns (for type checking return statement)
-	std::vector<Type *> funcreturns;
+	// current function type (for type checking return statement, checking comptime, etc.)
+	std::vector<TypeFunc *> funcstack;
 	std::vector<size_t> lockedlayers;
 	ValueMgr vals;
 	bool init_typefuncs_called; // init_typefns() has been called or not
@@ -156,21 +156,21 @@ public:
 	TypeFuncMap *get_funcmap(const std::string &name, Stmt *parent);
 	TypeFuncMap *get_funcmap_copy(const std::string &name, Stmt *parent);
 
-	inline void pushfret(Type *fnret)
+	inline void pushfunc(TypeFunc *fn)
 	{
-		funcreturns.push_back(fnret);
+		funcstack.push_back(fn);
 	}
-	inline void popfret()
+	inline void popfunc()
 	{
-		funcreturns.pop_back();
+		funcstack.pop_back();
 	}
-	inline Type *getfret()
+	inline TypeFunc *getfunc()
 	{
-		return funcreturns.back();
+		return funcstack.back();
 	}
-	inline bool hasfret()
+	inline bool hasfunc()
 	{
-		return !funcreturns.empty();
+		return !funcstack.empty();
 	}
 	inline Value *get(const int64_t &idata)
 	{
