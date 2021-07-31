@@ -17,14 +17,12 @@
 
 #include "Error.hpp"
 #include "FS.hpp"
-#include "parser/TypeMgr.hpp"
-#include "parser/ValueMgr.hpp"
 
 namespace sc
 {
 namespace parser
 {
-RAIIParser::RAIIParser(args::ArgParser &args) : args(args), types(this), vals(this) {}
+RAIIParser::RAIIParser(args::ArgParser &args) : args(args) {}
 RAIIParser::~RAIIParser()
 {
 	for(auto &s : srcstmts) delete s.second;
@@ -67,20 +65,6 @@ bool RAIIParser::parse_src(const size_t &src_id)
 	srcstmts[src_id] = tree;
 	return true;
 }
-bool RAIIParser::assign_type(const size_t &src_id)
-{
-	types.addsrc(src_id);
-	types.pushsrc(src_id);
-	if(!types.init_typefns_called()) types.init_typefns();
-	Stmt *&tree = srcstmts[src_id];
-	if(!tree->assign_type(types)) {
-		err::set(tree->line, tree->col, "failed to assign types while parsing");
-		err::show(stderr, srcdata[src_id], srcstack[src_id]);
-		return false;
-	}
-	types.popsrc();
-	return true;
-}
 bool RAIIParser::src_exists(const std::string &file_path)
 {
 	for(auto &s : srcstack) {
@@ -107,7 +91,6 @@ bool RAIIParser::parse(const std::string &file_path)
 	size_t src_id = 0;
 	if(!add_src(file_path, src_id)) return false;
 	if(!parse_src(src_id)) return false;
-	if(!assign_type(src_id)) return false;
 	fs::scwd(wd);
 	return true;
 }
