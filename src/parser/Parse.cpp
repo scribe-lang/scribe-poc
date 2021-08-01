@@ -239,7 +239,7 @@ bool parse_expr_17(ParseHelper &p, Stmt *&expr)
 		lhs = nullptr;
 	}
 
-	if(rhs->type == parser::EXPR) {
+	if(rhs->stmt_type == parser::EXPR) {
 		as<StmtExpr>(rhs)->commas = commas;
 	}
 
@@ -386,7 +386,7 @@ bool parse_expr_14(ParseHelper &p, Stmt *&expr)
 	if(!parse_block(p, or_blk)) {
 		goto fail;
 	}
-	if(expr->type != EXPR) {
+	if(expr->stmt_type != EXPR) {
 		expr = new StmtExpr(p.getModule(), expr->line, expr->col, expr, {}, nullptr);
 	}
 	as<StmtExpr>(expr)->or_blk     = or_blk;
@@ -1030,7 +1030,7 @@ done:
 				       "definitions) - no types allowed");
 			goto fail;
 		}
-		if(val && val->type != FNDEF) {
+		if(val && val->stmt_type != FNDEF) {
 			err::set(name, "only functions can be created using let-in statements");
 			goto fail;
 		}
@@ -1039,6 +1039,7 @@ done:
 		StmtVar *self =
 		new StmtVar(p.getModule(), in->line, in->col, selfeme, in, nullptr, false);
 		StmtFnSig *valsig = as<StmtFnDef>(val)->sig;
+		valsig->setMember(true);
 		for(auto &t : in->templates) {
 			valsig->templates.push_back(t);
 		}

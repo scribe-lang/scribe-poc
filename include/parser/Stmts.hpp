@@ -48,13 +48,16 @@ enum Stmts
 
 struct Stmt
 {
-	Stmts type;
+	Stmts stmt_type;
 	Module *mod;
 	size_t line;
 	size_t col;
 	Stmt *parent;
 
-	Stmt(const Stmts &type, Module *mod, const size_t &line, const size_t &col);
+	// these members are not assigned on stmt creation
+	bool comptime_value; // the value can be evaluated at comptime
+
+	Stmt(const Stmts &stmt_type, Module *mod, const size_t &line, const size_t &col);
 	virtual ~Stmt();
 
 	// NEVER use hiddenCopy(); instead use copy()
@@ -65,7 +68,9 @@ struct Stmt
 	// comptime execute here
 
 	Stmt *getParentWithType(const Stmts &typ);
-	Module *getModule();
+
+	void setComptimeValue(const bool &value);
+	bool isComptimeValue();
 
 	std::string typestr();
 };
@@ -182,6 +187,7 @@ struct StmtFnSig : public Stmt
 	std::vector<StmtVar *> args;
 	StmtType *rettype;
 	bool has_variadic;
+	bool is_member;
 	StmtFnSig(Module *mod, const size_t &line, const size_t &col,
 		  const std::vector<lex::Lexeme> &templates, std::vector<StmtVar *> &args,
 		  StmtType *rettype, const bool &has_variadic);
@@ -190,6 +196,9 @@ struct StmtFnSig : public Stmt
 	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+
+	void setMember(const bool &is_mem);
+	bool isMember();
 };
 
 struct StmtFnDef : public Stmt

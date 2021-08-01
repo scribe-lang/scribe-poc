@@ -14,6 +14,9 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
+#include <string>
+#include <vector>
+
 namespace sc
 {
 // RAII class to manage a pointer
@@ -36,6 +39,18 @@ public:
 		data = nullptr;
 	}
 };
+
+inline bool startswith(const std::string &src, const std::string &term)
+{
+	return src.rfind(term, 0) == 0;
+}
+template<typename T> inline bool is_one_of(const std::vector<T> &vec, const T &elem)
+{
+	for(auto &v : vec) {
+		if(v == elem) return true;
+	}
+	return false;
+}
 } // namespace sc
 
 #endif // UTILS_HPP

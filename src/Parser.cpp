@@ -80,9 +80,7 @@ void Module::dumpTokens()
 void Module::dumpParseTree()
 {
 	printf("Source: %s\n", path.c_str());
-	for(auto &t : tokens) {
-		printf("%s\n", t.str().c_str());
-	}
+	ptree->disp(false);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

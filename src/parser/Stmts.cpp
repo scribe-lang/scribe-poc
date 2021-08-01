@@ -20,11 +20,11 @@ namespace sc
 namespace parser
 {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////// Stmt /////////////////////////////////////////////
+/////////////////////////////////////////////// Stmt //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt::Stmt(const Stmts &type, Module *mod, const size_t &line, const size_t &col)
-	: type(type), parent(nullptr), mod(mod), line(line), col(col)
+Stmt::Stmt(const Stmts &stmt_type, Module *mod, const size_t &line, const size_t &col)
+	: stmt_type(stmt_type), parent(nullptr), mod(mod), line(line), col(col)
 {}
 Stmt::~Stmt() {}
 
@@ -34,23 +34,26 @@ Stmt *Stmt::copy()
 	if(!cp) return nullptr;
 	return cp;
 }
-
 Stmt *Stmt::getParentWithType(const Stmts &typ)
 {
 	Stmt *res = this->parent;
-	while(res && res->type != typ) {
+	while(res && res->stmt_type != typ) {
 		res = res->parent;
 	}
 	return res;
 }
-Module *Stmt::getModule()
+void Stmt::setComptimeValue(const bool &value)
 {
-	return mod;
+	comptime_value = value;
+}
+bool Stmt::isComptimeValue()
+{
+	return comptime_value;
 }
 
 std::string Stmt::typestr()
 {
-	switch(type) {
+	switch(stmt_type) {
 	case BLOCK: return "block";
 	case TYPE: return "type";
 	case SIMPLE: return "simple";
@@ -312,7 +315,7 @@ StmtFnSig::StmtFnSig(Module *mod, const size_t &line, const size_t &col,
 		     const std::vector<lex::Lexeme> &templates, std::vector<StmtVar *> &args,
 		     StmtType *rettype, const bool &has_variadic)
 	: Stmt(FNSIG, mod, line, col), templates(templates), args(args), rettype(rettype),
-	  has_variadic(has_variadic)
+	  has_variadic(has_variadic), is_member(false)
 {}
 StmtFnSig::~StmtFnSig()
 {
@@ -323,7 +326,8 @@ StmtFnSig::~StmtFnSig()
 void StmtFnSig::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Function signature [variadic = %s]\n", has_variadic ? "yes" : "no");
+	tio::print(has_next, "Function signature [variadic = %s; member = %s]\n",
+		   has_variadic ? "yes" : "no", is_member ? "yes" : "no");
 	if(!templates.empty()) {
 		tio::taba(args.size() > 0 || rettype);
 		tio::print(args.size() > 0 || rettype, "Templates:\n");
@@ -349,6 +353,15 @@ void StmtFnSig::disp(const bool &has_next)
 		tio::tabr();
 	}
 	tio::tabr();
+}
+
+void StmtFnSig::setMember(const bool &is_mem)
+{
+	is_member = is_mem;
+}
+bool StmtFnSig::isMember()
+{
+	return is_member;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
