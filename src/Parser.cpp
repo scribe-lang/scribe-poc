@@ -17,109 +17,148 @@
 
 #include "Error.hpp"
 #include "FS.hpp"
+#include "parser/Parse.hpp"
+#include "parser/ParseHelper.hpp"
+#include "Utils.hpp"
 
 namespace sc
 {
 namespace parser
 {
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////// Module ///////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+Module::Module(const std::string &path, const std::string &code)
+	: path(path), code(code), tokens(), ptree(nullptr)
+{}
+Module::~Module()
+{
+	if(ptree) delete ptree;
+}
+bool Module::tokenize()
+{
+	if(!lex::tokenize(code, tokens)) {
+		err::show(stderr, code, path);
+		return false;
+	}
+	return true;
+}
+bool Module::parseTokens()
+{
+	ParseHelper p(this, tokens);
+	if(!parse_block(p, (StmtBlock *&)ptree, false)) {
+		err::show(stderr, code, path);
+		return false;
+	}
+	ptree->setParent(nullptr);
+	return true;
+}
+const std::string &Module::getPath()
+{
+	return path;
+}
+const std::string &Module::getCode()
+{
+	return code;
+}
+const std::vector<lex::Lexeme> &Module::getTokens()
+{
+	return tokens;
+}
+Stmt *&Module::getParseTree()
+{
+	return ptree;
+}
+void Module::dumpTokens()
+{
+	printf("Source: %s\n", path.c_str());
+	for(auto &t : tokens) {
+		printf("%s\n", t.str().c_str());
+	}
+}
+void Module::dumpParseTree()
+{
+	printf("Source: %s\n", path.c_str());
+	for(auto &t : tokens) {
+		printf("%s\n", t.str().c_str());
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////// RAIIParser /////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 RAIIParser::RAIIParser(args::ArgParser &args) : args(args) {}
 RAIIParser::~RAIIParser()
 {
-	for(auto &s : srcstmts) delete s.second;
+	for(auto &m : modules) delete m.second;
 }
 
-bool RAIIParser::add_src(const std::string &file_path, size_t &src_id)
+Module *RAIIParser::addModule(const std::string &path)
 {
-	for(size_t i = 0; i < srcstack.size(); ++i) {
-		if(srcstack[i] == file_path) return false;
+	auto res = modules.find(path);
+	if(res != modules.end()) return res->second;
+
+	std::string code;
+	if(!fs::read(path, code)) {
+		return nullptr;
 	}
 
-	src_id = srcstack.size();
+	Module *mod = new Module(path, code);
+	Pointer<Module> mptr(mod);
 
-	srcdata[src_id]	  = {};
-	std::string &data = srcdata[src_id];
-	if(!fs::read(file_path, data)) {
-		srcdata.erase(src_id);
-		return false;
-	}
+	if(!mod->tokenize() || !mod->parseTokens()) return nullptr;
 
-	srctoks[src_id]		       = {};
-	std::vector<lex::Lexeme> &toks = srctoks[src_id];
-	if(!lex::tokenize(data, toks)) {
-		err::show(stderr, data, file_path);
-		srctoks.erase(src_id);
-		return false;
-	}
-	srcstack.push_back(file_path);
-	return true;
+	mptr.unset();
+	modules[path] = mod;
+	modulestack.push_back(path);
+	return mod;
 }
-bool RAIIParser::parse_src(const size_t &src_id)
+bool RAIIParser::hasModule(const std::string &path)
 {
-	ParseHelper p(srctoks[src_id], src_id);
-	StmtBlock *tree = nullptr;
-	if(!parse_block(p, tree, false)) {
-		err::show(stderr, srcdata[src_id], srcstack[src_id]);
-		return false;
-	}
-	tree->set_parent(nullptr);
-	srcstmts[src_id] = tree;
-	return true;
+	return modules.find(path) != modules.end();
 }
-bool RAIIParser::src_exists(const std::string &file_path)
+Module *RAIIParser::getModule(const std::string &path)
 {
-	for(auto &s : srcstack) {
-		if(s == file_path) return true;
-	}
-	return false;
+	auto res = modules.find(path);
+	if(res != modules.end()) return res->second;
+	return nullptr;
 }
-size_t RAIIParser::get_srcid(const std::string &file_path)
+bool RAIIParser::parse(const std::string &path)
 {
-	for(size_t i = 0; i < srcstack.size(); ++i) {
-		if(srcstack[i] == file_path) return i;
-	}
-	return size_t(-1);
-}
-bool RAIIParser::parse(const std::string &file_path)
-{
-	if(src_exists(file_path)) {
-		fprintf(stderr, "cannot parse an existing source: %s\n", file_path.c_str());
+	if(hasModule(path)) {
+		fprintf(stderr, "cannot parse an existing source: %s\n", path.c_str());
 		return false;
 	}
 
 	std::string wd = fs::cwd();
-	fs::scwd(fs::parentdir(file_path));
+	fs::scwd(fs::parentDir(path));
 	size_t src_id = 0;
-	if(!add_src(file_path, src_id)) return false;
-	if(!parse_src(src_id)) return false;
+	if(!addModule(path)) return false;
 	fs::scwd(wd);
 	return true;
 }
-void RAIIParser::show_toks(const bool &force)
+void RAIIParser::dumpTokens(const bool &force)
 {
 	if(!args.has("tokens") && !force) return;
 
 	printf("-------------------------------------------------- Token(s) "
 	       "--------------------------------------------------\n");
-	size_t i = srcstack.size() - 1;
-	for(auto src = srcstack.rbegin(); src != srcstack.rend(); ++src) {
-		printf("\n\nSource: %s\n", src->c_str());
-		auto &toks = srctoks[i--];
-		for(auto &t : toks) {
-			printf("%s\n", t.str().c_str());
-		}
+	for(auto file = modulestack.rbegin(); file != modulestack.rend(); ++file) {
+		printf("\n\n");
+		modules[*file]->dumpTokens();
 	}
 }
-void RAIIParser::show_ptrees(const bool &force)
+void RAIIParser::dumpParseTree(const bool &force)
 {
 	if(!args.has("parse") && !args.has("semantic") && !force) return;
 
 	printf("-------------------------------------------------- Parse Tree(s) "
 	       "--------------------------------------------------\n");
-	size_t i = srcstack.size() - 1;
-	for(auto src = srcstack.rbegin(); src != srcstack.rend(); ++src) {
-		printf("\n\nSource: %s\n", src->c_str());
-		auto &tree = srcstmts[i--];
-		tree->disp(false);
+	for(auto file = modulestack.rbegin(); file != modulestack.rend(); ++file) {
+		printf("\n\n");
+		modules[*file]->dumpParseTree();
 	}
 }
 } // namespace parser

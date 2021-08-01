@@ -195,7 +195,7 @@ std::string Lexeme::str(const int64_t &pad)
 	len = res.size();
 	res += "[" + std::to_string(line) + ":" + std::to_string(col_beg) + "-" +
 	       std::to_string(col_end) + "]";
-	if(!tok.is_data()) return res;
+	if(!tok.isData()) return res;
 	len = res.size() - len;
 	for(int64_t i = 0; i < pad - len; ++i) res += " ";
 	if(pad == 0) res += " ";

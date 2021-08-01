@@ -4,9 +4,9 @@
 	Copyright (c) 2021 Scribe Language Repositories
 
 	Permission is hereby granted, free of charge, to any person obtaining a
-	hidden_copy of this software and associated documentation files (the "Software"), to
+	hiddenCopy of this software and associated documentation files (the "Software"), to
 	deal in the Software without restriction, including without limitation the
-	rights to use, hidden_copy, modify, merge, publish, distribute, sublicense, and/or
+	rights to use, hiddenCopy, modify, merge, publish, distribute, sublicense, and/or
 	sell copies of the Software, and to permit persons to whom the Software is
 	furnished to do so.
 */
@@ -21,15 +21,14 @@ namespace parser
 //////////////////////////////////////////// StmtBlock ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtBlock::hidden_copy(Stmt *par)
+Stmt *StmtBlock::hiddenCopy(Stmt *par)
 {
 	std::vector<Stmt *> newstmts;
 	for(auto &s : stmts) {
-		newstmts.push_back(s->hidden_copy(this));
+		newstmts.push_back(s->hiddenCopy(this));
 	}
-	Stmt *res      = new StmtBlock(src_id, line, col, newstmts);
-	res->is_intrin = is_intrin;
-	res->parent    = par;
+	Stmt *res   = new StmtBlock(mod, line, col, newstmts);
+	res->parent = par;
 	return res;
 }
 
@@ -37,17 +36,16 @@ Stmt *StmtBlock::hidden_copy(Stmt *par)
 //////////////////////////////////////////// StmtType /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtType::hidden_copy(Stmt *par)
+Stmt *StmtType::hiddenCopy(Stmt *par)
 {
-	Stmt *newfn = fn ? fn->hidden_copy(this) : nullptr;
+	Stmt *newfn = fn ? fn->hiddenCopy(this) : nullptr;
 	if(fn) {
-		Stmt *res = new StmtType(src_id, line, col, fn);
+		Stmt *res = new StmtType(mod, line, col, fn);
 
 		return res;
 	}
-	Stmt *res      = new StmtType(src_id, line, col, ptr, info, name, templates);
-	res->is_intrin = is_intrin;
-	res->parent    = par;
+	Stmt *res   = new StmtType(mod, line, col, ptr, info, name, templates);
+	res->parent = par;
 	return res;
 }
 
@@ -55,11 +53,10 @@ Stmt *StmtType::hidden_copy(Stmt *par)
 //////////////////////////////////////// StmtSimple ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtSimple::hidden_copy(Stmt *par)
+Stmt *StmtSimple::hiddenCopy(Stmt *par)
 {
-	Stmt *res      = new StmtSimple(src_id, line, col, val);
-	res->is_intrin = is_intrin;
-	res->parent    = par;
+	Stmt *res   = new StmtSimple(mod, line, col, val);
+	res->parent = par;
 	return res;
 }
 
@@ -67,19 +64,18 @@ Stmt *StmtSimple::hidden_copy(Stmt *par)
 ////////////////////////////////////// StmtFnCallInfo //////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtFnCallInfo::hidden_copy(Stmt *par)
+Stmt *StmtFnCallInfo::hiddenCopy(Stmt *par)
 {
 	std::vector<StmtType *> newtemplates;
 	std::vector<Stmt *> newargs;
 	for(auto &t : templates) {
-		newtemplates.push_back(static_cast<StmtType *>(t->hidden_copy(this)));
+		newtemplates.push_back(static_cast<StmtType *>(t->hiddenCopy(this)));
 	}
 	for(auto &a : args) {
-		newargs.push_back(a->hidden_copy(this));
+		newargs.push_back(a->hiddenCopy(this));
 	}
-	Stmt *res      = new StmtFnCallInfo(src_id, line, col, newtemplates, newargs);
-	res->is_intrin = is_intrin;
-	res->parent    = par;
+	Stmt *res   = new StmtFnCallInfo(mod, line, col, newtemplates, newargs);
+	res->parent = par;
 	return res;
 }
 
@@ -87,14 +83,13 @@ Stmt *StmtFnCallInfo::hidden_copy(Stmt *par)
 //////////////////////////////////////////// StmtExpr /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtExpr::hidden_copy(Stmt *par)
+Stmt *StmtExpr::hiddenCopy(Stmt *par)
 {
-	Stmt *newlhs  = lhs ? lhs->hidden_copy(this) : nullptr;
-	Stmt *newrhs  = rhs ? rhs->hidden_copy(this) : nullptr;
-	StmtExpr *res = new StmtExpr(src_id, line, col, newlhs, oper, newrhs);
-	if(or_blk) res->or_blk = static_cast<StmtBlock *>(or_blk->hidden_copy(this));
+	Stmt *newlhs  = lhs ? lhs->hiddenCopy(this) : nullptr;
+	Stmt *newrhs  = rhs ? rhs->hiddenCopy(this) : nullptr;
+	StmtExpr *res = new StmtExpr(mod, line, col, newlhs, oper, newrhs);
+	if(or_blk) res->or_blk = static_cast<StmtBlock *>(or_blk->hiddenCopy(this));
 	res->or_blk_var = or_blk_var;
-	res->is_intrin	= is_intrin;
 	res->parent	= par;
 	return res;
 }
@@ -103,14 +98,13 @@ Stmt *StmtExpr::hidden_copy(Stmt *par)
 //////////////////////////////////////////// StmtVar //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtVar::hidden_copy(Stmt *par)
+Stmt *StmtVar::hiddenCopy(Stmt *par)
 {
-	StmtType *newvtype = vtype ? static_cast<StmtType *>(vtype->hidden_copy(this)) : nullptr;
-	Stmt *newval	   = val ? val->hidden_copy(this) : nullptr;
+	StmtType *newvtype = vtype ? static_cast<StmtType *>(vtype->hiddenCopy(this)) : nullptr;
+	Stmt *newval	   = val ? val->hiddenCopy(this) : nullptr;
 
-	Stmt *res      = new StmtVar(src_id, line, col, name, newvtype, newval, comptime);
-	res->is_intrin = is_intrin;
-	res->parent    = par;
+	Stmt *res   = new StmtVar(mod, line, col, name, newvtype, newval, comptime);
+	res->parent = par;
 	return res;
 }
 
@@ -118,19 +112,17 @@ Stmt *StmtVar::hidden_copy(Stmt *par)
 //////////////////////////////////////////// StmtFnSig ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtFnSig::hidden_copy(Stmt *par)
+Stmt *StmtFnSig::hiddenCopy(Stmt *par)
 {
 	std::vector<StmtVar *> newparams;
 	for(auto &p : args) {
-		newparams.push_back(static_cast<StmtVar *>(p->hidden_copy(this)));
+		newparams.push_back(static_cast<StmtVar *>(p->hiddenCopy(this)));
 	}
 	StmtType *newrettype =
-	rettype ? static_cast<StmtType *>(rettype->hidden_copy(this)) : nullptr;
+	rettype ? static_cast<StmtType *>(rettype->hiddenCopy(this)) : nullptr;
 
-	Stmt *res =
-	new StmtFnSig(src_id, line, col, templates, newparams, newrettype, has_variadic);
-	res->is_intrin = is_intrin;
-	res->parent    = par;
+	Stmt *res   = new StmtFnSig(mod, line, col, templates, newparams, newrettype, has_variadic);
+	res->parent = par;
 	return res;
 }
 
@@ -138,12 +130,11 @@ Stmt *StmtFnSig::hidden_copy(Stmt *par)
 //////////////////////////////////////////// StmtFnDef ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtFnDef::hidden_copy(Stmt *par)
+Stmt *StmtFnDef::hiddenCopy(Stmt *par)
 {
-	StmtFnSig *newsig = static_cast<StmtFnSig *>(sig->hidden_copy(this));
-	StmtBlock *newblk = blk ? static_cast<StmtBlock *>(blk->hidden_copy(this)) : nullptr;
-	Stmt *res	  = new StmtFnDef(src_id, line, col, newsig, newblk);
-	res->is_intrin	  = is_intrin;
+	StmtFnSig *newsig = static_cast<StmtFnSig *>(sig->hiddenCopy(this));
+	StmtBlock *newblk = blk ? static_cast<StmtBlock *>(blk->hiddenCopy(this)) : nullptr;
+	Stmt *res	  = new StmtFnDef(mod, line, col, newsig, newblk);
 	res->parent	  = par;
 	return res;
 }
@@ -152,11 +143,10 @@ Stmt *StmtFnDef::hidden_copy(Stmt *par)
 //////////////////////////////////////// StmtHeader ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtHeader::hidden_copy(Stmt *par)
+Stmt *StmtHeader::hiddenCopy(Stmt *par)
 {
-	Stmt *res      = new StmtHeader(src_id, line, col, names, flags);
-	res->is_intrin = is_intrin;
-	res->parent    = par;
+	Stmt *res   = new StmtHeader(mod, line, col, names, flags);
+	res->parent = par;
 	return res;
 }
 
@@ -164,11 +154,10 @@ Stmt *StmtHeader::hidden_copy(Stmt *par)
 //////////////////////////////////////////// StmtLib //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtLib::hidden_copy(Stmt *par)
+Stmt *StmtLib::hiddenCopy(Stmt *par)
 {
-	Stmt *res      = new StmtLib(src_id, line, col, flags);
-	res->is_intrin = is_intrin;
-	res->parent    = par;
+	Stmt *res   = new StmtLib(mod, line, col, flags);
+	res->parent = par;
 	return res;
 }
 
@@ -176,14 +165,13 @@ Stmt *StmtLib::hidden_copy(Stmt *par)
 //////////////////////////////////////// StmtExtern ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtExtern::hidden_copy(Stmt *par)
+Stmt *StmtExtern::hiddenCopy(Stmt *par)
 {
 	StmtHeader *newheaders =
-	headers ? static_cast<StmtHeader *>(headers->hidden_copy(this)) : nullptr;
-	StmtLib *newlibs  = libs ? static_cast<StmtLib *>(libs->hidden_copy(this)) : nullptr;
-	StmtFnSig *newsig = static_cast<StmtFnSig *>(sig->hidden_copy(this));
-	Stmt *res	  = new StmtExtern(src_id, line, col, fname, newheaders, newlibs, newsig);
-	res->is_intrin	  = is_intrin;
+	headers ? static_cast<StmtHeader *>(headers->hiddenCopy(this)) : nullptr;
+	StmtLib *newlibs  = libs ? static_cast<StmtLib *>(libs->hiddenCopy(this)) : nullptr;
+	StmtFnSig *newsig = static_cast<StmtFnSig *>(sig->hiddenCopy(this));
+	Stmt *res	  = new StmtExtern(mod, line, col, fname, newheaders, newlibs, newsig);
 	res->parent	  = par;
 	return res;
 }
@@ -192,11 +180,10 @@ Stmt *StmtExtern::hidden_copy(Stmt *par)
 //////////////////////////////////////// StmtEnum ///////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtEnum::hidden_copy(Stmt *par)
+Stmt *StmtEnum::hiddenCopy(Stmt *par)
 {
-	Stmt *res      = new StmtEnum(src_id, line, col, items);
-	res->is_intrin = is_intrin;
-	res->parent    = par;
+	Stmt *res   = new StmtEnum(mod, line, col, items);
+	res->parent = par;
 	return res;
 }
 
@@ -204,15 +191,14 @@ Stmt *StmtEnum::hidden_copy(Stmt *par)
 /////////////////////////////////////// StmtStruct //////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtStruct::hidden_copy(Stmt *par)
+Stmt *StmtStruct::hiddenCopy(Stmt *par)
 {
 	std::vector<StmtVar *> newfields;
 	for(auto &f : fields) {
-		newfields.push_back(static_cast<StmtVar *>(f->hidden_copy(this)));
+		newfields.push_back(static_cast<StmtVar *>(f->hiddenCopy(this)));
 	}
-	Stmt *res      = new StmtStruct(src_id, line, col, decl, templates, newfields);
-	res->is_intrin = is_intrin;
-	res->parent    = par;
+	Stmt *res   = new StmtStruct(mod, line, col, decl, templates, newfields);
+	res->parent = par;
 	return res;
 }
 
@@ -220,15 +206,14 @@ Stmt *StmtStruct::hidden_copy(Stmt *par)
 /////////////////////////////////////// StmtVarDecl ///////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtVarDecl::hidden_copy(Stmt *par)
+Stmt *StmtVarDecl::hiddenCopy(Stmt *par)
 {
 	std::vector<StmtVar *> newdecls;
 	for(auto &d : decls) {
-		newdecls.push_back(static_cast<StmtVar *>(d->hidden_copy(this)));
+		newdecls.push_back(static_cast<StmtVar *>(d->hiddenCopy(this)));
 	}
-	Stmt *res      = new StmtVarDecl(src_id, line, col, newdecls);
-	res->is_intrin = is_intrin;
-	res->parent    = par;
+	Stmt *res   = new StmtVarDecl(mod, line, col, newdecls);
+	res->parent = par;
 	return res;
 }
 
@@ -236,17 +221,16 @@ Stmt *StmtVarDecl::hidden_copy(Stmt *par)
 //////////////////////////////////////////// StmtCond /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtCond::hidden_copy(Stmt *par)
+Stmt *StmtCond::hiddenCopy(Stmt *par)
 {
 	std::vector<cond_t> newconds;
 	for(auto &c : conds) {
-		cond_t nc{c.cond ? c.cond->hidden_copy(this) : nullptr,
-			  static_cast<StmtBlock *>(c.blk->hidden_copy(this))};
+		cond_t nc{c.cond ? c.cond->hiddenCopy(this) : nullptr,
+			  static_cast<StmtBlock *>(c.blk->hiddenCopy(this))};
 		newconds.push_back(nc);
 	}
-	Stmt *res      = new StmtCond(src_id, line, col, newconds, comptime);
-	res->is_intrin = is_intrin;
-	res->parent    = par;
+	Stmt *res   = new StmtCond(mod, line, col, newconds, comptime);
+	res->parent = par;
 	return res;
 }
 
@@ -254,12 +238,11 @@ Stmt *StmtCond::hidden_copy(Stmt *par)
 //////////////////////////////////////// StmtForIn ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtForIn::hidden_copy(Stmt *par)
+Stmt *StmtForIn::hiddenCopy(Stmt *par)
 {
-	Stmt *newin	  = in->hidden_copy(this);
-	StmtBlock *newblk = static_cast<StmtBlock *>(blk->hidden_copy(this));
-	Stmt *res	  = new StmtForIn(src_id, line, col, iter, newin, newblk, comptime);
-	res->is_intrin	  = is_intrin;
+	Stmt *newin	  = in->hiddenCopy(this);
+	StmtBlock *newblk = static_cast<StmtBlock *>(blk->hiddenCopy(this));
+	Stmt *res	  = new StmtForIn(mod, line, col, iter, newin, newblk, comptime);
 	res->parent	  = par;
 	return res;
 }
@@ -268,14 +251,13 @@ Stmt *StmtForIn::hidden_copy(Stmt *par)
 //////////////////////////////////////////// StmtFor //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtFor::hidden_copy(Stmt *par)
+Stmt *StmtFor::hiddenCopy(Stmt *par)
 {
-	Stmt *newinit	  = init ? init->hidden_copy(this) : nullptr;
-	Stmt *newcond	  = cond ? cond->hidden_copy(this) : nullptr;
-	Stmt *newincr	  = incr ? incr->hidden_copy(this) : nullptr;
-	StmtBlock *newblk = static_cast<StmtBlock *>(blk->hidden_copy(this));
-	Stmt *res	  = new StmtFor(src_id, line, col, newinit, newcond, newincr, newblk);
-	res->is_intrin	  = is_intrin;
+	Stmt *newinit	  = init ? init->hiddenCopy(this) : nullptr;
+	Stmt *newcond	  = cond ? cond->hiddenCopy(this) : nullptr;
+	Stmt *newincr	  = incr ? incr->hiddenCopy(this) : nullptr;
+	StmtBlock *newblk = static_cast<StmtBlock *>(blk->hiddenCopy(this));
+	Stmt *res	  = new StmtFor(mod, line, col, newinit, newcond, newincr, newblk);
 	res->parent	  = par;
 	return res;
 }
@@ -284,12 +266,11 @@ Stmt *StmtFor::hidden_copy(Stmt *par)
 //////////////////////////////////////////// StmtWhile ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtWhile::hidden_copy(Stmt *par)
+Stmt *StmtWhile::hiddenCopy(Stmt *par)
 {
-	Stmt *newcond	  = cond ? cond->hidden_copy(this) : nullptr;
-	StmtBlock *newblk = static_cast<StmtBlock *>(blk->hidden_copy(this));
-	Stmt *res	  = new StmtWhile(src_id, line, col, newcond, newblk);
-	res->is_intrin	  = is_intrin;
+	Stmt *newcond	  = cond ? cond->hiddenCopy(this) : nullptr;
+	StmtBlock *newblk = static_cast<StmtBlock *>(blk->hiddenCopy(this));
+	Stmt *res	  = new StmtWhile(mod, line, col, newcond, newblk);
 	res->parent	  = par;
 	return res;
 }
@@ -298,12 +279,11 @@ Stmt *StmtWhile::hidden_copy(Stmt *par)
 //////////////////////////////////////////// StmtRet //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtRet::hidden_copy(Stmt *par)
+Stmt *StmtRet::hiddenCopy(Stmt *par)
 {
-	Stmt *newval   = val ? val->hidden_copy(this) : nullptr;
-	Stmt *res      = new StmtRet(src_id, line, col, newval);
-	res->is_intrin = is_intrin;
-	res->parent    = par;
+	Stmt *newval = val ? val->hiddenCopy(this) : nullptr;
+	Stmt *res    = new StmtRet(mod, line, col, newval);
+	res->parent  = par;
 	return res;
 }
 
@@ -312,11 +292,10 @@ Stmt *StmtRet::hidden_copy(Stmt *par)
 ////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtContinue::hidden_copy(Stmt *par)
+Stmt *StmtContinue::hiddenCopy(Stmt *par)
 {
-	Stmt *res      = new StmtContinue(src_id, line, col);
-	res->is_intrin = is_intrin;
-	res->parent    = par;
+	Stmt *res   = new StmtContinue(mod, line, col);
+	res->parent = par;
 	return res;
 }
 
@@ -324,11 +303,10 @@ Stmt *StmtContinue::hidden_copy(Stmt *par)
 //////////////////////////////////////////// StmtBreak ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtBreak::hidden_copy(Stmt *par)
+Stmt *StmtBreak::hiddenCopy(Stmt *par)
 {
-	Stmt *res      = new StmtBreak(src_id, line, col);
-	res->is_intrin = is_intrin;
-	res->parent    = par;
+	Stmt *res   = new StmtBreak(mod, line, col);
+	res->parent = par;
 	return res;
 }
 } // namespace parser

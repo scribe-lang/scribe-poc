@@ -57,7 +57,7 @@ bool read(const std::string &file, std::string &data)
 	return true;
 }
 
-std::string abs_path(const std::string &loc)
+std::string absPath(const std::string &loc)
 {
 	static char abs[MAX_PATH_CHARS];
 	static char abs_tmp[MAX_PATH_CHARS];
@@ -79,7 +79,7 @@ bool scwd(const std::string &path)
 	return chdir(path.c_str()) != 0;
 }
 
-std::string parentdir(const std::string &path)
+std::string parentDir(const std::string &path)
 {
 	return path.substr(0, path.find_last_of("/\\"));
 }

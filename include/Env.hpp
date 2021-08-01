@@ -22,7 +22,7 @@ namespace env
 {
 std::string get(const std::string &key);
 
-std::string get_proc_path();
+std::string getProcPath();
 } // namespace env
 } // namespace sc
 

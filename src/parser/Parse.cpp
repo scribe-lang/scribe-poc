@@ -40,7 +40,7 @@ bool parse_block(ParseHelper &p, StmtBlock *&tree, const bool &with_brace)
 		}
 	}
 
-	while(p.valid() && (!with_brace || !p.accept(lex::RBRACE))) {
+	while(p.isValid() && (!with_brace || !p.accept(lex::RBRACE))) {
 		bool skip_cols = false;
 		// logic
 		if(p.accept(lex::LET)) {
@@ -100,7 +100,7 @@ bool parse_block(ParseHelper &p, StmtBlock *&tree, const bool &with_brace)
 		}
 	}
 
-	tree = new StmtBlock(p.get_src(), start.line, start.col_beg, stmts);
+	tree = new StmtBlock(p.getModule(), start.line, start.col_beg, stmts);
 	return true;
 fail:
 	for(auto &stmt : stmts) delete stmt;
@@ -125,7 +125,7 @@ bool parse_type(ParseHelper &p, StmtType *&type)
 
 	if(p.accept(lex::COMPTIME, lex::FN)) {
 		if(!parse_fnsig(p, fn)) goto fail;
-		type = new StmtType(p.get_src(), start.line, start.col_beg, fn);
+		type = new StmtType(p.getModule(), start.line, start.col_beg, fn);
 		return true;
 	}
 
@@ -180,7 +180,7 @@ bool parse_type(ParseHelper &p, StmtType *&type)
 		return false;
 	}
 after_templates:
-	type = new StmtType(p.get_src(), start.line, start.col_beg, ptr, info, name, templates);
+	type = new StmtType(p.getModule(), start.line, start.col_beg, ptr, info, name, templates);
 	return true;
 fail:
 	if(count) delete count;
@@ -192,7 +192,7 @@ bool parse_simple(ParseHelper &p, Stmt *&data)
 {
 	data = nullptr;
 
-	if(!p.peak().tok.is_data()) {
+	if(!p.peak().tok.isData()) {
 		err::set(p.peak(), "expected data here, found: %s", p.peak().tok.str().c_str());
 		return false;
 	}
@@ -200,7 +200,7 @@ bool parse_simple(ParseHelper &p, Stmt *&data)
 	lex::Lexeme &val = p.peak();
 	p.next();
 
-	data = new StmtSimple(p.get_src(), val.line, val.col_beg, val);
+	data = new StmtSimple(p.getModule(), val.line, val.col_beg, val);
 	return true;
 }
 
@@ -235,7 +235,7 @@ bool parse_expr_17(ParseHelper &p, Stmt *&expr)
 		if(!parse_expr_16(p, lhs)) {
 			goto fail;
 		}
-		rhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		rhs = new StmtExpr(p.getModule(), start.line, start.col_beg, lhs, oper, rhs);
 		lhs = nullptr;
 	}
 
@@ -290,12 +290,12 @@ bool parse_expr_16(ParseHelper &p, Stmt *&expr)
 	if(!parse_expr_15(p, lhs_rhs)) {
 		goto fail;
 	}
-	rhs = new StmtExpr(p.get_src(), oper_inside.line, oper_inside.col_beg, lhs_lhs, oper_inside,
-			   lhs_rhs);
+	rhs = new StmtExpr(p.getModule(), oper_inside.line, oper_inside.col_beg, lhs_lhs,
+			   oper_inside, lhs_rhs);
 	goto after_quest;
 
 after_quest:
-	expr = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+	expr = new StmtExpr(p.getModule(), start.line, start.col_beg, lhs, oper, rhs);
 	return true;
 fail:
 	if(lhs_rhs) delete lhs_rhs;
@@ -327,7 +327,7 @@ bool parse_expr_15(ParseHelper &p, Stmt *&expr)
 		if(!parse_expr_14(p, lhs)) {
 			goto fail;
 		}
-		rhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		rhs = new StmtExpr(p.getModule(), start.line, start.col_beg, lhs, oper, rhs);
 		lhs = nullptr;
 	}
 
@@ -370,7 +370,7 @@ bool parse_expr_14(ParseHelper &p, Stmt *&expr)
 		if(!parse_expr_13(p, rhs)) {
 			goto fail;
 		}
-		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.getModule(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -387,7 +387,7 @@ bool parse_expr_14(ParseHelper &p, Stmt *&expr)
 		goto fail;
 	}
 	if(expr->type != EXPR) {
-		expr = new StmtExpr(p.get_src(), expr->line, expr->col, expr, {}, nullptr);
+		expr = new StmtExpr(p.getModule(), expr->line, expr->col, expr, {}, nullptr);
 	}
 	as<StmtExpr>(expr)->or_blk     = or_blk;
 	as<StmtExpr>(expr)->or_blk_var = or_blk_var;
@@ -421,7 +421,7 @@ bool parse_expr_13(ParseHelper &p, Stmt *&expr)
 		if(!parse_expr_12(p, rhs)) {
 			goto fail;
 		}
-		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.getModule(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -455,7 +455,7 @@ bool parse_expr_12(ParseHelper &p, Stmt *&expr)
 		if(!parse_expr_11(p, rhs)) {
 			goto fail;
 		}
-		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.getModule(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -489,7 +489,7 @@ bool parse_expr_11(ParseHelper &p, Stmt *&expr)
 		if(!parse_expr_10(p, rhs)) {
 			goto fail;
 		}
-		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.getModule(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -523,7 +523,7 @@ bool parse_expr_10(ParseHelper &p, Stmt *&expr)
 		if(!parse_expr_09(p, rhs)) {
 			goto fail;
 		}
-		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.getModule(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -557,7 +557,7 @@ bool parse_expr_09(ParseHelper &p, Stmt *&expr)
 		if(!parse_expr_08(p, rhs)) {
 			goto fail;
 		}
-		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.getModule(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -591,7 +591,7 @@ bool parse_expr_08(ParseHelper &p, Stmt *&expr)
 		if(!parse_expr_07(p, rhs)) {
 			goto fail;
 		}
-		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.getModule(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -626,7 +626,7 @@ bool parse_expr_07(ParseHelper &p, Stmt *&expr)
 		if(!parse_expr_06(p, rhs)) {
 			goto fail;
 		}
-		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.getModule(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -660,7 +660,7 @@ bool parse_expr_06(ParseHelper &p, Stmt *&expr)
 		if(!parse_expr_05(p, rhs)) {
 			goto fail;
 		}
-		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.getModule(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -694,7 +694,7 @@ bool parse_expr_05(ParseHelper &p, Stmt *&expr)
 		if(!parse_expr_04(p, rhs)) {
 			goto fail;
 		}
-		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.getModule(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -728,7 +728,7 @@ bool parse_expr_04(ParseHelper &p, Stmt *&expr)
 		if(!parse_expr_03(p, rhs)) {
 			goto fail;
 		}
-		lhs = new StmtExpr(p.get_src(), start.line, start.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.getModule(), start.line, start.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 	}
 
@@ -772,7 +772,7 @@ bool parse_expr_03(ParseHelper &p, Stmt *&expr)
 	}
 
 	for(auto &op : opers) {
-		lhs = new StmtExpr(p.get_src(), op.line, op.col_beg, lhs, op, nullptr);
+		lhs = new StmtExpr(p.getModule(), op.line, op.col_beg, lhs, op, nullptr);
 	}
 
 	expr = lhs;
@@ -800,8 +800,8 @@ bool parse_expr_02(ParseHelper &p, Stmt *&expr)
 
 	if(p.accept(lex::XINC, lex::XDEC, lex::PreVA)) {
 		if(p.peakt() == lex::PreVA) p.sett(lex::PostVA);
-		lhs =
-		new StmtExpr(p.get_src(), p.peak().line, p.peak().col_beg, lhs, p.peak(), nullptr);
+		lhs = new StmtExpr(p.getModule(), p.peak().line, p.peak().col_beg, lhs, p.peak(),
+				   nullptr);
 		p.next();
 	}
 
@@ -818,9 +818,8 @@ bool parse_expr_01(ParseHelper &p, Stmt *&expr)
 	lex::Lexeme &start = p.peak();
 	lex::Lexeme dot;
 
-	Stmt *lhs      = nullptr;
-	Stmt *rhs      = nullptr;
-	bool is_intrin = false;
+	Stmt *lhs = nullptr;
+	Stmt *rhs = nullptr;
 	std::vector<StmtType *> templates;
 	StmtType *templ = nullptr;
 	std::vector<Stmt *> args;
@@ -840,15 +839,13 @@ bool parse_expr_01(ParseHelper &p, Stmt *&expr)
 	}
 
 begin:
-	if(p.acceptn(lex::AT)) is_intrin = true;
-
 	if(p.acceptd() && !parse_simple(p, lhs)) goto fail;
 	goto begin_brack;
 
 after_dot:
 	if(!p.acceptd() || !parse_simple(p, rhs)) goto fail;
 	if(lhs && rhs) {
-		lhs = new StmtExpr(p.get_src(), dot.line, dot.col_beg, lhs, dot, rhs);
+		lhs = new StmtExpr(p.getModule(), dot.line, dot.col_beg, lhs, dot, rhs);
 		rhs = nullptr;
 	}
 
@@ -858,11 +855,6 @@ begin_brack:
 		p.sett(lex::SUBS);
 		oper = p.peak();
 		p.next();
-		if(is_intrin) {
-			err::set(p.peak(), "only function calls can be intrinsic;"
-					   " attempted subscript here");
-			goto fail;
-		}
 		if(!parse_expr_16(p, rhs)) {
 			err::set(oper, "failed to parse expression for subscript");
 			goto fail;
@@ -874,7 +866,7 @@ begin_brack:
 				 p.peak().tok.str().c_str());
 			goto fail;
 		}
-		lhs = new StmtExpr(p.get_src(), oper.line, oper.col_beg, lhs, oper, rhs);
+		lhs = new StmtExpr(p.getModule(), oper.line, oper.col_beg, lhs, oper, rhs);
 		rhs = nullptr;
 		if(p.accept(lex::LBRACK, lex::LPAREN) ||
 		   (p.peakt() == lex::DOT && p.peakt(1) == lex::LT))
@@ -914,12 +906,11 @@ begin_brack:
 			goto fail;
 		}
 	post_args:
-		rhs  = new StmtFnCallInfo(p.get_src(), oper.line, oper.col_beg, templates, args);
-		lhs  = new StmtExpr(p.get_src(), oper.line, oper.col_beg, lhs, oper, rhs);
+		rhs  = new StmtFnCallInfo(p.getModule(), oper.line, oper.col_beg, templates, args);
+		lhs  = new StmtExpr(p.getModule(), oper.line, oper.col_beg, lhs, oper, rhs);
 		rhs  = nullptr;
 		args = {};
-		templates      = {};
-		lhs->is_intrin = is_intrin;
+		templates = {};
 
 		if(p.accept(lex::LBRACK, lex::LPAREN)) goto begin_brack;
 	}
@@ -927,7 +918,7 @@ begin_brack:
 dot:
 	if(p.acceptn(lex::DOT, lex::ARROW)) {
 		if(lhs && rhs) {
-			lhs = new StmtExpr(p.get_src(), p.peak(-1).line, p.peak(-1).col_beg, lhs,
+			lhs = new StmtExpr(p.getModule(), p.peak(-1).line, p.peak(-1).col_beg, lhs,
 					   p.peak(-1), rhs);
 			rhs = nullptr;
 		}
@@ -937,7 +928,7 @@ dot:
 
 done:
 	if(lhs && rhs) {
-		lhs = new StmtExpr(p.get_src(), dot.line, dot.col_beg, lhs, dot, rhs);
+		lhs = new StmtExpr(p.getModule(), dot.line, dot.col_beg, lhs, dot, rhs);
 		rhs = nullptr;
 	}
 	expr = lhs;
@@ -1026,7 +1017,7 @@ val:
 
 done:
 	if(!type && !val) {
-		err::set(name, "invalid variable declaration - no type or value set");
+		err::set(name, "inisValid variable declaration - no type or value set");
 		goto fail;
 	}
 	if(comptime && !val && oval != Occurs::NO) {
@@ -1046,7 +1037,7 @@ done:
 		in->info |= TypeInfoMask::REF;
 		lex::Lexeme selfeme = lex::Lexeme(in->line, in->col, in->col, lex::IDEN, "self");
 		StmtVar *self =
-		new StmtVar(p.get_src(), in->line, in->col, selfeme, in, nullptr, false);
+		new StmtVar(p.getModule(), in->line, in->col, selfeme, in, nullptr, false);
 		StmtFnSig *valsig = as<StmtFnDef>(val)->sig;
 		for(auto &t : in->templates) {
 			valsig->templates.push_back(t);
@@ -1055,7 +1046,7 @@ done:
 		std::vector<StmtVar *> &args = valsig->args;
 		args.insert(args.begin(), self);
 	}
-	var = new StmtVar(p.get_src(), name.line, name.col_beg, name, type, val, comptime);
+	var = new StmtVar(p.getModule(), name.line, name.col_beg, name, type, val, comptime);
 	return true;
 fail:
 	if(in) delete in;
@@ -1161,12 +1152,12 @@ post_args:
 	if(!rettype) {
 		size_t line = p.peak(-1).line;
 		size_t col  = p.peak(-1).col_beg;
-		rettype	    = new StmtType(p.get_src(), line, col, 0, 0,
+		rettype	    = new StmtType(p.getModule(), line, col, 0, 0,
 					   {lex::Lexeme(line, col, col, lex::VOID, "void")}, {});
 	}
 
 	fsig =
-	new StmtFnSig(p.get_src(), start.line, start.col_beg, templates, args, rettype, found_va);
+	new StmtFnSig(p.getModule(), start.line, start.col_beg, templates, args, rettype, found_va);
 	return true;
 fail:
 	if(var) delete var;
@@ -1185,7 +1176,7 @@ bool parse_fndef(ParseHelper &p, Stmt *&fndef)
 	if(!parse_fnsig(p, sig)) goto fail;
 	if(!parse_block(p, blk)) goto fail;
 
-	fndef = new StmtFnDef(p.get_src(), start.line, start.col_beg, (StmtFnSig *)sig, blk);
+	fndef = new StmtFnDef(p.getModule(), start.line, start.col_beg, (StmtFnSig *)sig, blk);
 	return true;
 fail:
 	if(sig) delete sig;
@@ -1219,7 +1210,7 @@ bool parse_header(ParseHelper &p, StmtHeader *&header)
 	p.next();
 
 done:
-	header = new StmtHeader(p.get_src(), names.line, names.col_beg, names, flags);
+	header = new StmtHeader(p.getModule(), names.line, names.col_beg, names, flags);
 	return true;
 }
 bool parse_lib(ParseHelper &p, StmtLib *&lib)
@@ -1236,7 +1227,7 @@ bool parse_lib(ParseHelper &p, StmtLib *&lib)
 	flags = p.peak();
 	p.next();
 
-	lib = new StmtLib(p.get_src(), flags.line, flags.col_beg, flags);
+	lib = new StmtLib(p.getModule(), flags.line, flags.col_beg, flags);
 	return true;
 }
 bool parse_extern(ParseHelper &p, Stmt *&ext)
@@ -1283,8 +1274,8 @@ endinfo:
 
 sig:
 	if(!parse_fnsig(p, sig)) goto fail;
-	ext =
-	new StmtExtern(p.get_src(), name.line, name.col_beg, name, headers, libs, (StmtFnSig *)sig);
+	ext = new StmtExtern(p.getModule(), name.line, name.col_beg, name, headers, libs,
+			     (StmtFnSig *)sig);
 	return true;
 fail:
 	if(headers) delete headers;
@@ -1323,7 +1314,7 @@ bool parse_enum(ParseHelper &p, Stmt *&ed)
 		err::set(start, "cannot have empty enumeration");
 		return false;
 	}
-	ed = new StmtEnum(p.get_src(), start.line, start.col_beg, enumvars);
+	ed = new StmtEnum(p.getModule(), start.line, start.col_beg, enumvars);
 	return true;
 }
 
@@ -1395,7 +1386,7 @@ bool parse_struct(ParseHelper &p, Stmt *&sd)
 	}
 
 done:
-	sd = new StmtStruct(p.get_src(), start.line, start.col_beg, decl, templates, fields);
+	sd = new StmtStruct(p.getModule(), start.line, start.col_beg, decl, templates, fields);
 	return true;
 
 fail:
@@ -1428,7 +1419,7 @@ bool parse_vardecl(ParseHelper &p, Stmt *&vd)
 		if(!p.acceptn(lex::COMMA)) break;
 	}
 
-	vd = new StmtVarDecl(p.get_src(), start.line, start.col_beg, decls);
+	vd = new StmtVarDecl(p.getModule(), start.line, start.col_beg, decls);
 	return true;
 
 fail:
@@ -1473,7 +1464,7 @@ blk:
 		goto blk;
 	}
 
-	conds = new StmtCond(p.get_src(), start.line, start.col_beg, cvec, comptime);
+	conds = new StmtCond(p.getModule(), start.line, start.col_beg, cvec, comptime);
 	return true;
 
 fail:
@@ -1531,7 +1522,7 @@ bool parse_forin(ParseHelper &p, Stmt *&fin)
 		goto fail;
 	}
 
-	fin = new StmtForIn(p.get_src(), start.line, start.col_beg, iter, in, blk, comptime);
+	fin = new StmtForIn(p.getModule(), start.line, start.col_beg, iter, in, blk, comptime);
 	return true;
 fail:
 	if(in) delete in;
@@ -1593,7 +1584,7 @@ body:
 		goto fail;
 	}
 
-	f = new StmtFor(p.get_src(), start.line, start.col_beg, init, cond, incr, blk);
+	f = new StmtFor(p.getModule(), start.line, start.col_beg, init, cond, incr, blk);
 	return true;
 fail:
 	if(init) delete init;
@@ -1622,7 +1613,7 @@ bool parse_while(ParseHelper &p, Stmt *&w)
 		goto fail;
 	}
 
-	w = new StmtWhile(p.get_src(), start.line, start.col_beg, cond, blk);
+	w = new StmtWhile(p.getModule(), start.line, start.col_beg, cond, blk);
 	return true;
 fail:
 	if(cond) delete cond;
@@ -1649,7 +1640,7 @@ bool parse_ret(ParseHelper &p, Stmt *&ret)
 	}
 
 done:
-	ret = new StmtRet(p.get_src(), start.line, start.col_beg, val);
+	ret = new StmtRet(p.getModule(), start.line, start.col_beg, val);
 	return true;
 fail:
 	if(val) delete val;
@@ -1667,7 +1658,7 @@ bool parse_continue(ParseHelper &p, Stmt *&cont)
 		return false;
 	}
 
-	cont = new StmtContinue(p.get_src(), start.line, start.col_beg);
+	cont = new StmtContinue(p.getModule(), start.line, start.col_beg);
 	return true;
 }
 bool parse_break(ParseHelper &p, Stmt *&brk)
@@ -1681,7 +1672,7 @@ bool parse_break(ParseHelper &p, Stmt *&brk)
 		return false;
 	}
 
-	brk = new StmtContinue(p.get_src(), start.line, start.col_beg);
+	brk = new StmtContinue(p.getModule(), start.line, start.col_beg);
 	return true;
 }
 } // namespace parser

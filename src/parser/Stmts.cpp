@@ -23,26 +23,29 @@ namespace parser
 //////////////////////////////////////////// Stmt /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt::Stmt(const Stmts &type, const size_t &src_id, const size_t &line, const size_t &col)
-	: type(type), parent(nullptr), src_id(src_id), line(line), col(col), is_specialized(false),
-	  is_intrin(false)
+Stmt::Stmt(const Stmts &type, Module *mod, const size_t &line, const size_t &col)
+	: type(type), parent(nullptr), mod(mod), line(line), col(col)
 {}
 Stmt::~Stmt() {}
 
 Stmt *Stmt::copy()
 {
-	Stmt *cp = hidden_copy(this);
+	Stmt *cp = hiddenCopy(this);
 	if(!cp) return nullptr;
 	return cp;
 }
 
-Stmt *Stmt::get_parent_with_type(const Stmts &typ)
+Stmt *Stmt::getParentWithType(const Stmts &typ)
 {
 	Stmt *res = this->parent;
 	while(res && res->type != typ) {
 		res = res->parent;
 	}
 	return res;
+}
+Module *Stmt::getModule()
+{
+	return mod;
 }
 
 std::string Stmt::typestr()
@@ -77,9 +80,9 @@ std::string Stmt::typestr()
 //////////////////////////////////////////// StmtBlock ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtBlock::StmtBlock(const size_t &src_id, const size_t &line, const size_t &col,
+StmtBlock::StmtBlock(Module *mod, const size_t &line, const size_t &col,
 		     const std::vector<Stmt *> &stmts)
-	: Stmt(BLOCK, src_id, line, col), stmts(stmts)
+	: Stmt(BLOCK, mod, line, col), stmts(stmts)
 {}
 StmtBlock::~StmtBlock()
 {
@@ -100,14 +103,14 @@ void StmtBlock::StmtBlock::disp(const bool &has_next)
 //////////////////////////////////////////// StmtType /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtType::StmtType(const size_t &src_id, const size_t &line, const size_t &col, const size_t &ptr,
+StmtType::StmtType(Module *mod, const size_t &line, const size_t &col, const size_t &ptr,
 		   const size_t &info, const std::vector<lex::Lexeme> &name,
 		   const std::vector<lex::Lexeme> &templates)
-	: Stmt(TYPE, src_id, line, col), func(false), ptr(ptr), info(info), name(name),
+	: Stmt(TYPE, mod, line, col), func(false), ptr(ptr), info(info), name(name),
 	  templates(templates), fn(nullptr)
 {}
-StmtType::StmtType(const size_t &src_id, const size_t &line, const size_t &col, Stmt *fn)
-	: Stmt(TYPE, src_id, line, col), func(true), ptr(0), info(0), name({}), fn(fn)
+StmtType::StmtType(Module *mod, const size_t &line, const size_t &col, Stmt *fn)
+	: Stmt(TYPE, mod, line, col), func(true), ptr(0), info(0), name({}), fn(fn)
 {}
 StmtType::~StmtType()
 {
@@ -168,9 +171,8 @@ std::string StmtType::getname()
 //////////////////////////////////////// StmtSimple ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtSimple::StmtSimple(const size_t &src_id, const size_t &line, const size_t &col,
-		       const lex::Lexeme &val)
-	: Stmt(SIMPLE, src_id, line, col), val(val)
+StmtSimple::StmtSimple(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &val)
+	: Stmt(SIMPLE, mod, line, col), val(val)
 {}
 
 void StmtSimple::disp(const bool &has_next)
@@ -186,10 +188,10 @@ StmtSimple::~StmtSimple() {}
 ////////////////////////////////////// StmtFnCallInfo //////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtFnCallInfo::StmtFnCallInfo(const size_t &src_id, const size_t &line, const size_t &col,
+StmtFnCallInfo::StmtFnCallInfo(Module *mod, const size_t &line, const size_t &col,
 			       const std::vector<StmtType *> &templates,
 			       const std::vector<Stmt *> &args)
-	: Stmt(FNCALLINFO, src_id, line, col), templates(templates), args(args)
+	: Stmt(FNCALLINFO, mod, line, col), templates(templates), args(args)
 {}
 StmtFnCallInfo::~StmtFnCallInfo()
 {
@@ -225,9 +227,9 @@ void StmtFnCallInfo::disp(const bool &has_next)
 //////////////////////////////////////////// StmtExpr /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtExpr::StmtExpr(const size_t &src_id, const size_t &line, const size_t &col, Stmt *lhs,
+StmtExpr::StmtExpr(Module *mod, const size_t &line, const size_t &col, Stmt *lhs,
 		   const lex::Lexeme &oper, Stmt *rhs)
-	: Stmt(EXPR, src_id, line, col), commas(0), lhs(lhs), oper(oper), rhs(rhs), or_blk(nullptr),
+	: Stmt(EXPR, mod, line, col), commas(0), lhs(lhs), oper(oper), rhs(rhs), or_blk(nullptr),
 	  or_blk_var()
 {}
 StmtExpr::~StmtExpr()
@@ -240,14 +242,14 @@ StmtExpr::~StmtExpr()
 void StmtExpr::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Expression [intrinsic = %s]:\n", is_intrin ? "yes" : "no");
+	tio::print(has_next, "Expression:\n");
 	if(lhs) {
-		tio::taba(oper.tok.is_valid() || rhs || or_blk);
-		tio::print(oper.tok.is_valid() || rhs || or_blk, "LHS:\n");
+		tio::taba(oper.tok.isValid() || rhs || or_blk);
+		tio::print(oper.tok.isValid() || rhs || or_blk, "LHS:\n");
 		lhs->disp(false);
 		tio::tabr();
 	}
-	if(oper.tok.is_valid()) {
+	if(oper.tok.isValid()) {
 		tio::taba(rhs || or_blk);
 		tio::print(rhs || or_blk, "Oper: %s\n", oper.tok.cstr());
 		tio::tabr();
@@ -261,7 +263,7 @@ void StmtExpr::disp(const bool &has_next)
 	if(or_blk) {
 		tio::taba(false);
 		tio::print(false, "Or: %s\n",
-			   or_blk_var.tok.is_data() ? or_blk_var.data.s.c_str() : "<none>");
+			   or_blk_var.tok.isData() ? or_blk_var.data.s.c_str() : "<none>");
 		or_blk->disp(false);
 		tio::tabr();
 	}
@@ -272,9 +274,9 @@ void StmtExpr::disp(const bool &has_next)
 //////////////////////////////////////////// StmtVar //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtVar::StmtVar(const size_t &src_id, const size_t &line, const size_t &col,
-		 const lex::Lexeme &name, StmtType *vtype, Stmt *val, const bool &comptime)
-	: Stmt(VAR, src_id, line, col), name(name), vtype(vtype), val(val), comptime(comptime)
+StmtVar::StmtVar(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &name,
+		 StmtType *vtype, Stmt *val, const bool &comptime)
+	: Stmt(VAR, mod, line, col), name(name), vtype(vtype), val(val), comptime(comptime)
 {}
 StmtVar::~StmtVar()
 {
@@ -306,10 +308,10 @@ void StmtVar::disp(const bool &has_next)
 //////////////////////////////////////////// StmtFnSig ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtFnSig::StmtFnSig(const size_t &src_id, const size_t &line, const size_t &col,
+StmtFnSig::StmtFnSig(Module *mod, const size_t &line, const size_t &col,
 		     const std::vector<lex::Lexeme> &templates, std::vector<StmtVar *> &args,
 		     StmtType *rettype, const bool &has_variadic)
-	: Stmt(FNSIG, src_id, line, col), templates(templates), args(args), rettype(rettype),
+	: Stmt(FNSIG, mod, line, col), templates(templates), args(args), rettype(rettype),
 	  has_variadic(has_variadic)
 {}
 StmtFnSig::~StmtFnSig()
@@ -353,9 +355,9 @@ void StmtFnSig::disp(const bool &has_next)
 //////////////////////////////////////////// StmtFnDef ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtFnDef::StmtFnDef(const size_t &src_id, const size_t &line, const size_t &col, StmtFnSig *sig,
+StmtFnDef::StmtFnDef(Module *mod, const size_t &line, const size_t &col, StmtFnSig *sig,
 		     StmtBlock *blk)
-	: Stmt(FNDEF, src_id, line, col), sig(sig), blk(blk)
+	: Stmt(FNDEF, mod, line, col), sig(sig), blk(blk)
 {}
 StmtFnDef::~StmtFnDef()
 {
@@ -382,9 +384,9 @@ void StmtFnDef::disp(const bool &has_next)
 //////////////////////////////////////// StmtHeader ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtHeader::StmtHeader(const size_t &src_id, const size_t &line, const size_t &col,
-		       const lex::Lexeme &names, const lex::Lexeme &flags)
-	: Stmt(HEADER, src_id, line, col), names(names), flags(flags)
+StmtHeader::StmtHeader(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &names,
+		       const lex::Lexeme &flags)
+	: Stmt(HEADER, mod, line, col), names(names), flags(flags)
 {}
 
 void StmtHeader::disp(const bool &has_next)
@@ -407,9 +409,8 @@ void StmtHeader::disp(const bool &has_next)
 //////////////////////////////////////////// StmtLib //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtLib::StmtLib(const size_t &src_id, const size_t &line, const size_t &col,
-		 const lex::Lexeme &flags)
-	: Stmt(LIB, src_id, line, col), flags(flags)
+StmtLib::StmtLib(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &flags)
+	: Stmt(LIB, mod, line, col), flags(flags)
 {}
 
 void StmtLib::disp(const bool &has_next)
@@ -425,9 +426,9 @@ void StmtLib::disp(const bool &has_next)
 //////////////////////////////////////// StmtExtern ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtExtern::StmtExtern(const size_t &src_id, const size_t &line, const size_t &col,
-		       const lex::Lexeme &fname, StmtHeader *headers, StmtLib *libs, StmtFnSig *sig)
-	: Stmt(EXTERN, src_id, line, col), fname(fname), headers(headers), libs(libs), sig(sig)
+StmtExtern::StmtExtern(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &fname,
+		       StmtHeader *headers, StmtLib *libs, StmtFnSig *sig)
+	: Stmt(EXTERN, mod, line, col), fname(fname), headers(headers), libs(libs), sig(sig)
 {}
 StmtExtern::~StmtExtern()
 {
@@ -466,9 +467,9 @@ void StmtExtern::disp(const bool &has_next)
 //////////////////////////////////////// StmtEnum ///////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtEnum::StmtEnum(const size_t &src_id, const size_t &line, const size_t &col,
+StmtEnum::StmtEnum(Module *mod, const size_t &line, const size_t &col,
 		   const std::vector<lex::Lexeme> &items)
-	: Stmt(ENUMDEF, src_id, line, col), items(items)
+	: Stmt(ENUMDEF, mod, line, col), items(items)
 {}
 StmtEnum::~StmtEnum() {}
 
@@ -488,10 +489,10 @@ void StmtEnum::disp(const bool &has_next)
 /////////////////////////////////////// StmtStruct //////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtStruct::StmtStruct(const size_t &src_id, const size_t &line, const size_t &col,
-		       const bool &decl, const std::vector<lex::Lexeme> &templates,
+StmtStruct::StmtStruct(Module *mod, const size_t &line, const size_t &col, const bool &decl,
+		       const std::vector<lex::Lexeme> &templates,
 		       const std::vector<StmtVar *> &fields)
-	: Stmt(STRUCTDEF, src_id, line, col), decl(decl), templates(templates), fields(fields)
+	: Stmt(STRUCTDEF, mod, line, col), decl(decl), templates(templates), fields(fields)
 {}
 StmtStruct::~StmtStruct()
 {
@@ -530,9 +531,9 @@ void StmtStruct::disp(const bool &has_next)
 /////////////////////////////////////// StmtVarDecl ///////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtVarDecl::StmtVarDecl(const size_t &src_id, const size_t &line, const size_t &col,
+StmtVarDecl::StmtVarDecl(Module *mod, const size_t &line, const size_t &col,
 			 const std::vector<StmtVar *> &decls)
-	: Stmt(VARDECL, src_id, line, col), decls(decls)
+	: Stmt(VARDECL, mod, line, col), decls(decls)
 {}
 StmtVarDecl::~StmtVarDecl()
 {
@@ -553,9 +554,9 @@ void StmtVarDecl::disp(const bool &has_next)
 //////////////////////////////////////////// StmtCond /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtCond::StmtCond(const size_t &src_id, const size_t &line, const size_t &col,
+StmtCond::StmtCond(Module *mod, const size_t &line, const size_t &col,
 		   const std::vector<cond_t> &conds, const bool &comptime)
-	: Stmt(COND, src_id, line, col), conds(conds), comptime(comptime)
+	: Stmt(COND, mod, line, col), conds(conds), comptime(comptime)
 {}
 StmtCond::~StmtCond()
 {
@@ -587,12 +588,12 @@ void StmtCond::disp(const bool &has_next)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////// StmtForIn ////////////////////////////////////////////
+////////////////////////////////////////// StmtForIn //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtForIn::StmtForIn(const size_t &src_id, const size_t &line, const size_t &col,
-		     const lex::Lexeme &iter, Stmt *in, StmtBlock *blk, const bool &comptime)
-	: Stmt(FORIN, src_id, line, col), iter(iter), in(in), blk(blk), comptime(comptime)
+StmtForIn::StmtForIn(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &iter,
+		     Stmt *in, StmtBlock *blk, const bool &comptime)
+	: Stmt(FORIN, mod, line, col), iter(iter), in(in), blk(blk), comptime(comptime)
 {}
 StmtForIn::~StmtForIn()
 {
@@ -619,9 +620,9 @@ void StmtForIn::disp(const bool &has_next)
 //////////////////////////////////////////// StmtFor //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtFor::StmtFor(const size_t &src_id, const size_t &line, const size_t &col, Stmt *init,
-		 Stmt *cond, Stmt *incr, StmtBlock *blk)
-	: Stmt(FOR, src_id, line, col), init(init), cond(cond), incr(incr), blk(blk)
+StmtFor::StmtFor(Module *mod, const size_t &line, const size_t &col, Stmt *init, Stmt *cond,
+		 Stmt *incr, StmtBlock *blk)
+	: Stmt(FOR, mod, line, col), init(init), cond(cond), incr(incr), blk(blk)
 {}
 StmtFor::~StmtFor()
 {
@@ -666,9 +667,8 @@ void StmtFor::disp(const bool &has_next)
 //////////////////////////////////////////// StmtWhile ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtWhile::StmtWhile(const size_t &src_id, const size_t &line, const size_t &col, Stmt *cond,
-		     StmtBlock *blk)
-	: Stmt(WHILE, src_id, line, col), cond(cond), blk(blk)
+StmtWhile::StmtWhile(Module *mod, const size_t &line, const size_t &col, Stmt *cond, StmtBlock *blk)
+	: Stmt(WHILE, mod, line, col), cond(cond), blk(blk)
 {}
 StmtWhile::~StmtWhile()
 {
@@ -694,8 +694,8 @@ void StmtWhile::disp(const bool &has_next)
 //////////////////////////////////////////// StmtRet //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtRet::StmtRet(const size_t &src_id, const size_t &line, const size_t &col, Stmt *val)
-	: Stmt(RET, src_id, line, col), val(val)
+StmtRet::StmtRet(Module *mod, const size_t &line, const size_t &col, Stmt *val)
+	: Stmt(RET, mod, line, col), val(val)
 {}
 StmtRet::~StmtRet()
 {
@@ -720,8 +720,8 @@ void StmtRet::disp(const bool &has_next)
 ////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtContinue::StmtContinue(const size_t &src_id, const size_t &line, const size_t &col)
-	: Stmt(CONTINUE, src_id, line, col)
+StmtContinue::StmtContinue(Module *mod, const size_t &line, const size_t &col)
+	: Stmt(CONTINUE, mod, line, col)
 {}
 
 void StmtContinue::disp(const bool &has_next)
@@ -735,8 +735,8 @@ void StmtContinue::disp(const bool &has_next)
 //////////////////////////////////////////// StmtBreak ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-StmtBreak::StmtBreak(const size_t &src_id, const size_t &line, const size_t &col)
-	: Stmt(BREAK, src_id, line, col)
+StmtBreak::StmtBreak(Module *mod, const size_t &line, const size_t &col)
+	: Stmt(BREAK, mod, line, col)
 {}
 
 void StmtBreak::disp(const bool &has_next)

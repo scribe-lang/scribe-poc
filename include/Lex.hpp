@@ -171,7 +171,7 @@ struct Tok
 	 *
 	 * \return true If the type is one of variable data tokens, false if it isn't
 	 */
-	inline bool is_data()
+	inline bool isData()
 	{
 		return val == INT || val == FLT || val == CHAR || val == STR || val == IDEN ||
 		       val == VOID || val == TRUE || val == FALSE || val == NIL;
@@ -182,7 +182,7 @@ struct Tok
 	 *
 	 * \return true If the type is one of possible operators, false if it isn't
 	 */
-	inline bool is_oper()
+	inline bool isOper()
 	{
 		return val >= ASSN && val <= RBRACK;
 	}
@@ -192,7 +192,7 @@ struct Tok
 	 *
 	 * \return true If the type is one of possible assignment operators, false if it isn't
 	 */
-	inline bool is_assign()
+	inline bool isAssign()
 	{
 		return (val == ASSN || val == ADD_ASSN || val == SUB_ASSN || val == MUL_ASSN ||
 			val == DIV_ASSN || val == MOD_ASSN || val == BAND_ASSN || val == BOR_ASSN ||
@@ -205,7 +205,7 @@ struct Tok
 	 *
 	 * \return true If valid, false if not
 	 */
-	inline bool is_valid()
+	inline bool isValid()
 	{
 		return val != INVALID && val != FEOF;
 	}

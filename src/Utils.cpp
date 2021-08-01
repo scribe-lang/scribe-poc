@@ -11,32 +11,7 @@
 	furnished to do so.
 */
 
-#ifndef FS_HPP
-#define FS_HPP
-
-#include <string>
-#include <vector>
-
-#define MAX_PATH_CHARS 4096
+#include "Utils.hpp"
 
 namespace sc
-{
-namespace fs
-{
-bool exists(const std::string &loc);
-
-bool read(const std::string &file, std::string &data);
-
-std::string absPath(const std::string &loc);
-
-std::string cwd();
-
-bool scwd(const std::string &path);
-
-std::string parentDir(const std::string &path);
-
-std::string home();
-} // namespace fs
-} // namespace sc
-
-#endif // FS_HPP
+{} // namespace sc

@@ -11,32 +11,31 @@
 	furnished to do so.
 */
 
-#ifndef FS_HPP
-#define FS_HPP
-
-#include <string>
-#include <vector>
-
-#define MAX_PATH_CHARS 4096
+#ifndef UTILS_HPP
+#define UTILS_HPP
 
 namespace sc
 {
-namespace fs
+// RAII class to manage a pointer
+template<typename T> class Pointer
 {
-bool exists(const std::string &loc);
+	T *data;
 
-bool read(const std::string &file, std::string &data);
-
-std::string absPath(const std::string &loc);
-
-std::string cwd();
-
-bool scwd(const std::string &path);
-
-std::string parentDir(const std::string &path);
-
-std::string home();
-} // namespace fs
+public:
+	Pointer(T *dat) : data(dat) {}
+	~Pointer()
+	{
+		if(data) delete data;
+	}
+	void set(T *dat)
+	{
+		data = dat;
+	}
+	void unset()
+	{
+		data = nullptr;
+	}
+};
 } // namespace sc
 
-#endif // FS_HPP
+#endif // UTILS_HPP

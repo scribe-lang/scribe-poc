@@ -17,9 +17,8 @@ namespace sc
 {
 namespace parser
 {
-ParseHelper::ParseHelper(std::vector<lex::Lexeme> &toks, const size_t &src_id, const size_t &begin)
-	: toks(toks), invalid(0, 0, 0, lex::INVALID), eof(0, 0, 0, lex::FEOF), src_id(src_id),
-	  idx(begin)
+ParseHelper::ParseHelper(Module *mod, std::vector<lex::Lexeme> &toks, const size_t &begin)
+	: mod(mod), toks(toks), invalid(0, 0, 0, lex::INVALID), eof(0, 0, 0, lex::FEOF), idx(begin)
 {}
 
 lex::Lexeme &ParseHelper::peak(const int offset)

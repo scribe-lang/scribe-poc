@@ -18,48 +18,60 @@
 
 #include "Args.hpp"
 #include "Lex.hpp"
-#include "parser/Parse.hpp"
 
 namespace sc
 {
 namespace parser
 {
+struct Stmt;
+
+class Module
+{
+	std::string path;
+	std::string code;
+	std::vector<lex::Lexeme> tokens;
+	Stmt *ptree;
+
+public:
+	Module(const std::string &path, const std::string &code);
+	~Module();
+
+	bool tokenize();
+	bool parseTokens();
+
+	const std::string &getPath();
+	const std::string &getCode();
+	const std::vector<lex::Lexeme> &getTokens();
+	Stmt *&getParseTree();
+
+	void dumpTokens();
+	void dumpParseTree();
+};
+
 class RAIIParser
 {
 	args::ArgParser &args;
 
 	// as new sources are imported, they'll be pushed back
-	// this is NOT used to fetch current src_id or something
-	std::vector<std::string> srcstack;
+	// the reverse iteration of this list will give the order of imports
+	std::vector<std::string> modulestack;
 
-	std::unordered_map<size_t, std::string> srcdata;
-	std::unordered_map<size_t, std::vector<lex::Lexeme>> srctoks;
-	std::unordered_map<size_t, Stmt *> srcstmts;
+	std::unordered_map<std::string, Module *> modules;
 
-	bool add_src(const std::string &file_path, size_t &src_id);
-	bool parse_src(const size_t &src_id);
+	Module *addModule(const std::string &path);
 
 public:
 	RAIIParser(args::ArgParser &args);
 	~RAIIParser();
 
-	bool src_exists(const std::string &file_path);
-	size_t get_srcid(const std::string &file_path);
+	bool hasModule(const std::string &path);
+	Module *getModule(const std::string &path);
 
-	bool parse(const std::string &file_path);
-
-	inline std::vector<lex::Lexeme> &get_toks(const size_t &src_id)
-	{
-		return srctoks[src_id];
-	}
-	inline Stmt *&get_ptree(const size_t &src_id)
-	{
-		return srcstmts[src_id];
-	}
+	bool parse(const std::string &path);
 
 	// force ignores arg parser
-	void show_toks(const bool &force);
-	void show_ptrees(const bool &force);
+	void dumpTokens(const bool &force);
+	void dumpParseTree(const bool &force);
 };
 } // namespace parser
 } // namespace sc

@@ -37,7 +37,7 @@ std::string get(const std::string &key)
 	return env == NULL ? "" : env;
 }
 
-std::string get_proc_path()
+std::string getProcPath()
 {
 	char path[MAX_PATH_CHARS];
 	memset(path, 0, MAX_PATH_CHARS);

@@ -15,6 +15,7 @@
 #define PARSER_PARSE_HELPER_HPP
 
 #include "Lex.hpp"
+#include "Parser.hpp"
 
 namespace sc
 {
@@ -22,13 +23,14 @@ namespace parser
 {
 class ParseHelper
 {
-	std::vector<lex::Lexeme> &toks; // requires modification at parsing stage
+	Module *mod;
+	// requires modification at parsing stage, hence not set by module pointer
+	std::vector<lex::Lexeme> &toks;
 	lex::Lexeme invalid, eof;
-	size_t src_id;
 	size_t idx;
 
 public:
-	ParseHelper(std::vector<lex::Lexeme> &toks, const size_t &src_id, const size_t &begin = 0);
+	ParseHelper(Module *mod, std::vector<lex::Lexeme> &toks, const size_t &begin = 0);
 
 	lex::Lexeme &peak(const int offset = 0);
 	lex::TokType peakt(const int offset = 0) const;
@@ -86,33 +88,33 @@ public:
 
 	inline bool acceptd()
 	{
-		return peak().tok.is_data();
+		return peak().tok.isData();
 	}
 
-	inline bool valid()
+	inline bool isValid()
 	{
 		return !accept(lex::INVALID, lex::FEOF);
 	}
 
 	const lex::Lexeme *at(const size_t &idx) const;
 
-	inline const size_t &get_src()
+	inline Module *getModule()
 	{
-		return src_id;
+		return mod;
 	}
 
-	inline bool has_next() const
+	inline bool hasNext() const
 	{
 		return idx + 1 < toks.size();
 	}
 
-	inline size_t pos() const
-	{
-		return idx;
-	}
-	inline void set_pos(const size_t &idx)
+	inline void setPos(const size_t &idx)
 	{
 		this->idx = idx;
+	}
+	inline size_t getPos() const
+	{
+		return idx;
 	}
 };
 } // namespace parser

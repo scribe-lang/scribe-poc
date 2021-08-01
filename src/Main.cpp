@@ -52,12 +52,12 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Error: file %s does not exist\n", file.c_str());
 		return 1;
 	}
-	file = fs::abs_path(file);
+	file = fs::absPath(file);
 
 	parser::RAIIParser parser(args);
 	if(!parser.parse(file)) return 1;
 
-	parser.show_toks(false);
-	parser.show_ptrees(false);
+	parser.dumpTokens(false);
+	parser.dumpParseTree(false);
 	return 0;
 }
