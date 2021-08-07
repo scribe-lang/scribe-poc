@@ -14,7 +14,7 @@ let arith = fn() {
 
 	let template_base1 = `t1 = static_cast<TypeSimple *>(types.get("{t1}", nullptr));\n`;
 	let template_base2 = `t2 = static_cast<TypeSimple *>(types.get("{t2}", nullptr));`;
-	let template_core = `fn = func(types, \\{t1->copy(CONST | REF), t2->copy(CONST | REF)}, {rest}->copy()); fn->intrin_fn = intrinsic_{opname}_{t1}_{t2}; types.addFunc("{op}", fn, true);`;
+	let template_core = `fn = func(types, \\{t1->copy(CONST | REF), t2->copy(CONST | REF)}, {rest}->copy()); types.addFunc("{op}", fn, true);`;
 	let binop = vec.new(.add, .sub, .mul, .div, .mod, .band, .bor, .bxor, .lshift, .rshift);
 	let binoper = vec.new('+', '-', '*', '/', '%', '&', '|', '^', '<<', '>>');
 
@@ -52,7 +52,7 @@ let arithassn = fn() {
 
 	let template_base1 = `t1 = static_cast<TypeSimple *>(types.get("{t1}", nullptr));\n`;
 	let template_base2 = `t2 = static_cast<TypeSimple *>(types.get("{t2}", nullptr));`;
-	let template_core = `fn = func(types, \\{t1->copy(REF), t2->copy(CONST | REF)}, {rest}->copy()); fn->intrin_fn = intrinsic_{opname}_{t1}_{t2}; types.addFunc("{op}", fn, true);`;
+	let template_core = `fn = func(types, \\{t1->copy(REF), t2->copy(CONST | REF)}, {rest}->copy()); types.addFunc("{op}", fn, true);`;
 	let binop = vec.new(.assn, .addassn, .subassn, .mulassn, .divassn, .modassn, .bandassn, .borassn, .bxorassn, .lshiftassn, .rshiftassn);
 	let binoper = vec.new('=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=');
 
@@ -90,7 +90,7 @@ let logic = fn() {
 	let template_base0 = `t0 = static_cast<TypeSimple *>(types.get("i1", nullptr));\n`;
 	let template_base1 = `t1 = static_cast<TypeSimple *>(types.get("{t1}", nullptr));\n`;
 	let template_base2 = `t2 = static_cast<TypeSimple *>(types.get("{t2}", nullptr));`;
-	let template_core = `fn = func(types, \\{t1->copy(CONST | REF), t2->copy(CONST | REF)}, t0->copy()); fn->intrin_fn = intrinsic_{opname}_{t1}_{t2}; types.addFunc("{op}", fn, true);`;
+	let template_core = `fn = func(types, \\{t1->copy(CONST | REF), t2->copy(CONST | REF)}, t0->copy()); types.addFunc("{op}", fn, true);`;
 	let binop = vec.new(.logand, .logor, .eq, .lt, .gt, .le, .ge, .ne);
 	let binoper = vec.new('&&', '||', '==', '<', '>', '<=', '>=', '!=');
 
@@ -119,7 +119,7 @@ let unpre = fn() {
 	let f = fs.fopen('src/parser/PrimitiveFuncs/UnaryPre.def', 'w+');
 
 	let template_base1 = `t1 = static_cast<TypeSimple *>(types.get("{t1}", nullptr));`;
-	let template_core = `fn = func(types, \\{t1->copy(CONST | REF)}, t1->copy()); fn->intrin_fn = intrinsic_{opname}_{t1}; types.addFunc("{opl}", fn, true);`;
+	let template_core = `fn = func(types, \\{t1->copy(CONST | REF)}, t1->copy()); types.addFunc("{opl}", fn, true);`;
 	let binop = vec.new(.uadd, .usub, .not, .bnot);
 	let binoper = vec.new('+', '-', '!', '~');
 	let binoperlex = vec.new('u+', 'u-', '!', '~');
@@ -146,7 +146,7 @@ let unpreassn = fn() {
 	let f = fs.fopen('src/parser/PrimitiveFuncs/UnaryPreAssn.def', 'w+');
 
 	let template_base1 = `t1 = static_cast<TypeSimple *>(types.get("{t1}", nullptr));`;
-	let template_core = `fn = func(types, \\{t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_{opname}_{t1}; types.addFunc("{opl}", fn, true);`;
+	let template_core = `fn = func(types, \\{t1->copy(REF)}, t1->copy()); types.addFunc("{opl}", fn, true);`;
 	let binop = vec.new(.incx, .decx);
 	let binoper = vec.new('++', '--');
 	let binoperlex = vec.new('++x', '--x');
@@ -173,7 +173,7 @@ let unpostassn = fn() {
 	let f = fs.fopen('src/parser/PrimitiveFuncs/UnaryPostAssn.def', 'w+');
 
 	let template_base1 = `t1 = static_cast<TypeSimple *>(types.get("{t1}", nullptr));`;
-	let template_core = `fn = func(types, \\{t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_{opname}_{t1}; types.addFunc("{opl}", fn, true);`;
+	let template_core = `fn = func(types, \\{t1->copy(REF)}, t1->copy()); types.addFunc("{opl}", fn, true);`;
 	let binop = vec.new(.xinc, .xdec);
 	let binoper = vec.new('++', '--');
 	let binoperlex = vec.new('x++', 'x--');

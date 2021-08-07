@@ -33,7 +33,11 @@ INTRINSIC(import)
 	size_t &line = base->line;
 	size_t &col  = base->col;
 
-	Value *mod = args->args[0]->type->val;
+	err::set(line, col, "TODO: fix the value system to work here");
+	return false;
+
+	// original: = args->args[0]->type->val;
+	Value *mod = nullptr; // set actual vaule here
 	if(!mod || !mod->has_data() || mod->type != VSTR) {
 		err::set(line, col, "import's argument must be a comptime string");
 		return false;
@@ -70,7 +74,7 @@ gen_struct:
 	}
 	std::unordered_map<std::string, Type *> &items = top->get_items();
 	if(items.empty()) return true;
-	TypeStruct *src_st = new TypeStruct(base, 0, 0, nullptr, true, {}, {}, {});
+	TypeStruct *src_st = new TypeStruct(base, 0, 0, true, {}, {}, {});
 	src_st->is_def	   = false;
 	for(auto &i : items) {
 		src_st->add_field(i.first, i.second);
@@ -111,7 +115,8 @@ INTRINSIC(va_len)
 			 "the enclosing function for va_len() must be a variadic");
 		return false;
 	}
-	base->type->val = types.get((int64_t)va->args.size());
+	// TODO: set value here
+	// original: base->type->val = types.get((int64_t)va->args.size());
 	return true;
 }
 INTRINSIC(array)
@@ -121,13 +126,16 @@ INTRINSIC(array)
 }
 INTRINSIC(comptime_strlen)
 {
-	Value *mod = args->args[0]->type->val;
+	// TODO: set value here
+	// original: = args->args[0]->type->val;
+	Value *mod = nullptr;
 	if(!mod || !mod->has_data() || mod->type != VSTR) {
 		err::set(base->line, base->col,
 			 "comptime_strlen's argument must be a comptime string");
 		return false;
 	}
-	base->type->val = types.get((int64_t)mod->s.size());
+	// TODO: set value here
+	// original: base->type->val = types.get((int64_t)mod->s.size());
 	return true;
 }
 } // namespace parser

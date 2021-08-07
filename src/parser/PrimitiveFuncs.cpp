@@ -21,7 +21,7 @@ namespace parser
 {
 static inline TypeFunc *func(TypeMgr &types, const std::vector<Type *> &args, Type *rettype)
 {
-	return new TypeFunc(nullptr, 0, 0, types.get(VUNKNOWN), 0, 0, false, args, rettype);
+	return new TypeFunc(nullptr, 0, 0, 0, 0, false, args, rettype);
 }
 void add_primitive_integer_funcs(TypeMgr &types)
 {

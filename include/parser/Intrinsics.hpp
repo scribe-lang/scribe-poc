@@ -20,13 +20,7 @@ namespace sc
 {
 namespace parser
 {
-#include "Intrinsics/Arithmetic.def"
-#include "Intrinsics/ArithmeticAssn.def"
 #include "Intrinsics/Core.def"
-#include "Intrinsics/Logical.def"
-#include "Intrinsics/UnaryPostAssn.def"
-#include "Intrinsics/UnaryPre.def"
-#include "Intrinsics/UnaryPreAssn.def"
 } // namespace parser
 } // namespace sc
 

@@ -27,8 +27,8 @@ namespace parser
 {
 // TODO: add a macro to each assignType function that checks if type is already set
 // don't add this macro to a function where type has no relevance (continue, break)
-static bool init_templ_func(TypeMgr &types, Stmt *lhs, const std::vector<Type *> &calltemplates,
-			    const bool &has_va)
+static bool InitTemplateFn(TypeMgr &types, Stmt *lhs, const std::vector<Type *> &calltemplates,
+			   const bool &has_va)
 {
 	if(calltemplates.empty() && !has_va) return true;
 	// TODO: handle has_va
@@ -37,7 +37,7 @@ static bool init_templ_func(TypeMgr &types, Stmt *lhs, const std::vector<Type *>
 	// do nothing
 	if(!lhs->type->parent) return true;
 	Stmt *templfnparent = lhs->type->parent->getParentWithType(BLOCK);
-	TypeFunc *origsig   = static_cast<TypeFunc *>(lhs->type);
+	TypeFunc *origsig   = as<TypeFunc>(lhs->type);
 	if(!templfnparent) {
 		err::set(lhs->line, lhs->col,
 			 "function definition for specialization is not in a block!");
@@ -68,9 +68,7 @@ static bool init_templ_func(TypeMgr &types, Stmt *lhs, const std::vector<Type *>
 	// for each types add signature variables
 	for(size_t i = 0; i < fn->sig->templates.size(); ++i) {
 		const std::string &t = fn->sig->templates[i].data.s;
-		Type *cp	     = calltemplates[i]->copy();
-		cp->set_all_val(types.get(VUNKNOWN));
-		types.add(t, cp);
+		types.addCopy(t, calltemplates[i]);
 	}
 	fn->sig->templates.clear();
 	fn->sig->has_variadic = false;
@@ -110,7 +108,7 @@ static bool init_templ_func(TypeMgr &types, Stmt *lhs, const std::vector<Type *>
 	lhs->type	  = fn->type->copy();
 	lhs->type->parent = lhs;
 
-	StmtBlock *tfnparent = static_cast<StmtBlock *>(templfnparent);
+	StmtBlock *tfnparent = as<StmtBlock>(templfnparent);
 	tfnparent->stmts.push_back(var);
 	return true;
 }
@@ -148,7 +146,7 @@ bool StmtType::assignType(TypeMgr &types)
 			continue;
 		}
 		std::string tname = "@" + std::to_string(i);
-		types.add(templates[i].data.s, new TypeSimple(nullptr, 0, 0, nullptr, tname));
+		types.add(templates[i].data.s, new TypeSimple(nullptr, 0, 0, tname));
 	}
 	if(func) {
 		if(!fn->assignType(types)) {
@@ -199,7 +197,6 @@ bool StmtType::assignType(TypeMgr &types)
 
 bool StmtSimple::assignType(TypeMgr &types)
 {
-	if(CHECK_VALUE(this)) return true;
 	switch(val.tok.val) {
 	case lex::VOID: type = types.getCopy("void", this); break;
 	case lex::TRUE:	 // fallthrough
@@ -209,24 +206,12 @@ bool StmtSimple::assignType(TypeMgr &types)
 	case lex::FLT: type = types.getCopy("f32", this); break;
 	case lex::CHAR: type = types.getCopy("u8", this); break;
 	case lex::STR: type = types.getCopy("*const u8", this); break;
-	case lex::IDEN: type = types.getCopy(val.data.s, this); return type;
+	case lex::IDEN: type = types.getCopy(val.data.s, this); break;
 	default: return false;
 	}
 	if(!type) {
 		err::set(val, "failed to determine type of this statement");
 		return false;
-	}
-	switch(val.tok.val) {
-	case lex::VOID: type->val = types.get(VVOID); break;
-	case lex::TRUE: type->val = types.get((int64_t)1); break;
-	case lex::FALSE: // fallthrough
-	case lex::NIL: type->val = types.get((int64_t)0); break;
-	case lex::INT: type->val = types.get(val.data.i); break;
-	case lex::FLT: type->val = types.get((double)val.data.f); break;
-	case lex::CHAR: type->val = types.get((int64_t)val.data.s[0]); break;
-	case lex::STR: type->val = types.get(val.data.s); break;
-	// no need of lex::IDEN here as value is in type itself
-	default: return false;
 	}
 	return type;
 }
@@ -278,20 +263,29 @@ bool StmtExpr::assignType(TypeMgr &types)
 		}
 	case lex::DOT: {
 		assert(rhs->stmt_type == SIMPLE && "RHS for dot/arrow MUST be a simple type");
-		if(lhs->type->type != TSTRUCT) {
+		if(lhs->type->type != TSTRUCT && lhs->type->type != TVARIADIC) {
 			err::set(line, col,
 				 "LHS must be a structure to use the dot operator, found: %s",
 				 lhs->type->str().c_str());
 			return false;
 		}
-		TypeStruct *lst = static_cast<TypeStruct *>(lhs->type);
+		if(lhs->type->type == TVARIADIC) {
+			TypeVariadic *v = as<TypeVariadic>(lhs->type);
+			if(!v->isIndexed()) {
+				err::set(line, col, "variadic variable must be indexed to use");
+				return false;
+			}
+			// TODO: loop through variadic to ensure the dot operator is valid
+			break;
+		}
+		TypeStruct *lst = as<TypeStruct>(lhs->type);
 		if(lst->is_def) {
 			err::set(line, col,
 				 "cannot use dot operator on a struct"
 				 " definition; instantiate it first");
 			return false;
 		}
-		StmtSimple *rsim = static_cast<StmtSimple *>(rhs);
+		StmtSimple *rsim = as<StmtSimple>(rhs);
 		size_t ptr	 = lst->ptr;
 		if(oper.tok.val == lex::ARROW) --ptr;
 		Type *res = ptr == 0 ? lst->get_field(rsim->val.data.s) : nullptr;
@@ -310,7 +304,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 	case lex::FNCALL: {
 		assert(rhs && rhs->stmt_type == FNCALLINFO &&
 		       "RHS for function call must be a call info (compiler failure)");
-		StmtFnCallInfo *finfo = static_cast<StmtFnCallInfo *>(rhs);
+		StmtFnCallInfo *finfo = as<StmtFnCallInfo>(rhs);
 		std::vector<Type *> calltemplates;
 		bool has_va = false;
 		if(lhs->type->type != TFUNC && lhs->type->type != TSTRUCT &&
@@ -322,7 +316,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 			return false;
 		}
 		if(lhs->type->type == TFUNCMAP) {
-			TypeFuncMap *fmap = static_cast<TypeFuncMap *>(lhs->type);
+			TypeFuncMap *fmap = as<TypeFuncMap>(lhs->type);
 			if(!(type = fmap->decide_func(finfo, calltemplates))) {
 				err::set(line, col,
 					 "failed to decide the function "
@@ -331,10 +325,10 @@ bool StmtExpr::assignType(TypeMgr &types)
 			}
 			delete lhs->type;
 			lhs->type = type;
-			has_va	  = static_cast<TypeFunc *>(type)->has_va;
-			type	  = static_cast<TypeFunc *>(lhs->type)->rettype->copy();
+			has_va	  = as<TypeFunc>(type)->has_va;
+			type	  = as<TypeFunc>(lhs->type)->rettype->copy();
 		} else if(lhs->type->type == TFUNC) {
-			TypeFunc *oldfn = static_cast<TypeFunc *>(lhs->type);
+			TypeFunc *oldfn = as<TypeFunc>(lhs->type);
 			TypeFunc *fn	= nullptr;
 			if(!(fn = oldfn->specialize_compatible_call(finfo, calltemplates))) {
 				err::set(line, col,
@@ -354,7 +348,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 			}
 			has_va = fn->has_va;
 		} else if(lhs->type->type == TSTRUCT) {
-			TypeStruct *st = static_cast<TypeStruct *>(lhs->type);
+			TypeStruct *st = as<TypeStruct>(lhs->type);
 			if(!st->is_def) {
 				err::set(line, col,
 					 "only structure definitions can be called (instantiated)");
@@ -373,7 +367,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 			break; // no need to clone the struct
 		}
 		// apply stmt template specialization
-		if(!init_templ_func(types, lhs, calltemplates, has_va)) return false;
+		if(!InitTemplateFn(types, lhs, calltemplates, has_va)) return false;
 		break;
 	}
 	case lex::SUBS: {
@@ -393,20 +387,9 @@ bool StmtExpr::assignType(TypeMgr &types)
 					 rhs->type->str().c_str());
 				return false;
 			}
-			if(!CHECK_VALUE(rhs) || rhs->type->val->type != VINT) {
-				err::set(line, col,
-					 "variadic subscript expression MUST be an integral value "
-					 "that can be determined at compile time");
-				return false;
-			}
-			TypeVariadic *va   = static_cast<TypeVariadic *>(lhs->type);
-			const int64_t &idx = rhs->type->val->i;
-			if(va->args.size() <= idx) {
-				err::set(line, col, "variadic index '" PRId64 "' out of bounds",
-					 idx);
-				return false;
-			}
-			type = va->args[idx]->copy();
+			TypeVariadic *va = as<TypeVariadic>(lhs->type->copy());
+			va->setIndexed(true);
+			type = va;
 			break;
 		}
 		if(lhs->type->ptr > 0) {
@@ -531,7 +514,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 			delete decidedfn;
 			return false;
 		}
-		if(!init_templ_func(types, lhs, calltemplates, false)) return false;
+		if(!InitTemplateFn(types, lhs, calltemplates, false)) return false;
 		fci->args.clear();
 		delete fci;
 		delete decidedfn;
@@ -565,7 +548,7 @@ bool StmtVar::assignType(TypeMgr &types)
 		return false;
 	}
 	if(val && val->type->type == TSIMPLE) {
-		if(static_cast<TypeSimple *>(val->type)->name == "void") {
+		if(as<TypeSimple>(val->type)->name == "void") {
 			err::set(line, col,
 				 "expression returns void, which cannot be assigned to a var");
 			return false;
@@ -593,10 +576,10 @@ bool StmtFnSig::assignType(TypeMgr &types)
 	for(size_t i = 0; i < templates.size(); ++i) {
 		if(types.exists(templates[i].data.s, false, true)) continue;
 		std::string tname = "@" + std::to_string(i);
-		types.add(templates[i].data.s, new TypeSimple(nullptr, 0, 0, nullptr, tname));
+		types.add(templates[i].data.s, new TypeSimple(nullptr, 0, 0, tname));
 	}
 	for(auto &p : args) {
-		// this is added because init_templ_func() generates values for this by itself
+		// this is added because InitTemplateFn() generates values for this by itself
 		if(types.exists(p->name.data.s, true, false)) {
 			p->type = types.getCopy(p->name.data.s, this);
 			continue;
@@ -616,7 +599,7 @@ bool StmtFnSig::assignType(TypeMgr &types)
 	}
 	size_t layer = types.getLayer() - 1;
 	if(parent && parent->stmt_type == FNDEF) --layer;
-	type = new TypeFunc(this, 0, 0, nullptr, layer, templates.size(), has_variadic, newargs,
+	type = new TypeFunc(this, 0, 0, layer, templates.size(), has_variadic, newargs,
 			    rettype->type->copy());
 	return true;
 }
@@ -633,7 +616,7 @@ bool StmtFnDef::assignType(TypeMgr &types)
 		return false;
 	}
 	if(sig->templates.empty() && !sig->has_variadic && blk) {
-		types.pushFunc(static_cast<TypeFunc *>(sig->type));
+		types.pushFunc(as<TypeFunc>(sig->type));
 		if(!blk->assignType(types)) {
 			err::set(blk->line, blk->col, "failed to assign type in function block");
 			return false;
@@ -717,7 +700,7 @@ bool StmtStruct::assignType(TypeMgr &types)
 	for(size_t i = 0; i < templates.size(); ++i) {
 		if(types.exists(templates[i].data.s, false, true)) continue;
 		std::string tname = "@" + std::to_string(i);
-		types.add(templates[i].data.s, new TypeSimple(nullptr, 0, 0, nullptr, tname));
+		types.add(templates[i].data.s, new TypeSimple(nullptr, 0, 0, tname));
 	}
 	std::vector<std::string> field_type_orders;
 	for(auto &f : fields) {
@@ -731,7 +714,7 @@ bool StmtStruct::assignType(TypeMgr &types)
 	for(size_t i = 0; i < field_type_orders.size(); ++i) {
 		field_types[field_type_orders[i]] = fields[i]->type->copy();
 	}
-	type = new TypeStruct(this, 0, 0, nullptr, false, templates.size(), field_type_orders,
+	type = new TypeStruct(this, 0, 0, false, templates.size(), field_type_orders,
 			      field_types); // comment for correct auto formatting of this
 	types.popLayer();
 	return true;

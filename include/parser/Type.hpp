@@ -63,12 +63,11 @@ struct Type
 	int64_t id;
 	size_t ptr;
 	size_t info;
-	Value *val;
 	intrinsic_fn_t intrin_fn;
 
-	Type(const Types &type, Stmt *parent, const size_t &ptr, const size_t &info, Value *val);
+	Type(const Types &type, Stmt *parent, const size_t &ptr, const size_t &info);
 	Type(const int64_t &id, const Types &type, Stmt *parent, const size_t &ptr,
-	     const size_t &info, Value *val, intrinsic_fn_t intrin_fn);
+	     const size_t &info, intrinsic_fn_t intrin_fn);
 	virtual ~Type();
 
 	virtual Type *copy(const size_t &append_info = 0)	       = 0;
@@ -92,18 +91,21 @@ struct Type
 	virtual std::string str() = 0;
 	std::string mangled_name_base();
 	virtual std::string mangled_name() = 0;
-	virtual void set_all_val(Value *v) = 0;
 };
+
+template<typename T> T *as(Type *t)
+{
+	return static_cast<T *>(t);
+}
 
 struct TypeSimple : public Type
 {
 	// is template is checked by the condition - name begins with '@'
 	std::string name;
 
-	TypeSimple(Stmt *parent, const size_t &ptr, const size_t &info, Value *val,
-		   const std::string &name);
+	TypeSimple(Stmt *parent, const size_t &ptr, const size_t &info, const std::string &name);
 	TypeSimple(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-		   Value *val, intrinsic_fn_t intrin_fn, const std::string &name);
+		   intrinsic_fn_t intrin_fn, const std::string &name);
 
 	Type *copy(const size_t &append_info = 0);
 	Type *specialize(const std::vector<Type *> &templates);
@@ -111,7 +113,6 @@ struct TypeSimple : public Type
 
 	std::string str();
 	std::string mangled_name();
-	void set_all_val(Value *v);
 };
 
 struct TypeStruct : public Type
@@ -123,12 +124,11 @@ struct TypeStruct : public Type
 	std::vector<std::string> field_order;
 	std::unordered_map<std::string, Type *> fields;
 
-	TypeStruct(Stmt *parent, const size_t &ptr, const size_t &info, Value *val,
-		   const bool &is_ref, const size_t &templ,
-		   const std::vector<std::string> &field_order,
+	TypeStruct(Stmt *parent, const size_t &ptr, const size_t &info, const bool &is_ref,
+		   const size_t &templ, const std::vector<std::string> &field_order,
 		   const std::unordered_map<std::string, Type *> &fields);
 	TypeStruct(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-		   Value *val, const bool &is_ref, const bool &is_def, intrinsic_fn_t intrin_fn,
+		   const bool &is_ref, const bool &is_def, intrinsic_fn_t intrin_fn,
 		   const size_t &templ, const std::vector<std::string> &field_order,
 		   const std::unordered_map<std::string, Type *> &fields);
 	~TypeStruct();
@@ -148,7 +148,6 @@ struct TypeStruct : public Type
 
 	std::string str();
 	std::string mangled_name();
-	void set_all_val(Value *v);
 
 	bool add_field(const std::string &name, Type *val);
 	bool add_field_copy(const std::string &name, Type *val);
@@ -174,10 +173,10 @@ struct TypeFunc : public Type
 	std::vector<Type *> args;
 	Type *rettype;
 
-	TypeFunc(Stmt *parent, const size_t &ptr, const size_t &info, Value *val,
-		 const size_t &scope, const size_t &templ, const bool &has_va,
-		 const std::vector<Type *> &args, Type *rettype);
-	TypeFunc(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info, Value *val,
+	TypeFunc(Stmt *parent, const size_t &ptr, const size_t &info, const size_t &scope,
+		 const size_t &templ, const bool &has_va, const std::vector<Type *> &args,
+		 Type *rettype);
+	TypeFunc(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
 		 intrinsic_fn_t intrin_fn, const size_t &scope, const size_t &templ,
 		 const bool &has_va, const std::vector<Type *> &args, Type *rettype);
 	~TypeFunc();
@@ -191,16 +190,15 @@ struct TypeFunc : public Type
 
 	std::string str();
 	std::string mangled_name();
-	void set_all_val(Value *v);
 };
 
 struct TypeFuncMap : public Type
 {
 	std::unordered_map<std::string, TypeFunc *> funcs;
-	TypeFuncMap(Stmt *parent, const size_t &ptr, const size_t &info, Value *val,
+	TypeFuncMap(Stmt *parent, const size_t &ptr, const size_t &info,
 		    const std::unordered_map<std::string, TypeFunc *> &funcs);
 	TypeFuncMap(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-		    Value *val, const std::unordered_map<std::string, TypeFunc *> &funcs);
+		    const std::unordered_map<std::string, TypeFunc *> &funcs);
 
 	Type *copy(const size_t &append_info = 0);
 	Type *specialize(const std::vector<Type *> &templates);
@@ -208,7 +206,6 @@ struct TypeFuncMap : public Type
 
 	std::string str();
 	std::string mangled_name();
-	void set_all_val(Value *v);
 
 	TypeFunc *decide_func(StmtFnCallInfo *callinfo, std::vector<Type *> &templates);
 	TypeFunc *decide_func(Type *vartype);
@@ -217,19 +214,23 @@ struct TypeFuncMap : public Type
 struct TypeVariadic : public Type
 {
 	std::vector<Type *> args;
-	TypeVariadic(Stmt *parent, const size_t &ptr, const size_t &info, Value *val,
+	// if indexing is already done or not (only usable if indexing is done)
+	bool is_indexed;
+	TypeVariadic(Stmt *parent, const size_t &ptr, const size_t &info,
 		     const std::vector<Type *> &args);
 	TypeVariadic(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-		     Value *val, const std::vector<Type *> &args);
+		     const std::vector<Type *> &args);
 	~TypeVariadic();
 
 	Type *copy(const size_t &append_info = 0);
 	Type *specialize(const std::vector<Type *> &templates);
 	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 
+	void setIndexed(const bool &indexed);
+	bool isIndexed();
+
 	std::string str();
 	std::string mangled_name();
-	void set_all_val(Value *v);
 
 	Type *get_arg(const size_t &idx);
 };
