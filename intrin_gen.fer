@@ -22,18 +22,18 @@ let basebin = `#include "Error.hpp"
 #include "Parser.hpp"
 #include "parser/TypeMgr.hpp"
 
-#define HAS_VALID_VAL(vtyp) (vtyp->val && vtyp->val->has_data())
+#define HAS_VALID_VAL(type) (type->val && type->val->has_data())
 #define VERIFY_VALS_BINOP()                                                     		\\
-	if(!HAS_VALID_VAL(args->args[0]->vtyp) || !HAS_VALID_VAL(args->args[1]->vtyp)) \\{	\\
-		base->vtyp->val = types.get(VUNKNOWN);						\\
+	if(!HAS_VALID_VAL(args->args[0]->type) || !HAS_VALID_VAL(args->args[1]->type)) \\{	\\
+		base->type->val = types.get(VUNKNOWN);						\\
 		return true;									\\
 	}\n`;
 let baseun = `#include "parser/TypeMgr.hpp"
 
-#define HAS_VALID_VAL(vtyp) (vtyp->val && vtyp->val->has_data())
+#define HAS_VALID_VAL(type) (type->val && type->val->has_data())
 #define VERIFY_VALS_UNOP()						\\
-	if(!HAS_VALID_VAL(args->args[0]->vtyp)) \\{			\\
-		base->vtyp->val = types.get(VUNKNOWN);			\\
+	if(!HAS_VALID_VAL(args->args[0]->type)) \\{			\\
+		base->type->val = types.get(VUNKNOWN);			\\
 		return true;						\\
 	}\n`;
 
@@ -49,7 +49,7 @@ let arith_decl = `INTRINSIC({opname}_{t1}_{t2});`;
 let arith_def = `INTRINSIC({opname}_{t1}_{t2})
 \\{
 	VERIFY_VALS_BINOP();
-	base->vtyp->val = types.get(({intorflt})(args->args[0]->vtyp->val->{v1} {op} args->args[1]->vtyp->val->{v2}));
+	base->type->val = types.get(({intorflt})(args->args[0]->type->val->{v1} {op} args->args[1]->type->val->{v2}));
 	return true;
 }`;
 
@@ -57,16 +57,16 @@ let arith_assn_decl = `INTRINSIC({opname}_{t1}_{t2});`;
 let arith_assn_only_def = `INTRINSIC({opname}_{t1}_{t2})
 \\{
 	VERIFY_VALS_BINOP();
-	args->args[0]->vtyp->val = types.get(({intorflt})args->args[1]->vtyp->val->{v2});
-	base->vtyp->val = args->args[0]->vtyp->val;
+	args->args[0]->type->val = types.get(({intorflt})args->args[1]->type->val->{v2});
+	base->type->val = args->args[0]->type->val;
 	return true;
 }`;
 let arith_assn_def = `INTRINSIC({opname}_{t1}_{t2})
 \\{
 	VERIFY_VALS_BINOP();
-	{intorflt} res = args->args[0]->vtyp->val->{v1};
-	args->args[0]->vtyp->val = types.get(({intorflt})(res {op} args->args[1]->vtyp->val->{v2}));
-	base->vtyp->val = args->args[0]->vtyp->val;
+	{intorflt} res = args->args[0]->type->val->{v1};
+	args->args[0]->type->val = types.get(({intorflt})(res {op} args->args[1]->type->val->{v2}));
+	base->type->val = args->args[0]->type->val;
 	return true;
 }`;
 
@@ -74,25 +74,25 @@ let unpre_decl = `INTRINSIC({opname}_{t1});`;
 let unpre_def = `INTRINSIC({opname}_{t1})
 \\{
 	VERIFY_VALS_UNOP();
-	base->vtyp->val = types.get(({intorflt})({op}args->args[0]->vtyp->val->{v1}));
+	base->type->val = types.get(({intorflt})({op}args->args[0]->type->val->{v1}));
 	return true;
 }`;
 let unpre_assn_decl = `INTRINSIC({opname}_{t1});`;
 let unpre_assn_def = `INTRINSIC({opname}_{t1})
 \\{
 	VERIFY_VALS_UNOP();
-	{intorflt} res = args->args[0]->vtyp->val->{v1};
-	args->args[0]->vtyp->val = types.get(({intorflt})({op}res));
-	base->vtyp->val = args->args[0]->vtyp->val;
+	{intorflt} res = args->args[0]->type->val->{v1};
+	args->args[0]->type->val = types.get(({intorflt})({op}res));
+	base->type->val = args->args[0]->type->val;
 	return true;
 }`;
 let unpost_assn_decl = `INTRINSIC({opname}_{t1});`;
 let unpost_assn_def = `INTRINSIC({opname}_{t1})
 \\{
 	VERIFY_VALS_UNOP();
-	{intorflt} res = args->args[0]->vtyp->val->{v1};
-	args->args[0]->vtyp->val = types.get(({intorflt})(res{op}));
-	base->vtyp->val = types.get(({intorflt})(res));
+	{intorflt} res = args->args[0]->type->val->{v1};
+	args->args[0]->type->val = types.get(({intorflt})(res{op}));
+	base->type->val = types.get(({intorflt})(res));
 	return true;
 }`;
 

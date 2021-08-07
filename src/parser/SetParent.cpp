@@ -12,6 +12,7 @@
 */
 
 #include "parser/Stmts.hpp"
+#include "parser/Type.hpp"
 
 namespace sc
 {
@@ -24,6 +25,7 @@ namespace parser
 void StmtBlock::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 	for(auto &s : stmts) {
 		s->setParent(this);
 	}
@@ -36,6 +38,7 @@ void StmtBlock::setParent(Stmt *parent)
 void StmtType::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 	if(fn) fn->setParent(this);
 }
 
@@ -46,6 +49,7 @@ void StmtType::setParent(Stmt *parent)
 void StmtSimple::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -55,6 +59,7 @@ void StmtSimple::setParent(Stmt *parent)
 void StmtFnCallInfo::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 	for(auto &t : templates) {
 		t->setParent(this);
 	}
@@ -70,6 +75,7 @@ void StmtFnCallInfo::setParent(Stmt *parent)
 void StmtExpr::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 	if(lhs) lhs->setParent(this);
 	if(rhs) rhs->setParent(this);
 	// TODO: or-var & or-blk
@@ -82,6 +88,7 @@ void StmtExpr::setParent(Stmt *parent)
 void StmtVar::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 	if(val) val->setParent(this);
 	if(vtype) vtype->setParent(this);
 }
@@ -93,6 +100,7 @@ void StmtVar::setParent(Stmt *parent)
 void StmtFnSig::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 	for(auto &p : args) {
 		p->setParent(this);
 	}
@@ -106,6 +114,7 @@ void StmtFnSig::setParent(Stmt *parent)
 void StmtFnDef::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 	sig->setParent(this);
 	if(blk) blk->setParent(this);
 }
@@ -117,6 +126,7 @@ void StmtFnDef::setParent(Stmt *parent)
 void StmtHeader::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -126,6 +136,7 @@ void StmtHeader::setParent(Stmt *parent)
 void StmtLib::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -135,6 +146,7 @@ void StmtLib::setParent(Stmt *parent)
 void StmtExtern::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 	sig->setParent(this);
 	if(headers) headers->setParent(this);
 	if(libs) libs->setParent(this);
@@ -147,6 +159,7 @@ void StmtExtern::setParent(Stmt *parent)
 void StmtEnum::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -156,6 +169,7 @@ void StmtEnum::setParent(Stmt *parent)
 void StmtStruct::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 	for(auto &f : fields) {
 		f->setParent(this);
 	}
@@ -168,6 +182,7 @@ void StmtStruct::setParent(Stmt *parent)
 void StmtVarDecl::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 	for(auto &d : decls) {
 		d->setParent(this);
 	}
@@ -180,6 +195,7 @@ void StmtVarDecl::setParent(Stmt *parent)
 void StmtCond::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 	for(auto &c : conds) {
 		if(c.cond) c.cond->setParent(this);
 		c.blk->setParent(this);
@@ -193,6 +209,7 @@ void StmtCond::setParent(Stmt *parent)
 void StmtForIn::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 	in->setParent(this);
 	blk->setParent(this);
 }
@@ -204,6 +221,7 @@ void StmtForIn::setParent(Stmt *parent)
 void StmtFor::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 	if(init) init->setParent(this);
 	if(cond) cond->setParent(this);
 	if(incr) incr->setParent(this);
@@ -217,6 +235,7 @@ void StmtFor::setParent(Stmt *parent)
 void StmtWhile::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 	if(cond) cond->setParent(this);
 	blk->setParent(this);
 }
@@ -228,6 +247,7 @@ void StmtWhile::setParent(Stmt *parent)
 void StmtRet::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 	if(val) val->setParent(this);
 }
 
@@ -239,6 +259,7 @@ void StmtRet::setParent(Stmt *parent)
 void StmtContinue::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -248,6 +269,7 @@ void StmtContinue::setParent(Stmt *parent)
 void StmtBreak::setParent(Stmt *parent)
 {
 	this->parent = parent;
+	if(this->type) this->type->parent = parent;
 }
 } // namespace parser
 } // namespace sc

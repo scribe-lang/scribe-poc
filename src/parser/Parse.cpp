@@ -78,6 +78,9 @@ bool parse_block(ParseHelper &p, StmtBlock *&tree, const bool &with_brace)
 			if(!parse_continue(p, stmt)) goto fail;
 		} else if(p.accept(lex::BREAK)) {
 			if(!parse_break(p, stmt)) goto fail;
+		} else if(p.accept(lex::LBRACE)) {
+			if(!parse_block(p, (StmtBlock *&)stmt)) goto fail;
+			skip_cols = true;
 		} else if(!parse_expr(p, stmt)) {
 			goto fail;
 		}

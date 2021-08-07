@@ -18,6 +18,7 @@
 
 #include "Args.hpp"
 #include "Lex.hpp"
+#include "parser/TypeMgr.hpp"
 
 namespace sc
 {
@@ -38,6 +39,7 @@ public:
 
 	bool tokenize();
 	bool parseTokens();
+	bool assignType(TypeMgr &types);
 
 	const std::string &getPath();
 	const std::string &getCode();
@@ -51,6 +53,8 @@ public:
 class RAIIParser
 {
 	args::ArgParser &args;
+
+	TypeMgr types;
 
 	// as new sources are imported, they'll be pushed back
 	// the reverse iteration of this list will give the order of imports

@@ -1,0 +1,31 @@
+/*
+	MIT License
+
+	Copyright (c) 2021 Scribe Language Repositories
+
+	Permission is hereby granted, free of charge, to any person obtaining a
+	copy of this software and associated documentation files (the "Software"), to
+	deal in the Software without restriction, including without limitation the
+	rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+	sell copies of the Software, and to permit persons to whom the Software is
+	furnished to do so.
+*/
+
+INTRINSIC(incx_i8);
+INTRINSIC(incx_i16);
+INTRINSIC(incx_i32);
+INTRINSIC(incx_i64);
+INTRINSIC(incx_u8);
+INTRINSIC(incx_u16);
+INTRINSIC(incx_u32);
+INTRINSIC(incx_u64);
+
+INTRINSIC(decx_i8);
+INTRINSIC(decx_i16);
+INTRINSIC(decx_i32);
+INTRINSIC(decx_i64);
+INTRINSIC(decx_u8);
+INTRINSIC(decx_u16);
+INTRINSIC(decx_u32);
+INTRINSIC(decx_u64);
+

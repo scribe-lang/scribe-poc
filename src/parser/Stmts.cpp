@@ -13,6 +13,7 @@
 
 #include "parser/Stmts.hpp"
 
+#include "parser/Type.hpp"
 #include "TreeIO.hpp"
 
 namespace sc
@@ -24,13 +25,17 @@ namespace parser
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 Stmt::Stmt(const Stmts &stmt_type, Module *mod, const size_t &line, const size_t &col)
-	: stmt_type(stmt_type), parent(nullptr), mod(mod), line(line), col(col)
+	: stmt_type(stmt_type), parent(nullptr), mod(mod), line(line), col(col),
+	  is_specialized(false), type(nullptr)
 {}
-Stmt::~Stmt() {}
-
-Stmt *Stmt::copy()
+Stmt::~Stmt()
 {
-	Stmt *cp = hiddenCopy(this);
+	if(type) delete type;
+}
+
+Stmt *Stmt::copy(const bool &copy_type, const bool &copy_val)
+{
+	Stmt *cp = hiddenCopy(copy_type, copy_val, this);
 	if(!cp) return nullptr;
 	return cp;
 }
@@ -42,16 +47,14 @@ Stmt *Stmt::getParentWithType(const Stmts &typ)
 	}
 	return res;
 }
-void Stmt::setComptimeValue(const bool &value)
+std::string Stmt::typeString()
 {
-	comptime_value = value;
-}
-bool Stmt::isComptimeValue()
-{
-	return comptime_value;
+	std::string res;
+	if(type) res += " :: " + type->str();
+	return res;
 }
 
-std::string Stmt::typestr()
+std::string Stmt::stmtTypeString()
 {
 	switch(stmt_type) {
 	case BLOCK: return "block";
@@ -124,7 +127,7 @@ void StmtType::disp(const bool &has_next)
 {
 	if(func) {
 		tio::taba(has_next);
-		tio::print(has_next, "Type: <Function>\n");
+		tio::print(has_next, "Type: <Function>%s\n", typeString().c_str());
 		fn->disp(false);
 		tio::tabr();
 		return;
@@ -146,13 +149,13 @@ void StmtType::disp(const bool &has_next)
 		tname += ">";
 	}
 	tio::taba(has_next);
-	tio::print(false, "Type: %s\n", tname.c_str());
+	tio::print(false, "Type: %s%s\n", tname.c_str(), typeString().c_str());
 	tio::tabr();
 }
 
 std::string StmtType::getname()
 {
-	if(func) return fn->typestr();
+	if(func) return fn->stmtTypeString();
 
 	std::string tname(ptr, '*');
 	if(info & REF) tname += "&";
@@ -181,7 +184,7 @@ StmtSimple::StmtSimple(Module *mod, const size_t &line, const size_t &col, const
 void StmtSimple::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Simple: %s\n", val.str(0).c_str());
+	tio::print(has_next, "Simple: %s%s\n", val.str(0).c_str(), typeString().c_str());
 	tio::tabr();
 }
 
@@ -245,7 +248,7 @@ StmtExpr::~StmtExpr()
 void StmtExpr::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Expression:\n");
+	tio::print(has_next, "Expression:%s\n", typeString().c_str());
 	if(lhs) {
 		tio::taba(oper.tok.isValid() || rhs || or_blk);
 		tio::print(oper.tok.isValid() || rhs || or_blk, "LHS:\n");
@@ -290,8 +293,8 @@ StmtVar::~StmtVar()
 void StmtVar::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Variable: %s [comptime = %s]\n", name.data.s.c_str(),
-		   comptime ? "true" : "false");
+	tio::print(has_next, "Variable: %s [comptime = %s]%s\n", name.data.s.c_str(),
+		   comptime ? "true" : "false", typeString().c_str());
 	if(vtype) {
 		tio::taba(val);
 		tio::print(val, "Type:\n");
@@ -326,8 +329,8 @@ StmtFnSig::~StmtFnSig()
 void StmtFnSig::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Function signature [variadic = %s; member = %s]\n",
-		   has_variadic ? "yes" : "no", is_member ? "yes" : "no");
+	tio::print(has_next, "Function signature [variadic = %s; member = %s]%s\n",
+		   has_variadic ? "yes" : "no", is_member ? "yes" : "no", typeString().c_str());
 	if(!templates.empty()) {
 		tio::taba(args.size() > 0 || rettype);
 		tio::print(args.size() > 0 || rettype, "Templates:\n");
@@ -381,7 +384,7 @@ StmtFnDef::~StmtFnDef()
 void StmtFnDef::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Function definition\n");
+	tio::print(has_next, "Function definition%s\n", typeString().c_str());
 	tio::taba(true);
 	tio::print(true, "Function Signature:\n");
 	sig->disp(false);
@@ -453,7 +456,7 @@ StmtExtern::~StmtExtern()
 void StmtExtern::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Extern for %s\n", fname.data.s.c_str());
+	tio::print(has_next, "Extern for %s%s\n", fname.data.s.c_str(), typeString().c_str());
 	if(headers) {
 		tio::taba(libs || sig);
 		tio::print(libs || sig, "Headers:\n");
@@ -489,7 +492,7 @@ StmtEnum::~StmtEnum() {}
 void StmtEnum::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Enumerations:\n");
+	tio::print(has_next, "Enumerations:%s\n", typeString().c_str());
 	for(size_t i = 0; i < items.size(); ++i) {
 		tio::taba(i != items.size() - 1);
 		tio::print(i != items.size() - 1, "%s\n", items[i].str(0).c_str());
@@ -515,7 +518,8 @@ StmtStruct::~StmtStruct()
 void StmtStruct::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Struct [declaration = %s]\n", decl ? "yes" : "no");
+	tio::print(has_next, "Struct [declaration = %s]%s\n", decl ? "yes" : "no",
+		   typeString().c_str());
 
 	if(!templates.empty()) {
 		tio::taba(!fields.empty());
@@ -718,7 +722,7 @@ StmtRet::~StmtRet()
 void StmtRet::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Return%s\n");
+	tio::print(has_next, "Return%s%s\n", typeString().c_str());
 	if(val) {
 		tio::taba(false);
 		tio::print(false, "Value:\n");

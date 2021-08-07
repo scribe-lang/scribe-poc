@@ -15,12 +15,17 @@
 #define PARSER_STMTS_HPP
 
 #include "Lex.hpp"
-#include "Parser.hpp"
 
 namespace sc
 {
 namespace parser
 {
+struct TypeMgr;
+struct Type;
+struct TypeFunc;
+struct TypeStruct;
+class Module;
+
 enum Stmts
 {
 	BLOCK,
@@ -55,24 +60,24 @@ struct Stmt
 	Stmt *parent;
 
 	// these members are not assigned on stmt creation
-	bool comptime_value; // the value can be evaluated at comptime
+	bool is_specialized; // to prevent cycles (fn -> type_fn -> fn ...)
+	Type *type;
 
 	Stmt(const Stmts &stmt_type, Module *mod, const size_t &line, const size_t &col);
 	virtual ~Stmt();
 
 	// NEVER use hiddenCopy(); instead use copy()
-	Stmt *copy();
-	virtual Stmt *hiddenCopy(Stmt *par)	= 0;
-	virtual void disp(const bool &has_next) = 0;
-	virtual void setParent(Stmt *parent)	= 0;
-	// comptime execute here
+	Stmt *copy(const bool &copy_type, const bool &copy_val);
+	virtual Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par) = 0;
+	virtual void disp(const bool &has_next)						 = 0;
+	virtual void setParent(Stmt *parent)						 = 0;
+	virtual bool assignType(TypeMgr &types)						 = 0;
 
 	Stmt *getParentWithType(const Stmts &typ);
 
-	void setComptimeValue(const bool &value);
-	bool isComptimeValue();
+	std::string typeString();
 
-	std::string typestr();
+	std::string stmtTypeString();
 };
 
 template<typename T> T *as(Stmt *data)
@@ -103,9 +108,10 @@ struct StmtType : public Stmt
 	StmtType(Module *mod, const size_t &line, const size_t &col, Stmt *fn);
 	~StmtType();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 
 	std::string getname();
 };
@@ -117,9 +123,10 @@ struct StmtBlock : public Stmt
 		  const std::vector<Stmt *> &stmts);
 	~StmtBlock();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 
 struct StmtSimple : public Stmt
@@ -128,9 +135,10 @@ struct StmtSimple : public Stmt
 	StmtSimple(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &val);
 	~StmtSimple();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 
 struct StmtFnCallInfo : public Stmt
@@ -141,9 +149,10 @@ struct StmtFnCallInfo : public Stmt
 		       const std::vector<StmtType *> &templates, const std::vector<Stmt *> &args);
 	~StmtFnCallInfo();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 
 struct StmtExpr : public Stmt
@@ -159,9 +168,10 @@ struct StmtExpr : public Stmt
 		 const lex::Lexeme &oper, Stmt *rhs);
 	~StmtExpr();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 
 struct StmtVar : public Stmt
@@ -175,9 +185,10 @@ struct StmtVar : public Stmt
 		StmtType *vtype, Stmt *val, const bool &comptime);
 	~StmtVar();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 
 struct StmtFnSig : public Stmt
@@ -193,9 +204,10 @@ struct StmtFnSig : public Stmt
 		  StmtType *rettype, const bool &has_variadic);
 	~StmtFnSig();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 
 	void setMember(const bool &is_mem);
 	bool isMember();
@@ -209,9 +221,10 @@ struct StmtFnDef : public Stmt
 		  StmtBlock *blk);
 	~StmtFnDef();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 
 struct StmtHeader : public Stmt
@@ -222,9 +235,10 @@ struct StmtHeader : public Stmt
 	StmtHeader(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &names,
 		   const lex::Lexeme &flags);
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 
 struct StmtLib : public Stmt
@@ -233,9 +247,10 @@ struct StmtLib : public Stmt
 	lex::Lexeme flags;
 	StmtLib(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &flags);
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 
 struct StmtExtern : public Stmt
@@ -249,9 +264,10 @@ struct StmtExtern : public Stmt
 		   StmtHeader *headers, StmtLib *libs, StmtFnSig *sig);
 	~StmtExtern();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 
 struct StmtEnum : public Stmt
@@ -262,9 +278,10 @@ struct StmtEnum : public Stmt
 		 const std::vector<lex::Lexeme> &items);
 	~StmtEnum();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 
 // both declaration and definition
@@ -278,9 +295,10 @@ struct StmtStruct : public Stmt
 		   const std::vector<lex::Lexeme> &templates, const std::vector<StmtVar *> &fields);
 	~StmtStruct();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 
 struct StmtVarDecl : public Stmt
@@ -291,9 +309,10 @@ struct StmtVarDecl : public Stmt
 		    const std::vector<StmtVar *> &decls);
 	~StmtVarDecl();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 
 struct cond_t
@@ -310,9 +329,10 @@ struct StmtCond : public Stmt
 		 const std::vector<cond_t> &conds, const bool &comptime);
 	~StmtCond();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 
 struct StmtForIn : public Stmt
@@ -325,9 +345,10 @@ struct StmtForIn : public Stmt
 		  Stmt *in, StmtBlock *blk, const bool &comptime);
 	~StmtForIn();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 
 struct StmtFor : public Stmt
@@ -341,9 +362,10 @@ struct StmtFor : public Stmt
 		Stmt *incr, StmtBlock *blk);
 	~StmtFor();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 
 struct StmtWhile : public Stmt
@@ -353,9 +375,10 @@ struct StmtWhile : public Stmt
 	StmtWhile(Module *mod, const size_t &line, const size_t &col, Stmt *cond, StmtBlock *blk);
 	~StmtWhile();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 
 struct StmtRet : public Stmt
@@ -364,25 +387,28 @@ struct StmtRet : public Stmt
 	StmtRet(Module *mod, const size_t &line, const size_t &col, Stmt *val);
 	~StmtRet();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 struct StmtContinue : public Stmt
 {
 	StmtContinue(Module *mod, const size_t &line, const size_t &col);
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 struct StmtBreak : public Stmt
 {
 	StmtBreak(Module *mod, const size_t &line, const size_t &col);
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
+	bool assignType(TypeMgr &types);
 };
 } // namespace parser
 } // namespace sc

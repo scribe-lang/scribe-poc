@@ -54,6 +54,19 @@ bool Module::parseTokens()
 	ptree->setParent(nullptr);
 	return true;
 }
+bool Module::assignType(TypeMgr &types)
+{
+	types.addModule(path);
+	types.pushModule(path);
+	if(!types.initTypeFuncsCalled()) types.initTypeFuncs();
+	if(!ptree->assignType(types)) {
+		err::set(ptree->line, ptree->col, "failed to assign types while parsing");
+		err::show(stderr, code, path);
+		return false;
+	}
+	types.popModule();
+	return true;
+}
 const std::string &Module::getPath()
 {
 	return path;
@@ -87,7 +100,7 @@ void Module::dumpParseTree()
 ////////////////////////////////////////// RAIIParser /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-RAIIParser::RAIIParser(args::ArgParser &args) : args(args) {}
+RAIIParser::RAIIParser(args::ArgParser &args) : args(args), types(this) {}
 RAIIParser::~RAIIParser()
 {
 	for(auto &m : modules) delete m.second;
@@ -106,7 +119,7 @@ Module *RAIIParser::addModule(const std::string &path)
 	Module *mod = new Module(path, code);
 	Pointer<Module> mptr(mod);
 
-	if(!mod->tokenize() || !mod->parseTokens()) return nullptr;
+	if(!mod->tokenize() || !mod->parseTokens() || !mod->assignType(types)) return nullptr;
 
 	mptr.unset();
 	modules[path] = mod;
