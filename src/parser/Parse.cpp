@@ -1020,7 +1020,7 @@ val:
 
 done:
 	if(!type && !val) {
-		err::set(name, "inisValid variable declaration - no type or value set");
+		err::set(name, "invalid variable declaration - no type or value set");
 		goto fail;
 	}
 	if(comptime && !val && oval != Occurs::NO) {

@@ -722,7 +722,7 @@ StmtRet::~StmtRet()
 void StmtRet::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Return%s%s\n", typeString().c_str());
+	tio::print(has_next, "Return%s\n", typeString().c_str());
 	if(val) {
 		tio::taba(false);
 		tio::print(false, "Value:\n");

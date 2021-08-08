@@ -27,26 +27,25 @@ namespace parser
 {
 // TODO: add a macro to each assignType function that checks if type is already set
 // don't add this macro to a function where type has no relevance (continue, break)
-static bool InitTemplateFn(TypeMgr &types, Stmt *lhs, const std::vector<Type *> &calltemplates,
-			   const bool &has_va)
+static bool InitTemplateFn(TypeMgr &types, Type *&calledfn,
+			   const std::unordered_map<std::string, Type *> &calltemplates,
+			   const bool &has_va, const size_t &line, const size_t &col)
 {
 	if(calltemplates.empty() && !has_va) return true;
 	// TODO: handle has_va
-	assert(lhs->type && "LHS has no type assigned!");
+	assert(calledfn && "LHS has no type assigned!");
 	// if this function has no definition (template intrinsic, extern, for example)
 	// do nothing
-	if(!lhs->type->parent) return true;
-	Stmt *templfnparent = lhs->type->parent->getParentWithType(BLOCK);
-	TypeFunc *origsig   = as<TypeFunc>(lhs->type);
+	if(!calledfn->parent) return true;
+	Stmt *templfnparent = calledfn->parent->getParentWithType(BLOCK);
+	TypeFunc *origsig   = as<TypeFunc>(calledfn);
 	if(!templfnparent) {
-		err::set(lhs->line, lhs->col,
-			 "function definition for specialization is not in a block!");
+		err::set(line, col, "function definition for specialization is not in a block!");
 		return false;
 	}
-	Stmt *fndefvar = lhs->type->parent->getParentWithType(VAR);
+	Stmt *fndefvar = calledfn->parent->getParentWithType(VAR);
 	if(!fndefvar) {
-		err::set(lhs->line, lhs->col,
-			 "could not find function definition's variable declaration!");
+		err::set(line, col, "could not find function definition's variable declaration!");
 		return false;
 	}
 	fndefvar     = fndefvar->copy(false, false);
@@ -68,7 +67,7 @@ static bool InitTemplateFn(TypeMgr &types, Stmt *lhs, const std::vector<Type *> 
 	// for each types add signature variables
 	for(size_t i = 0; i < fn->sig->templates.size(); ++i) {
 		const std::string &t = fn->sig->templates[i].data.s;
-		types.addCopy(t, calltemplates[i]);
+		types.add(t, calltemplates.at("@" + std::to_string(i)));
 	}
 	fn->sig->templates.clear();
 	fn->sig->has_variadic = false;
@@ -86,9 +85,8 @@ static bool InitTemplateFn(TypeMgr &types, Stmt *lhs, const std::vector<Type *> 
 		return false;
 	}
 	if(!fn->blk->assignType(types)) {
-		err::set(lhs->line, lhs->col,
-			 "failed to specialize template function definition: %s",
-			 lhs->type->str().c_str());
+		err::set(line, col, "failed to specialize template function definition: %s",
+			 calledfn->str().c_str());
 		delete fndefvar;
 		return false;
 	}
@@ -104,9 +102,8 @@ static bool InitTemplateFn(TypeMgr &types, Stmt *lhs, const std::vector<Type *> 
 	var->is_specialized = true;
 
 	// lhs must point to correct type
-	delete lhs->type;
-	lhs->type	  = fn->type->copy();
-	lhs->type->parent = lhs;
+	delete calledfn;
+	calledfn = fn->type->copy();
 
 	StmtBlock *tfnparent = as<StmtBlock>(templfnparent);
 	tfnparent->stmts.push_back(var);
@@ -138,11 +135,11 @@ bool StmtBlock::assignType(TypeMgr &types)
 
 bool StmtType::assignType(TypeMgr &types)
 {
-	std::vector<Type *> resolvabletemplates;
+	std::unordered_map<std::string, Type *> resolvabletemplates;
 	for(size_t i = 0; i < templates.size(); ++i) {
 		if(types.exists(templates[i].data.s, false, true)) {
 			Type *v = types.get(templates[i].data.s, this);
-			resolvabletemplates.push_back(v);
+			resolvabletemplates["@" + std::to_string(i)] = v;
 			continue;
 		}
 		std::string tname = "@" + std::to_string(i);
@@ -269,46 +266,125 @@ bool StmtExpr::assignType(TypeMgr &types)
 				 lhs->type->str().c_str());
 			return false;
 		}
-		if(lhs->type->type == TVARIADIC) {
+		// TODO: if the result of dot operation is a function, that's POSSIBLY a member
+		// function (except when the struct is an import); therefore, add an `is_import`
+		// field in struct. This can be used to push the "self" variable on stack for the
+		// function call to use.
+		if(lhs->type->type == TSTRUCT) {
+			TypeStruct *lst = as<TypeStruct>(lhs->type);
+			if(lst->is_def) {
+				err::set(line, col,
+					 "cannot use dot operator on a struct"
+					 " definition; instantiate it first");
+				return false;
+			}
+			StmtSimple *rsim = as<StmtSimple>(rhs);
+			size_t ptr	 = lst->ptr;
+			if(oper.tok.val == lex::ARROW) --ptr;
+			Type *res = ptr == 0 ? lst->get_field(rsim->val.data.s) : nullptr;
+			if(!res) {
+				if(!(res = types.getFuncMapCopy(rsim->val.data.s, this))) {
+					err::set(line, col,
+						 "no function or struct field"
+						 " (in '%s') named '%s' exists",
+						 lst->str().c_str(), rsim->val.data.s.c_str());
+					return false;
+				}
+			}
+
+			if(res->type == TFUNCMAP && !lst->is_import) {
+				Type *self = lst->copy();
+				self->info |= REF;
+				as<TypeFuncMap>(res)->setSelf(self);
+			}
+			rhs->type	  = res;
+			rhs->type->parent = rhs;
+			type		  = res->copy();
+			type->parent	  = this;
+		} else if(lhs->type->type == TVARIADIC) {
 			TypeVariadic *v = as<TypeVariadic>(lhs->type);
 			if(!v->isIndexed()) {
 				err::set(line, col, "variadic variable must be indexed to use");
 				return false;
 			}
 			// TODO: loop through variadic to ensure the dot operator is valid
-			break;
+			std::vector<Type *> resargs;
+			Type *res     = nullptr;
+			Type *baseres = nullptr;
+			for(auto &i : v->args) {
+				if(i->type != TSTRUCT) {
+					err::set(line, col,
+						 "variadic element must be a structure to use the "
+						 "dot operator, found: %s",
+						 i->str().c_str());
+					return false;
+				}
+				TypeStruct *lst = as<TypeStruct>(i);
+				if(lst->is_def) {
+					err::set(line, col,
+						 "cannot use dot operator on a struct"
+						 " definition; instantiate it first");
+					return false;
+				}
+				StmtSimple *rsim = as<StmtSimple>(rhs);
+				size_t ptr	 = lst->ptr;
+				if(oper.tok.val == lex::ARROW) --ptr;
+				res = ptr == 0 ? lst->get_field(rsim->val.data.s) : nullptr;
+				if(res) {
+					if(!baseres) {
+						baseres = res;
+					} else if(!baseres->compatible(res, line, col)) {
+						err::set(line, col,
+							 "field '%s' of struct '%s' must "
+							 "have the same type as other "
+							 "variadic field of same name (%s)",
+							 rsim->val.data.s.c_str(),
+							 lst->str().c_str(),
+							 baseres->str().c_str());
+						return false;
+					}
+				} else {
+					res = ptr == 0
+					      ? types.getFuncMapCopy(rsim->val.data.s, this)
+					      : nullptr;
+				}
+				if(!res) {
+					err::set(line, col,
+						 "no function or struct field (in '%s')"
+						 " named '%s' exists",
+						 lst->str().c_str(), rsim->val.data.s.c_str());
+					return false;
+				}
+				if(res->type == TFUNCMAP) {
+					if(!lst->is_import) {
+						Type *self = lst->copy();
+						self->info |= REF;
+						as<TypeFuncMap>(res)->setSelf(self);
+					}
+					resargs.push_back(res);
+				}
+			}
+			if(resargs.size() > 0) {
+				res = new TypeVariadic(this, 0, 0, resargs);
+			} else {
+				res = res->copy();
+			}
+			type		  = res;
+			type->parent	  = this;
+			rhs->type	  = type->copy();
+			rhs->type->parent = rhs;
 		}
-		TypeStruct *lst = as<TypeStruct>(lhs->type);
-		if(lst->is_def) {
-			err::set(line, col,
-				 "cannot use dot operator on a struct"
-				 " definition; instantiate it first");
-			return false;
-		}
-		StmtSimple *rsim = as<StmtSimple>(rhs);
-		size_t ptr	 = lst->ptr;
-		if(oper.tok.val == lex::ARROW) --ptr;
-		Type *res = ptr == 0 ? lst->get_field(rsim->val.data.s) : nullptr;
-		if(!res && !(res = types.getFuncMapCopy(rsim->val.data.s, this))) {
-			err::set(line, col,
-				 "no function or struct field (in '%s') named '%s' exists",
-				 lst->str().c_str(), rsim->val.data.s.c_str());
-			return false;
-		}
-		rhs->type	  = res;
-		rhs->type->parent = rhs;
-		type		  = res->copy();
-		type->parent	  = this;
 		break;
 	}
 	case lex::FNCALL: {
 		assert(rhs && rhs->stmt_type == FNCALLINFO &&
 		       "RHS for function call must be a call info (compiler failure)");
 		StmtFnCallInfo *finfo = as<StmtFnCallInfo>(rhs);
-		std::vector<Type *> calltemplates;
+		std::unordered_map<std::string, Type *> calltemplates;
 		bool has_va = false;
 		if(lhs->type->type != TFUNC && lhs->type->type != TSTRUCT &&
-		   lhs->type->type != TFUNCMAP) {
+		   lhs->type->type != TFUNCMAP && lhs->type->type != TVARIADIC)
+		{
 			err::set(lhs->line, lhs->col,
 				 "function call can be performed "
 				 "only on a function or struct type, attempted on: %s",
@@ -365,9 +441,54 @@ bool StmtExpr::assignType(TypeMgr &types)
 			lhs->type = type;
 			type	  = lhs->type->copy();
 			break; // no need to clone the struct
+		} else if(lhs->type->type == TVARIADIC) {
+			TypeVariadic *va = as<TypeVariadic>(lhs->type);
+			Type *basefnret	 = nullptr;
+			for(size_t i = 0; i < va->args.size(); ++i) {
+				calltemplates.clear();
+				auto &a = va->args[i];
+				if(a->type != TFUNCMAP) {
+					err::set(line, col,
+						 "variadic must contain list of function maps for "
+						 "function call, found: %s",
+						 va->str().c_str());
+					return false;
+				}
+				TypeFuncMap *fmap = as<TypeFuncMap>(a);
+				Type *decidedtype = nullptr;
+				if(!(decidedtype = fmap->decide_func(finfo, calltemplates))) {
+					err::set(line, col,
+						 "failed to decide the function "
+						 "to execute, need more info");
+					if(basefnret) delete basefnret;
+					return false;
+				}
+				TypeFunc *typefn = as<TypeFunc>(decidedtype);
+				if(!basefnret) {
+					basefnret = typefn->rettype->copy();
+				} else if(!basefnret->compatible(typefn->rettype, line, col)) {
+					err::set(line, col,
+						 "function '%s' must "
+						 "have the same return type as others in "
+						 "variadic function list (%s)",
+						 typefn->str().c_str(), basefnret->str().c_str());
+					return false;
+				}
+				has_va = typefn->has_va;
+				if(!InitTemplateFn(types, decidedtype, calltemplates, has_va, line,
+						   col)) {
+					if(basefnret) delete basefnret;
+					return false;
+				}
+				delete a;
+				a = decidedtype;
+			}
+			type = basefnret;
+			break;
 		}
 		// apply stmt template specialization
-		if(!InitTemplateFn(types, lhs, calltemplates, has_va)) return false;
+		if(!InitTemplateFn(types, lhs->type, calltemplates, has_va, line, col))
+			return false;
 		break;
 	}
 	case lex::SUBS: {
@@ -493,7 +614,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 		}
 		StmtFnCallInfo *fci = new StmtFnCallInfo(mod, line, col, {}, {lhs});
 		if(rhs) fci->args.push_back(rhs);
-		std::vector<Type *> calltemplates;
+		std::unordered_map<std::string, Type *> calltemplates;
 		TypeFunc *decidedfn = fn->decide_func(fci, calltemplates);
 		err::reset();
 		if(!decidedfn) {
@@ -514,7 +635,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 			delete decidedfn;
 			return false;
 		}
-		if(!InitTemplateFn(types, lhs, calltemplates, false)) return false;
+		if(!InitTemplateFn(types, lhs->type, calltemplates, false, line, col)) return false;
 		fci->args.clear();
 		delete fci;
 		delete decidedfn;

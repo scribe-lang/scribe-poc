@@ -121,10 +121,10 @@ Type *TypeSimple::copy(const size_t &append_info)
 {
 	return new TypeSimple(id, parent, ptr, info | append_info, intrin_fn, name);
 }
-Type *TypeSimple::specialize(const std::vector<Type *> &templates)
+Type *TypeSimple::specialize(const std::unordered_map<std::string, Type *> &templates)
 {
 	if(name[0] != '@') return copy();
-	Type *res = templates[std::stoi(name.substr(1))]->copy();
+	Type *res = templates.at(name)->copy();
 	res->ptr += ptr;
 	res->info |= info;
 	return res;
@@ -133,6 +133,25 @@ bool TypeSimple::compatible(Type *rhs, const size_t &line, const size_t &col)
 {
 	if(!compatible_base(rhs, name[0] == '@' || name == "any", line, col)) return false;
 	TypeSimple *r = static_cast<TypeSimple *>(rhs);
+	return true;
+}
+bool TypeSimple::assignTemplateActuals(Type *actual,
+				       std::unordered_map<std::string, Type *> &templates,
+				       const size_t &line, const size_t &col)
+{
+	if(name[0] != '@') return true;
+	auto res = templates.find(name);
+	if(res != templates.end()) {
+		if(!res->second->compatible(actual, line, col)) {
+			err::set(line, col,
+				 "In templated argument, mismatch"
+				 " between template %s and actual %s",
+				 res->second->str().c_str(), actual->str().c_str());
+			return false;
+		}
+		return true;
+	}
+	templates[name] = actual->copy();
 	return true;
 }
 std::string TypeSimple::str()
@@ -145,22 +164,23 @@ std::string TypeSimple::mangled_name()
 	return tname.empty() ? "_" + name : tname + name;
 }
 
-TypeStruct::TypeStruct(Stmt *parent, const size_t &ptr, const size_t &info, const bool &is_ref,
+TypeStruct::TypeStruct(Stmt *parent, const size_t &ptr, const size_t &info, const bool &is_import,
 		       const size_t &templ, const std::vector<std::string> &field_order,
 		       const std::unordered_map<std::string, Type *> &fields)
-	: Type(TSTRUCT, parent, ptr, info), is_decl_only(false), is_ref(is_ref), is_def(true),
+	: Type(TSTRUCT, parent, ptr, info), is_decl_only(false), is_import(is_import), is_def(true),
 	  templ(templ), field_order(field_order), fields(fields)
 {}
 TypeStruct::TypeStruct(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-		       const bool &is_ref, const bool &is_def, intrinsic_fn_t intrin_fn,
+		       const bool &is_import, const bool &is_def, intrinsic_fn_t intrin_fn,
 		       const size_t &templ, const std::vector<std::string> &field_order,
 		       const std::unordered_map<std::string, Type *> &fields)
-	: Type(id, TSTRUCT, parent, ptr, info, intrin_fn), is_decl_only(false), is_ref(is_ref),
-	  is_def(is_def), templ(templ), field_order(field_order), fields(fields)
+	: Type(id, TSTRUCT, parent, ptr, info, intrin_fn), is_decl_only(false),
+	  is_import(is_import), is_def(is_def), templ(templ), field_order(field_order),
+	  fields(fields)
 {}
 TypeStruct::~TypeStruct()
 {
-	if(!is_ref) {
+	if(!is_import) {
 		for(auto &f : fields) delete f.second;
 	}
 }
@@ -168,19 +188,19 @@ Type *TypeStruct::copy(const size_t &append_info)
 {
 	std::unordered_map<std::string, Type *> newfields;
 	for(auto &f : fields) {
-		newfields[f.first] = is_ref ? f.second : f.second->copy();
+		newfields[f.first] = is_import ? f.second : f.second->copy();
 	}
-	return new TypeStruct(id, parent, ptr, info | append_info, is_ref, is_def, intrin_fn, templ,
-			      field_order, newfields);
+	return new TypeStruct(id, parent, ptr, info | append_info, is_import, is_def, intrin_fn,
+			      templ, field_order, newfields);
 }
-Type *TypeStruct::specialize(const std::vector<Type *> &templates)
+Type *TypeStruct::specialize(const std::unordered_map<std::string, Type *> &templates)
 {
 	std::unordered_map<std::string, Type *> newfields;
 	for(auto &f : fields) {
 		newfields[f.first] = f.second->specialize(templates);
 	}
-	return new TypeStruct(id, parent, ptr, info, is_ref, is_def, intrin_fn, templ, field_order,
-			      newfields);
+	return new TypeStruct(id, parent, ptr, info, is_import, is_def, intrin_fn, templ,
+			      field_order, newfields);
 }
 bool TypeStruct::compatible(Type *rhs, const size_t &line, const size_t &col)
 {
@@ -214,19 +234,21 @@ bool TypeStruct::compatible(Type *rhs, const size_t &line, const size_t &col)
 	}
 	return true;
 }
-TypeStruct *TypeStruct::specialize_compatible_call(StmtFnCallInfo *callinfo,
-						   std::vector<Type *> &templates)
+TypeStruct *
+TypeStruct::specialize_compatible_call(StmtFnCallInfo *callinfo,
+				       std::unordered_map<std::string, Type *> &templates)
 {
 	templates.clear();
 	if(this->templ < callinfo->templates.size()) return nullptr;
 	if(this->fields.size() != callinfo->args.size()) return nullptr;
-	for(auto &t : callinfo->templates) {
-		templates.push_back(t->type);
+	for(size_t i = 0; i < callinfo->templates.size(); ++i) {
+		templates["@" + std::to_string(i)] = callinfo->templates[i]->type->copy();
 	}
-	size_t inferred_templates = this->templ - templates.size();
-	if(callinfo->args.size() < inferred_templates) return nullptr;
-	for(size_t i = 0; i < inferred_templates; ++i) {
-		templates.push_back(callinfo->args[i]->type);
+	for(size_t i = 0; i < this->field_order.size(); ++i) {
+		Type *&field = this->fields[field_order[i]];
+		if(!field->assignTemplateActuals(callinfo->args[i]->type, templates, callinfo->line,
+						 callinfo->col))
+			return nullptr;
 	}
 	bool is_field_compatible = true;
 	std::unordered_map<std::string, Type *> specializedfields;
@@ -242,10 +264,26 @@ TypeStruct *TypeStruct::specialize_compatible_call(StmtFnCallInfo *callinfo,
 		}
 	}
 	for(auto &sf : specializedfields) delete sf.second;
-	if(!is_field_compatible) return nullptr;
+	if(!is_field_compatible) {
+		for(auto &t : templates) delete t.second;
+		return nullptr;
+	}
 	TypeStruct *newst = static_cast<TypeStruct *>(specialize(templates));
 	newst->is_def	  = false;
+	for(auto &t : templates) delete t.second;
 	return newst;
+}
+bool TypeStruct::assignTemplateActuals(Type *actual,
+				       std::unordered_map<std::string, Type *> &templates,
+				       const size_t &line, const size_t &col)
+{
+	if(!compatible(actual, line, col)) return false;
+	TypeStruct *ast = as<TypeStruct>(actual);
+	for(auto &f : field_order) {
+		if(!fields[f]->assignTemplateActuals(ast->fields[f], templates, line, col))
+			return false;
+	}
+	return true;
 }
 std::string TypeStruct::str()
 {
@@ -315,14 +353,8 @@ void TypeStruct::set_fields_copy(const std::vector<std::string> &order,
 Type *TypeStruct::get_field(const std::string &name)
 {
 	auto res = fields.find(name);
-	if(res != fields.end()) return res->second->copy();
-	std::unordered_map<std::string, TypeFunc *> funcs;
-	for(auto &f : fields) {
-		if(startswith(f.first, name + "_fn") && f.second->type == TFUNC) {
-			funcs[f.first] = static_cast<TypeFunc *>(f.second);
-		}
-	}
-	return funcs.size() > 0 ? new TypeFuncMap(parent, 0, 0, funcs) : nullptr;
+	if(res == fields.end()) return nullptr;
+	return res->second;
 }
 
 TypeFunc::TypeFunc(Stmt *parent, const size_t &ptr, const size_t &info, const size_t &scope,
@@ -351,7 +383,7 @@ Type *TypeFunc::copy(const size_t &append_info)
 	return new TypeFunc(id, parent, ptr, info | append_info, intrin_fn, scope, templ, has_va,
 			    newargs, rettype->copy());
 }
-Type *TypeFunc::specialize(const std::vector<Type *> &templates)
+Type *TypeFunc::specialize(const std::unordered_map<std::string, Type *> &templates)
 {
 	std::vector<Type *> newargs;
 	Type *newret = rettype->specialize(templates);
@@ -390,7 +422,7 @@ bool TypeFunc::compatible(Type *rhs, const size_t &line, const size_t &col)
 	return true;
 }
 TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
-					       std::vector<Type *> &templates)
+					       std::unordered_map<std::string, Type *> &templates)
 {
 	templates.clear();
 	if(this->templ < callinfo->templates.size()) return nullptr;
@@ -399,13 +431,13 @@ TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
 	} else if(this->args.size() != callinfo->args.size()) {
 		return nullptr;
 	}
-	for(auto &t : callinfo->templates) {
-		templates.push_back(t->type);
+	for(size_t i = 0; i < callinfo->templates.size(); ++i) {
+		templates["@" + std::to_string(i)] = callinfo->templates[i]->type->copy();
 	}
-	size_t inferred_templates = this->templ - templates.size();
-	if(callinfo->args.size() < inferred_templates) return nullptr;
-	for(size_t i = 0; i < inferred_templates; ++i) {
-		templates.push_back(callinfo->args[i]->type);
+	for(size_t i = 0; i < this->args.size(); ++i) {
+		if(!this->args[i]->assignTemplateActuals(callinfo->args[i]->type, templates,
+							 callinfo->line, callinfo->col))
+			return nullptr;
 	}
 	bool is_arg_compatible = true;
 	std::vector<Type *> variadics;
@@ -429,7 +461,10 @@ TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
 		if(variadic) variadics.push_back(fciarg->type);
 	}
 	for(auto &sa : specializedargs) delete sa;
-	if(!is_arg_compatible) return nullptr;
+	if(!is_arg_compatible) {
+		for(auto &t : templates) delete t.second;
+		return nullptr;
+	}
 	size_t val_len = this->args.size();
 	TypeFunc *tmp  = static_cast<TypeFunc *>(this->copy());
 	if(tmp->args.size() > 0 && tmp->args.back()->info & VARIADIC) --val_len;
@@ -445,8 +480,22 @@ TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
 		tmp->args.push_back(va);
 	}
 	TypeFunc *res = static_cast<TypeFunc *>(tmp->specialize(templates));
+	// no templates delete here because it is done in InitTemplateFn
+	// (by adding to types directly instead of by copying)
 	delete tmp;
 	return res;
+}
+bool TypeFunc::assignTemplateActuals(Type *actual,
+				     std::unordered_map<std::string, Type *> &templates,
+				     const size_t &line, const size_t &col)
+{
+	if(!compatible(actual, line, col)) return false;
+	TypeFunc *afn = as<TypeFunc>(actual);
+	for(size_t i = 0; i < args.size(); ++i) {
+		if(!args[i]->assignTemplateActuals(afn->args[i], templates, line, col))
+			return false;
+	}
+	return true;
 }
 std::string TypeFunc::str()
 {
@@ -473,23 +522,42 @@ std::string TypeFunc::mangled_name()
 
 TypeFuncMap::TypeFuncMap(Stmt *parent, const size_t &ptr, const size_t &info,
 			 const std::unordered_map<std::string, TypeFunc *> &funcs)
-	: Type(TFUNCMAP, parent, ptr, info), funcs(funcs)
+	: Type(TFUNCMAP, parent, ptr, info), funcs(funcs), self(nullptr)
 {}
 TypeFuncMap::TypeFuncMap(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-			 const std::unordered_map<std::string, TypeFunc *> &funcs)
-	: Type(id, TFUNCMAP, parent, ptr, info, nullptr), funcs(funcs)
+			 const std::unordered_map<std::string, TypeFunc *> &funcs, Type *self)
+	: Type(id, TFUNCMAP, parent, ptr, info, nullptr), funcs(funcs), self(self)
 {}
+TypeFuncMap::~TypeFuncMap()
+{
+	if(self) delete self;
+}
 Type *TypeFuncMap::copy(const size_t &append_info)
 {
-	return new TypeFuncMap(id, parent, ptr, info | append_info, funcs);
+	return new TypeFuncMap(id, parent, ptr, info | append_info, funcs,
+			       self ? self->copy() : nullptr);
 }
-Type *TypeFuncMap::specialize(const std::vector<Type *> &templates)
+Type *TypeFuncMap::specialize(const std::unordered_map<std::string, Type *> &templates)
 {
 	return copy();
 }
 bool TypeFuncMap::compatible(Type *rhs, const size_t &line, const size_t &col)
 {
 	return false;
+}
+bool TypeFuncMap::assignTemplateActuals(Type *actual,
+					std::unordered_map<std::string, Type *> &templates,
+					const size_t &line, const size_t &col)
+{
+	return false;
+}
+void TypeFuncMap::setSelf(Type *s)
+{
+	self = s;
+}
+Type *&TypeFuncMap::getSelf()
+{
+	return self;
 }
 std::string TypeFuncMap::str()
 {
@@ -499,8 +567,18 @@ std::string TypeFuncMap::mangled_name()
 {
 	return "<function map>";
 }
-TypeFunc *TypeFuncMap::decide_func(StmtFnCallInfo *callinfo, std::vector<Type *> &templates)
+TypeFunc *TypeFuncMap::decide_func(StmtFnCallInfo *callinfo,
+				   std::unordered_map<std::string, Type *> &templates)
 {
+	if(self) {
+		Module *mod	   = callinfo->mod;
+		const size_t &line = callinfo->line;
+		const size_t &col  = callinfo->col;
+		lex::Lexeme selfeme(line, col, col, lex::IDEN, "self");
+		StmtSimple *stmtself = new StmtSimple(mod, line, col, selfeme);
+		stmtself->type	     = self->copy();
+		callinfo->args.insert(callinfo->args.begin(), stmtself);
+	}
 	for(auto &fn : funcs) {
 		err::reset();
 		// printf("option: %s -> %s\n", fn.first.c_str(), fn.second->str().c_str());
@@ -508,7 +586,15 @@ TypeFunc *TypeFuncMap::decide_func(StmtFnCallInfo *callinfo, std::vector<Type *>
 		if(!(f = f->specialize_compatible_call(callinfo, templates))) continue;
 		// printf("matched: %s -> %s\n", fn.first.c_str(), f->str().c_str());
 		err::reset();
+		if(self) {
+			delete callinfo->args[0];
+			callinfo->args.erase(callinfo->args.begin());
+		}
 		return f;
+	}
+	if(self) {
+		delete callinfo->args[0];
+		callinfo->args.erase(callinfo->args.begin());
 	}
 	return nullptr;
 }
@@ -536,7 +622,7 @@ Type *TypeVariadic::copy(const size_t &append_info)
 	for(auto &a : args) newargs.push_back(a->copy());
 	return new TypeVariadic(id, parent, ptr, info | append_info, newargs);
 }
-Type *TypeVariadic::specialize(const std::vector<Type *> &templates)
+Type *TypeVariadic::specialize(const std::unordered_map<std::string, Type *> &templates)
 {
 	std::vector<Type *> newargs;
 	for(auto &a : args) newargs.push_back(a->specialize(templates));
@@ -557,6 +643,18 @@ bool TypeVariadic::compatible(Type *rhs, const size_t &line, const size_t &col)
 				 args[i]->str().c_str(), r->args[i]->str().c_str());
 			return false;
 		}
+	}
+	return true;
+}
+bool TypeVariadic::assignTemplateActuals(Type *actual,
+					 std::unordered_map<std::string, Type *> &templates,
+					 const size_t &line, const size_t &col)
+{
+	if(!compatible(actual, line, col)) return false;
+	TypeVariadic *ava = as<TypeVariadic>(actual);
+	for(size_t i = 0; i < args.size(); ++i) {
+		if(!args[i]->assignTemplateActuals(ava->args[i], templates, line, col))
+			return false;
 	}
 	return true;
 }
