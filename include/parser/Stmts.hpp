@@ -26,6 +26,22 @@ struct TypeFunc;
 struct TypeStruct;
 class Module;
 
+struct Value;
+struct ValueMgr;
+
+struct Stmt;
+struct StmtType;
+struct StmtExpr;
+struct StmtFnCallInfo;
+
+typedef bool (*intrinsic_fn_t)(TypeMgr &types, ValueMgr &values, StmtExpr *base,
+			       const std::vector<StmtType *> &templates,
+			       const std::vector<Stmt *> &args);
+#define INTRINSIC(name)                                                         \
+	bool intrinsic_##name(TypeMgr &types, ValueMgr &values, StmtExpr *base, \
+			      const std::vector<StmtType *> &templates,         \
+			      const std::vector<Stmt *> &args)
+
 enum Stmts
 {
 	BLOCK,
@@ -62,6 +78,7 @@ struct Stmt
 	// these members are not assigned on stmt creation
 	bool is_specialized; // to prevent cycles (fn -> type_fn -> fn ...)
 	Type *type;
+	Value *value;
 
 	Stmt(const Stmts &stmt_type, Module *mod, const size_t &line, const size_t &col);
 	virtual ~Stmt();
@@ -72,8 +89,14 @@ struct Stmt
 	virtual void disp(const bool &has_next)						 = 0;
 	virtual void setParent(Stmt *parent)						 = 0;
 	virtual bool assignType(TypeMgr &types)						 = 0;
+	virtual bool assignValue(TypeMgr &types, ValueMgr &vals)			 = 0;
+	virtual void clearValue()							 = 0;
 
 	Stmt *getParentWithType(const Stmts &typ);
+
+	// if value is set, updates it (and all references of it),
+	// else, sets the value
+	void updateValue(ValueMgr &values, Value *newvalue);
 
 	std::string typeString();
 
@@ -112,6 +135,8 @@ struct StmtType : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 
 	std::string getname();
 };
@@ -127,6 +152,8 @@ struct StmtBlock : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 
 struct StmtSimple : public Stmt
@@ -139,6 +166,8 @@ struct StmtSimple : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 
 struct StmtFnCallInfo : public Stmt
@@ -153,6 +182,8 @@ struct StmtFnCallInfo : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 
 struct StmtExpr : public Stmt
@@ -163,6 +194,9 @@ struct StmtExpr : public Stmt
 	Stmt *rhs;
 	StmtBlock *or_blk;
 	lex::Lexeme or_blk_var;
+	intrinsic_fn_t intrin_fn;
+	bool is_parse_intrinsic; // if @ is present before function name
+
 	// or_blk and or_blk_var can be set separately - nullptr/INVALID by default
 	StmtExpr(Module *mod, const size_t &line, const size_t &col, Stmt *lhs,
 		 const lex::Lexeme &oper, Stmt *rhs);
@@ -172,6 +206,17 @@ struct StmtExpr : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
+
+	void setIntrinsic(intrinsic_fn_t intrin);
+	bool hasIntrinsic();
+	bool callIntrinsic(TypeMgr &types, ValueMgr &values, StmtExpr *base,
+			   const std::vector<StmtType *> &templates,
+			   const std::vector<Stmt *> &args);
+
+	void setParseIntrinsic(const bool &pi);
+	bool isParseIntrinsic();
 };
 
 struct StmtVar : public Stmt
@@ -189,6 +234,8 @@ struct StmtVar : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 
 struct StmtFnSig : public Stmt
@@ -208,6 +255,8 @@ struct StmtFnSig : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 
 	void setMember(const bool &is_mem);
 	bool isMember();
@@ -225,6 +274,8 @@ struct StmtFnDef : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 
 struct StmtHeader : public Stmt
@@ -239,6 +290,8 @@ struct StmtHeader : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 
 struct StmtLib : public Stmt
@@ -251,6 +304,8 @@ struct StmtLib : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 
 struct StmtExtern : public Stmt
@@ -268,6 +323,8 @@ struct StmtExtern : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 
 struct StmtEnum : public Stmt
@@ -282,6 +339,8 @@ struct StmtEnum : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 
 // both declaration and definition
@@ -299,6 +358,8 @@ struct StmtStruct : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 
 struct StmtVarDecl : public Stmt
@@ -313,6 +374,8 @@ struct StmtVarDecl : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 
 struct cond_t
@@ -333,6 +396,8 @@ struct StmtCond : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 
 struct StmtForIn : public Stmt
@@ -349,6 +414,8 @@ struct StmtForIn : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 
 struct StmtFor : public Stmt
@@ -366,6 +433,8 @@ struct StmtFor : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 
 struct StmtWhile : public Stmt
@@ -379,6 +448,8 @@ struct StmtWhile : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 
 struct StmtRet : public Stmt
@@ -391,6 +462,8 @@ struct StmtRet : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 struct StmtContinue : public Stmt
 {
@@ -400,6 +473,8 @@ struct StmtContinue : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 struct StmtBreak : public Stmt
 {
@@ -409,6 +484,8 @@ struct StmtBreak : public Stmt
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
+	bool assignValue(TypeMgr &types, ValueMgr &vals);
+	void clearValue();
 };
 } // namespace parser
 } // namespace sc

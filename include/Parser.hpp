@@ -19,6 +19,7 @@
 #include "Args.hpp"
 #include "Lex.hpp"
 #include "parser/TypeMgr.hpp"
+#include "parser/ValueMgr.hpp"
 
 namespace sc
 {
@@ -55,6 +56,7 @@ class RAIIParser
 	args::ArgParser &args;
 
 	TypeMgr types;
+	ValueMgr values;
 
 	// as new sources are imported, they'll be pushed back
 	// the reverse iteration of this list will give the order of imports
@@ -72,6 +74,8 @@ public:
 	Module *getModule(const std::string &path);
 
 	bool parse(const std::string &path);
+
+	ValueMgr &getValueMgr();
 
 	// force ignores arg parser
 	void dumpTokens(const bool &force);

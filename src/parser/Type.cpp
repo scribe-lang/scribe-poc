@@ -30,9 +30,16 @@ namespace parser
 {
 std::unordered_map<std::string, int64_t> name_id_map;
 
-std::vector<std::string> basenumtypes()
+std::vector<std::string> BooleanTypes()
 {
 	static std::vector<std::string> basenums = {"i1", "i8",	 "i16", "i32", "i64",
+						    "u8", "u16", "u32", "u64"};
+	return basenums;
+}
+
+std::vector<std::string> IntegralTypes()
+{
+	static std::vector<std::string> basenums = {"i8", "i16", "i32", "i64",
 						    "u8", "u16", "u32", "u64"};
 	return basenums;
 }
@@ -51,11 +58,7 @@ bool Type::compatible_base(Type *rhs, const bool &is_templ, const size_t &line, 
 	const size_t &rinfo = rhs->info;
 	bool num_to_ptr	    = false;
 	if(ptr > 0 && rptr == 0) {
-		for(auto &bn : basenumtypes()) {
-			if(rhs->id == name_id_map[bn]) {
-				num_to_ptr = true;
-			}
-		}
+		num_to_ptr = integerCompatible();
 	}
 	if(!is_templ && !num_to_ptr && id != rhs->id) {
 		err::set(line, col, "different type ids (LHS: %s, RHS: %s), not compatible",
@@ -88,6 +91,26 @@ bool Type::compatible_base(Type *rhs, const bool &is_templ, const size_t &line, 
 		return false;
 	}
 	return true;
+}
+bool Type::booleanCompatible()
+{
+	for(auto &bt : BooleanTypes()) {
+		if(id == name_id_map[bt]) {
+			return true;
+		}
+	}
+	err::reset();
+	return false;
+}
+bool Type::integerCompatible()
+{
+	for(auto &it : IntegralTypes()) {
+		if(id == name_id_map[it]) {
+			return true;
+		}
+	}
+	err::reset();
+	return false;
 }
 std::string Type::str_base()
 {
@@ -167,8 +190,8 @@ std::string TypeSimple::mangled_name()
 TypeStruct::TypeStruct(Stmt *parent, const size_t &ptr, const size_t &info, const bool &is_import,
 		       const size_t &templ, const std::vector<std::string> &field_order,
 		       const std::unordered_map<std::string, Type *> &fields)
-	: Type(TSTRUCT, parent, ptr, info), is_decl_only(false), is_import(is_import), is_def(true),
-	  templ(templ), field_order(field_order), fields(fields)
+	: Type(TSTRUCT, parent, ptr, info), is_decl_only(false), is_import(is_import),
+	  is_def(false), templ(templ), field_order(field_order), fields(fields)
 {}
 TypeStruct::TypeStruct(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
 		       const bool &is_import, const bool &is_def, intrinsic_fn_t intrin_fn,

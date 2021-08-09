@@ -149,6 +149,10 @@ public:
 	{
 		return vallocator.get(sdata);
 	}
+	inline Value *get(const std::vector<Value *> &vdata)
+	{
+		return vallocator.get(vdata);
+	}
 	inline Value *get(const std::unordered_map<std::string, Value *> &stdata)
 	{
 		return vallocator.get(stdata);
@@ -157,6 +161,15 @@ public:
 	inline Value *get(const Values &type)
 	{
 		return vallocator.get(type);
+	}
+	inline Value *get(Value *from)
+	{
+		return vallocator.get(from);
+	}
+
+	inline void updateValue(Value *src, Value *newval)
+	{
+		return vallocator.updateValue(src, newval);
 	}
 };
 } // namespace parser

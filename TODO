@@ -20,3 +20,6 @@ The code will be read from all sources as necessary, but only be written to the 
 move intrinsic members to Stmt from Type(?)
 
 Only copy the value of an entity if it is being stored/moved in a non reference/non pointer fashion
+
+values should be able to be updated across all instances.
+each value will contain its unique id which shall be used to update the data at all references of that value.

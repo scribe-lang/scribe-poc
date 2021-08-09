@@ -11,23 +11,21 @@
 	furnished to do so.
 */
 
-#ifndef PARSER_INTRINSICS_HPP
-#define PARSER_INTRINSICS_HPP
+INTRINSIC(incx_i8);
+INTRINSIC(incx_i16);
+INTRINSIC(incx_i32);
+INTRINSIC(incx_i64);
+INTRINSIC(incx_u8);
+INTRINSIC(incx_u16);
+INTRINSIC(incx_u32);
+INTRINSIC(incx_u64);
 
-#include "Type.hpp"
+INTRINSIC(decx_i8);
+INTRINSIC(decx_i16);
+INTRINSIC(decx_i32);
+INTRINSIC(decx_i64);
+INTRINSIC(decx_u8);
+INTRINSIC(decx_u16);
+INTRINSIC(decx_u32);
+INTRINSIC(decx_u64);
 
-namespace sc
-{
-namespace parser
-{
-#include "Intrinsics/Arithmetic.def"
-#include "Intrinsics/ArithmeticAssn.def"
-#include "Intrinsics/Core.def"
-#include "Intrinsics/Logical.def"
-#include "Intrinsics/UnaryPostAssn.def"
-#include "Intrinsics/UnaryPre.def"
-#include "Intrinsics/UnaryPreAssn.def"
-} // namespace parser
-} // namespace sc
-
-#endif // PARSER_INTRINSICS_HPP

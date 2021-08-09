@@ -25,8 +25,8 @@ namespace sc
 {
 namespace parser
 {
-// TODO: add a macro to each assignType function that checks if type is already set
-// don't add this macro to a function where type has no relevance (continue, break)
+// TODO: replace all variadic weird type assignment code with comptime ValueAssign based
+// logic once that is built
 static bool InitTemplateFn(TypeMgr &types, Type *&calledfn,
 			   const std::unordered_map<std::string, Type *> &calltemplates,
 			   const bool &has_va, const size_t &line, const size_t &col)
@@ -72,7 +72,8 @@ static bool InitTemplateFn(TypeMgr &types, Type *&calledfn,
 	fn->sig->templates.clear();
 	fn->sig->has_variadic = false;
 	if(origsig->args.size() > 0 && origsig->args.back()->type == TVARIADIC) {
-		std::string tname = fn->sig->args.back()->vtype->getname();
+		std::string tname	     = fn->sig->args.back()->vtype->getname();
+		origsig->args.back()->parent = fn->sig->args.back();
 		types.addCopy(tname, origsig->args.back());
 	}
 	for(size_t i = 0; i < fn->sig->args.size(); ++i) {
@@ -90,7 +91,8 @@ static bool InitTemplateFn(TypeMgr &types, Type *&calledfn,
 		delete fndefvar;
 		return false;
 	}
-	fn->type = fn->sig->type->copy();
+	fn->sig->has_variadic = has_va;
+	fn->type	      = fn->sig->type->copy();
 	if(has_va) {
 		// TODO: execute has_va() here
 	}
@@ -101,9 +103,12 @@ static bool InitTemplateFn(TypeMgr &types, Type *&calledfn,
 	}
 	var->is_specialized = true;
 
+	var->setParent(templfnparent);
+
 	// lhs must point to correct type
 	delete calledfn;
-	calledfn = fn->type->copy();
+	calledfn	 = fn->type->copy();
+	calledfn->parent = var;
 
 	StmtBlock *tfnparent = as<StmtBlock>(templfnparent);
 	tfnparent->stmts.push_back(var);
@@ -138,7 +143,7 @@ bool StmtType::assignType(TypeMgr &types)
 	std::unordered_map<std::string, Type *> resolvabletemplates;
 	for(size_t i = 0; i < templates.size(); ++i) {
 		if(types.exists(templates[i].data.s, false, true)) {
-			Type *v = types.get(templates[i].data.s, this);
+			Type *v = types.get(templates[i].data.s);
 			resolvabletemplates["@" + std::to_string(i)] = v;
 			continue;
 		}
@@ -154,14 +159,14 @@ bool StmtType::assignType(TypeMgr &types)
 		return true;
 	}
 	Type *res = nullptr;
-	if(info & VARIADIC && (res = types.get(this->getname(), nullptr))) {
+	if(info & VARIADIC && (res = types.get(this->getname()))) {
 		type	   = res->copy();
 		type->info = info;
 		type->ptr += ptr;
 		type->info &= ~VARIADIC;
 		return res;
 	}
-	res = types.get(name.front().data.s, this);
+	res = types.get(name.front().data.s);
 	if(res == nullptr) {
 		err::set(name.front(), "variable '%s' does not exist", name.front().data.s.c_str());
 		return false;
@@ -203,7 +208,7 @@ bool StmtSimple::assignType(TypeMgr &types)
 	case lex::FLT: type = types.getCopy("f32", this); break;
 	case lex::CHAR: type = types.getCopy("u8", this); break;
 	case lex::STR: type = types.getCopy("*const u8", this); break;
-	case lex::IDEN: type = types.getCopy(val.data.s, this); break;
+	case lex::IDEN: type = types.getCopy(val.data.s, nullptr); break;
 	default: return false;
 	}
 	if(!type) {
@@ -260,7 +265,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 		}
 	case lex::DOT: {
 		assert(rhs->stmt_type == SIMPLE && "RHS for dot/arrow MUST be a simple type");
-		if(lhs->type->type != TSTRUCT && lhs->type->type != TVARIADIC) {
+		if(lhs->type->type != TSTRUCT) {
 			err::set(line, col,
 				 "LHS must be a structure to use the dot operator, found: %s",
 				 lhs->type->str().c_str());
@@ -290,6 +295,8 @@ bool StmtExpr::assignType(TypeMgr &types)
 						 lst->str().c_str(), rsim->val.data.s.c_str());
 					return false;
 				}
+			} else {
+				res = res->copy();
 			}
 
 			if(res->type == TFUNCMAP && !lst->is_import) {
@@ -301,78 +308,6 @@ bool StmtExpr::assignType(TypeMgr &types)
 			rhs->type->parent = rhs;
 			type		  = res->copy();
 			type->parent	  = this;
-		} else if(lhs->type->type == TVARIADIC) {
-			TypeVariadic *v = as<TypeVariadic>(lhs->type);
-			if(!v->isIndexed()) {
-				err::set(line, col, "variadic variable must be indexed to use");
-				return false;
-			}
-			// TODO: loop through variadic to ensure the dot operator is valid
-			std::vector<Type *> resargs;
-			Type *res     = nullptr;
-			Type *baseres = nullptr;
-			for(auto &i : v->args) {
-				if(i->type != TSTRUCT) {
-					err::set(line, col,
-						 "variadic element must be a structure to use the "
-						 "dot operator, found: %s",
-						 i->str().c_str());
-					return false;
-				}
-				TypeStruct *lst = as<TypeStruct>(i);
-				if(lst->is_def) {
-					err::set(line, col,
-						 "cannot use dot operator on a struct"
-						 " definition; instantiate it first");
-					return false;
-				}
-				StmtSimple *rsim = as<StmtSimple>(rhs);
-				size_t ptr	 = lst->ptr;
-				if(oper.tok.val == lex::ARROW) --ptr;
-				res = ptr == 0 ? lst->get_field(rsim->val.data.s) : nullptr;
-				if(res) {
-					if(!baseres) {
-						baseres = res;
-					} else if(!baseres->compatible(res, line, col)) {
-						err::set(line, col,
-							 "field '%s' of struct '%s' must "
-							 "have the same type as other "
-							 "variadic field of same name (%s)",
-							 rsim->val.data.s.c_str(),
-							 lst->str().c_str(),
-							 baseres->str().c_str());
-						return false;
-					}
-				} else {
-					res = ptr == 0
-					      ? types.getFuncMapCopy(rsim->val.data.s, this)
-					      : nullptr;
-				}
-				if(!res) {
-					err::set(line, col,
-						 "no function or struct field (in '%s')"
-						 " named '%s' exists",
-						 lst->str().c_str(), rsim->val.data.s.c_str());
-					return false;
-				}
-				if(res->type == TFUNCMAP) {
-					if(!lst->is_import) {
-						Type *self = lst->copy();
-						self->info |= REF;
-						as<TypeFuncMap>(res)->setSelf(self);
-					}
-					resargs.push_back(res);
-				}
-			}
-			if(resargs.size() > 0) {
-				res = new TypeVariadic(this, 0, 0, resargs);
-			} else {
-				res = res->copy();
-			}
-			type		  = res;
-			type->parent	  = this;
-			rhs->type	  = type->copy();
-			rhs->type->parent = rhs;
 		}
 		break;
 	}
@@ -383,8 +318,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 		std::unordered_map<std::string, Type *> calltemplates;
 		bool has_va = false;
 		if(lhs->type->type != TFUNC && lhs->type->type != TSTRUCT &&
-		   lhs->type->type != TFUNCMAP && lhs->type->type != TVARIADIC)
-		{
+		   lhs->type->type != TFUNCMAP) {
 			err::set(lhs->line, lhs->col,
 				 "function call can be performed "
 				 "only on a function or struct type, attempted on: %s",
@@ -416,11 +350,16 @@ bool StmtExpr::assignType(TypeMgr &types)
 			lhs->type = fn;
 			if(type) delete type;
 			type = fn->rettype->copy();
-			if(fn->intrin_fn && !fn->call_intrinsic(types, this, fn, finfo)) {
-				err::set(line, col,
-					 "failed to call intrinsic "
-					 "function during type assignment");
-				return false;
+			if(fn->intrin_fn) {
+				if(!is_parse_intrinsic) {
+					this->setIntrinsic(fn->intrin_fn);
+				} else if(!fn->call_intrinsic(
+					  types, types.getParser()->getValueMgr(), this, finfo)) {
+					err::set(line, col,
+						 "failed to call parse intrinsic "
+						 "function during type assignment");
+					return false;
+				}
 			}
 			has_va = fn->has_va;
 		} else if(lhs->type->type == TSTRUCT) {
@@ -441,50 +380,6 @@ bool StmtExpr::assignType(TypeMgr &types)
 			lhs->type = type;
 			type	  = lhs->type->copy();
 			break; // no need to clone the struct
-		} else if(lhs->type->type == TVARIADIC) {
-			TypeVariadic *va = as<TypeVariadic>(lhs->type);
-			Type *basefnret	 = nullptr;
-			for(size_t i = 0; i < va->args.size(); ++i) {
-				calltemplates.clear();
-				auto &a = va->args[i];
-				if(a->type != TFUNCMAP) {
-					err::set(line, col,
-						 "variadic must contain list of function maps for "
-						 "function call, found: %s",
-						 va->str().c_str());
-					return false;
-				}
-				TypeFuncMap *fmap = as<TypeFuncMap>(a);
-				Type *decidedtype = nullptr;
-				if(!(decidedtype = fmap->decide_func(finfo, calltemplates))) {
-					err::set(line, col,
-						 "failed to decide the function "
-						 "to execute, need more info");
-					if(basefnret) delete basefnret;
-					return false;
-				}
-				TypeFunc *typefn = as<TypeFunc>(decidedtype);
-				if(!basefnret) {
-					basefnret = typefn->rettype->copy();
-				} else if(!basefnret->compatible(typefn->rettype, line, col)) {
-					err::set(line, col,
-						 "function '%s' must "
-						 "have the same return type as others in "
-						 "variadic function list (%s)",
-						 typefn->str().c_str(), basefnret->str().c_str());
-					return false;
-				}
-				has_va = typefn->has_va;
-				if(!InitTemplateFn(types, decidedtype, calltemplates, has_va, line,
-						   col)) {
-					if(basefnret) delete basefnret;
-					return false;
-				}
-				delete a;
-				a = decidedtype;
-			}
-			type = basefnret;
-			break;
 		}
 		// apply stmt template specialization
 		if(!InitTemplateFn(types, lhs->type, calltemplates, has_va, line, col))
@@ -493,35 +388,30 @@ bool StmtExpr::assignType(TypeMgr &types)
 	}
 	case lex::SUBS: {
 		if(lhs->type->type == TVARIADIC) {
-			bool found_compat = false;
-			for(auto &bn : basenumtypes()) {
-				if(rhs->type->compatible(types.get(bn, this), line, col)) {
-					found_compat = true;
-					break;
-				}
-			}
-			err::reset();
-			if(!found_compat) {
+			if(!rhs->type->integerCompatible()) {
 				err::set(line, col,
 					 "variadics can only take one of the "
 					 "primitive numeric types (as index), found: %s",
 					 rhs->type->str().c_str());
 				return false;
 			}
-			TypeVariadic *va = as<TypeVariadic>(lhs->type->copy());
-			va->setIndexed(true);
-			type = va;
+			if(!rhs->assignValue(types, types.getParser()->getValueMgr())) {
+				err::set(line, col, "index for a variadic must be comptime");
+				return false;
+			}
+			TypeVariadic *va = as<TypeVariadic>(lhs->type);
+			if(va->args.size() <= rhs->value->i) {
+				err::set(line, col,
+					 "variadic index out of bounds"
+					 " (va: %zu, index: %" PRId64 ")",
+					 va->args.size(), rhs->value->i);
+				return false;
+			}
+			type = va->args[rhs->value->i]->copy();
 			break;
 		}
 		if(lhs->type->ptr > 0) {
-			bool found_compat = false;
-			for(auto &bn : basenumtypes()) {
-				if(rhs->type->compatible(types.get(bn, this), line, col)) {
-					found_compat = true;
-					break;
-				}
-			}
-			if(!found_compat) {
+			if(!rhs->type->integerCompatible()) {
 				err::set(line, col,
 					 "pointer subscript can only take one of the "
 					 "primitive numeric types (as index), found: %s",
@@ -626,14 +516,8 @@ bool StmtExpr::assignType(TypeMgr &types)
 		}
 		if(type) delete type;
 		type = decidedfn->rettype->copy();
-		if(decidedfn->intrin_fn && !decidedfn->call_intrinsic(types, this, decidedfn, fci))
-		{
-			err::set(line, col,
-				 "failed to call intrinsic "
-				 "function during type assignment");
-			delete fci;
-			delete decidedfn;
-			return false;
+		if(decidedfn->intrin_fn) {
+			this->setIntrinsic(decidedfn->intrin_fn);
 		}
 		if(!InitTemplateFn(types, lhs->type, calltemplates, false, line, col)) return false;
 		fci->args.clear();
@@ -656,6 +540,10 @@ bool StmtExpr::assignType(TypeMgr &types)
 
 bool StmtVar::assignType(TypeMgr &types)
 {
+	if(comptime && !val && parent->stmt_type != FNSIG) {
+		err::set(name, "'comptime' variables must have a value");
+		return false;
+	}
 	if(types.exists(name.data.s, true, false)) {
 		err::set(name, "variable '%s' already exists in scope", name.data.s.c_str());
 		return false;
@@ -683,6 +571,15 @@ bool StmtVar::assignType(TypeMgr &types)
 		type = val->type->copy();
 	} else if(vtype) {
 		type = vtype->type->copy();
+	}
+	type->parent = this;
+	if(comptime && parent->stmt_type != FNSIG &&
+	   !assignValue(types, types.getParser()->getValueMgr())) {
+		err::set(name, "unable to assign value to comptime variable");
+		return false;
+	}
+	if((!val || val->stmt_type != STRUCTDEF) && type->type == TSTRUCT) {
+		as<TypeStruct>(type)->is_def = false;
 	}
 	if(val && val->stmt_type == FNDEF) return types.addFuncCopy(name.data.s, type);
 	return types.addCopy(name.data.s, type);
@@ -837,6 +734,7 @@ bool StmtStruct::assignType(TypeMgr &types)
 	}
 	type = new TypeStruct(this, 0, 0, false, templates.size(), field_type_orders,
 			      field_types); // comment for correct auto formatting of this
+	as<TypeStruct>(type)->is_def = true;
 	types.popLayer();
 	return true;
 }
@@ -863,9 +761,14 @@ bool StmtVarDecl::assignType(TypeMgr &types)
 bool StmtCond::assignType(TypeMgr &types)
 {
 	for(auto &c : conds) {
-		if(!c.cond->assignType(types)) {
+		if(c.cond && !c.cond->assignType(types)) {
 			err::set(c.cond->line, c.cond->col,
 				 "failed to determine type of condition");
+			return false;
+		}
+		if(c.cond && !c.cond->type->booleanCompatible()) {
+			err::set(c.cond->line, c.cond->col,
+				 "conditional does not return a numeric primitive/boolean");
 			return false;
 		}
 		if(!c.blk->assignType(types)) {

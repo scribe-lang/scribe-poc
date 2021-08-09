@@ -174,20 +174,22 @@ bool TypeMgr::exists(const std::string &name, const bool &top_only, const bool &
 	if(srcstack.back()->exists(name, lock_from, top_only)) return true;
 	return with_globals ? globals.find(name) != globals.end() : false;
 }
-Type *TypeMgr::get(const std::string &name, Stmt *parent)
+Type *TypeMgr::get(const std::string &name)
 {
 	size_t lock_from = lockedlayers.size() > 0 ? lockedlayers.back() : size_t(-1);
 	Type *res	 = srcstack.back()->get(name, lock_from);
 	if(res) return res;
 	auto gres = globals.find(name);
 	if(gres != globals.end()) return gres->second;
-	return getFuncMap(name, parent);
+	return getFuncMap(name, nullptr);
 }
 Type *TypeMgr::getCopy(const std::string &name, Stmt *parent)
 {
-	Type *res = get(name, parent);
+	Type *res = get(name);
 	if(!res) return nullptr;
-	return res->copy();
+	res = res->copy();
+	if(parent && res->type == TFUNCMAP) res->parent = parent;
+	return res;
 }
 bool TypeMgr::addFunc(const std::string &name, Type *vtyp, const bool &global)
 {

@@ -140,7 +140,11 @@ public:
 	bool add(const std::string &name, Type *val, const bool &global = false);
 	bool addCopy(const std::string &name, Type *val, const bool &global = false);
 	bool exists(const std::string &name, const bool &top_only, const bool &with_globals);
-	Type *get(const std::string &name, Stmt *parent);
+	// if parent is nullptr, parent will not be updated and will be the same as before
+	// non copy version of this function DOES NOT update the parent if the result is a variable
+	// and not a function
+	Type *get(const std::string &name);
+	// if parent is nullptr, parent will not be updated and will be the same as before
 	Type *getCopy(const std::string &name, Stmt *parent);
 	void lockScopesBefore(const size_t &idx)
 	{
@@ -153,7 +157,9 @@ public:
 
 	bool addFunc(const std::string &name, Type *vtyp, const bool &global = false);
 	bool addFuncCopy(const std::string &name, Type *vtyp, const bool &global = false);
+	// if parent is nullptr, parent will not be updated and will be the same as before
 	TypeFuncMap *getFuncMap(const std::string &name, Stmt *parent);
+	// if parent is nullptr, parent will not be updated and will be the same as before
 	TypeFuncMap *getFuncMapCopy(const std::string &name, Stmt *parent);
 
 	inline void pushFunc(TypeFunc *fn)
@@ -171,28 +177,6 @@ public:
 	inline bool hasFunc()
 	{
 		return !funcstack.empty();
-	}
-
-	inline Value *get(const int64_t &idata)
-	{
-		return vals.get(idata);
-	}
-	inline Value *get(const double &fdata)
-	{
-		return vals.get(fdata);
-	}
-	inline Value *get(const std::string &sdata)
-	{
-		return vals.get(sdata);
-	}
-	inline Value *get(const std::unordered_map<std::string, Value *> &stdata)
-	{
-		return vals.get(stdata);
-	}
-	// this is for unknown and void values
-	inline Value *get(const Values &type)
-	{
-		return vals.get(type);
 	}
 };
 } // namespace parser

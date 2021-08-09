@@ -39,8 +39,6 @@ namespace sc
 {
 namespace parser
 {
-std::vector<std::string> basenumtypes();
-
 enum Types
 {
 	TSIMPLE,
@@ -50,11 +48,6 @@ enum Types
 	TFUNCMAP,
 	TVARIADIC,
 };
-
-typedef bool (*intrinsic_fn_t)(TypeMgr &types, StmtExpr *base, TypeFunc *call,
-			       StmtFnCallInfo *args);
-#define INTRINSIC(name) \
-	bool intrinsic_##name(TypeMgr &types, StmtExpr *base, TypeFunc *call, StmtFnCallInfo *args)
 
 struct Type
 {
@@ -84,11 +77,15 @@ struct Type
 	{
 		intrin_fn = intrinsic;
 	}
-	inline bool call_intrinsic(TypeMgr &types, StmtExpr *base, TypeFunc *call,
+	inline bool call_intrinsic(TypeMgr &types, ValueMgr &values, StmtExpr *base,
 				   StmtFnCallInfo *args)
 	{
-		return intrin_fn ? intrin_fn(types, base, call, args) : true;
+		return intrin_fn ? intrin_fn(types, values, base, args->templates, args->args)
+				 : true;
 	}
+
+	bool booleanCompatible();
+	bool integerCompatible();
 
 	std::string str_base();
 	virtual std::string str() = 0;

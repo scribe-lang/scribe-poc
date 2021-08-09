@@ -16,14 +16,6 @@
 #include "Parser.hpp"
 #include "parser/TypeMgr.hpp"
 
-#define HAS_VALID_VAL(type) (type->val && type->val->has_data())
-
-#define VERIFY_VALS_BINOP()                                                     \
-	if(!HAS_VALID_VAL(call->type) || !HAS_VALID_VAL(args->args[0]->type)) { \
-		call->type->val = types.get(VUNKNOWN);                          \
-		return true;                                                    \
-	}
-
 namespace sc
 {
 namespace parser
@@ -121,7 +113,7 @@ INTRINSIC(va_len)
 }
 INTRINSIC(array)
 {
-	printf("call: %s\n", call->str().c_str());
+	// printf("call: %s\n", call->str().c_str());
 	return true;
 }
 INTRINSIC(comptime_strlen)

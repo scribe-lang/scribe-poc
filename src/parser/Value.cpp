@@ -19,11 +19,16 @@ namespace sc
 {
 namespace parser
 {
-Value::Value(const Values &type) : type(type), i(0), f(0) {}
-Value::Value(const int64_t &idata) : type(VINT), i(idata), f(0) {}
-Value::Value(const double &fdata) : type(VFLT), i(0), f(fdata) {}
-Value::Value(const std::string &sdata) : type(VSTR), i(0), f(0), s(sdata) {}
-Value::Value(const std::unordered_map<std::string, Value *> &stdata)
+Value::Value(const uint64_t &id, const Values &type) : id(id), type(type), i(0), f(0) {}
+Value::Value(const uint64_t &id, const int64_t &idata) : id(id), type(VINT), i(idata), f(0) {}
+Value::Value(const uint64_t &id, const double &fdata) : id(id), type(VFLT), i(0), f(fdata) {}
+Value::Value(const uint64_t &id, const std::string &sdata)
+	: id(id), type(VSTR), i(0), f(0), s(sdata)
+{}
+Value::Value(const uint64_t &id, const std::vector<Value *> &vdata)
+	: id(id), type(VVEC), i(0), f(0), v(vdata)
+{}
+Value::Value(const uint64_t &id, const std::unordered_map<std::string, Value *> &stdata)
 	: type(VSTRUCT), i(0), f(0), st(stdata)
 {}
 bool Value::operator==(const Value &other)
@@ -35,6 +40,12 @@ bool Value::operator==(const Value &other)
 	case VINT: return i == other.i;
 	case VFLT: return f == other.f;
 	case VSTR: return s == other.s;
+	case VVEC:
+		if(v.size() != other.v.size()) return false;
+		for(size_t i = 0; i < v.size(); ++i) {
+			if(*v[i] != *other.v[i]) return false;
+		}
+		return true;
 	case VSTRUCT:
 		if(st.size() != other.st.size()) return false;
 		for(auto &s : st) {
@@ -58,15 +69,32 @@ std::string Value::stringify()
 	case VINT: return std::to_string(i);
 	case VFLT: return std::to_string(f);
 	case VSTR: return s;
-	case VSTRUCT:
+	case VVEC: {
+		std::string res;
+		res = "[";
+		for(auto &e : v) {
+			res += e->stringify() + ", ";
+		}
+		if(v.size() > 0) {
+			res.pop_back();
+			res.pop_back();
+		}
+		res += "]";
+		return res;
+	}
+	case VSTRUCT: {
 		std::string res;
 		res = "{";
 		for(auto &f : st) {
-			res += f.first + "." + f.second->stringify() + "_";
+			res += f.first + " = " + f.second->stringify() + ", ";
 		}
-		if(st.size() > 0) res.pop_back();
+		if(st.size() > 0) {
+			res.pop_back();
+			res.pop_back();
+		}
 		res += "}";
 		return res;
+	}
 	}
 	return "";
 }
@@ -78,16 +106,19 @@ bool Value::has_data()
 	case VINT:  // fallthrough
 	case VFLT:  // fallthrough
 	case VSTR:  // fallthrough
+	case VVEC:
 	case VSTRUCT: return true;
 	}
 	return false;
 }
 
-ValueAllocator::ValueAllocator() : unknown(new Value(VUNKNOWN)), vvoid(new Value(VVOID)) {}
+ValueAllocator::ValueAllocator() : unknown(new Value(0, VUNKNOWN)), vvoid(new Value(1, VVOID))
+{
+	allvalues.push_back(unknown);
+	allvalues.push_back(vvoid);
+}
 ValueAllocator::~ValueAllocator()
 {
-	delete vvoid;
-	delete unknown;
 	for(auto &v : allvalues) delete v;
 }
 std::string ValueAllocator::stringify(const std::unordered_map<std::string, Value *> &v)
@@ -109,44 +140,50 @@ Value *ValueAllocator::get(const Values &type)
 }
 Value *ValueAllocator::get(const int64_t &idata)
 {
-	static std::unordered_map<int64_t, Value *> imap;
-	auto res = imap.find(idata);
-	if(res != imap.end()) return res->second;
-	Value *v    = new Value(idata);
-	imap[idata] = v;
+	Value *v = new Value(allvalues.size(), idata);
 	allvalues.push_back(v);
 	return v;
 }
 Value *ValueAllocator::get(const double &fdata)
 {
-	static std::unordered_map<double, Value *> fmap;
-	auto res = fmap.find(fdata);
-	if(res != fmap.end()) return res->second;
-	Value *v    = new Value(fdata);
-	fmap[fdata] = v;
+	Value *v = new Value(allvalues.size(), fdata);
 	allvalues.push_back(v);
 	return v;
 }
 Value *ValueAllocator::get(const std::string &sdata)
 {
-	static std::unordered_map<std::string, Value *> smap;
-	auto res = smap.find(sdata);
-	if(res != smap.end()) return res->second;
-	Value *v    = new Value(sdata);
-	smap[sdata] = v;
+	Value *v = new Value(allvalues.size(), sdata);
+	allvalues.push_back(v);
+	return v;
+}
+Value *ValueAllocator::get(const std::vector<Value *> &vdata)
+{
+	Value *v = new Value(allvalues.size(), vdata);
 	allvalues.push_back(v);
 	return v;
 }
 Value *ValueAllocator::get(const std::unordered_map<std::string, Value *> &stdata)
 {
-	static std::unordered_map<std::string, Value *> stmap;
-	std::string name = "{" + stringify(stdata) + "}";
-	auto res	 = stmap.find(name);
-	if(res != stmap.end()) return res->second;
-	Value *v    = new Value(stdata);
-	stmap[name] = v;
+	Value *v = new Value(allvalues.size(), stdata);
 	allvalues.push_back(v);
 	return v;
+}
+Value *ValueAllocator::get(Value *from)
+{
+	Value *v = new Value(allvalues.size(), (int64_t)0);
+	allvalues.push_back(v);
+	updateValue(v, from);
+	return v;
+}
+
+void ValueAllocator::updateValue(Value *src, Value *newval)
+{
+	src->type = newval->type;
+	src->i	  = newval->i;
+	src->f	  = newval->f;
+	src->s	  = newval->s;
+	src->v	  = newval->v;
+	src->st	  = newval->st;
 }
 } // namespace parser
 } // namespace sc

@@ -100,7 +100,7 @@ void Module::dumpParseTree()
 ////////////////////////////////////////// RAIIParser /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-RAIIParser::RAIIParser(args::ArgParser &args) : args(args), types(this) {}
+RAIIParser::RAIIParser(args::ArgParser &args) : args(args), types(this), values(this) {}
 RAIIParser::~RAIIParser()
 {
 	for(auto &m : modules) delete m.second;
@@ -149,6 +149,10 @@ bool RAIIParser::parse(const std::string &path)
 	if(!addModule(path)) return false;
 	fs::scwd(wd);
 	return true;
+}
+ValueMgr &RAIIParser::getValueMgr()
+{
+	return values;
 }
 void RAIIParser::dumpTokens(const bool &force)
 {

@@ -826,7 +826,8 @@ bool parse_expr_01(ParseHelper &p, Stmt *&expr)
 	std::vector<StmtType *> templates;
 	StmtType *templ = nullptr;
 	std::vector<Stmt *> args;
-	Stmt *arg = nullptr;
+	Stmt *arg		= nullptr;
+	bool is_parse_intrinsic = false;
 
 	if(p.acceptn(lex::LPAREN)) {
 		if(!parse_expr(p, expr)) {
@@ -842,6 +843,7 @@ bool parse_expr_01(ParseHelper &p, Stmt *&expr)
 	}
 
 begin:
+	if(p.acceptn(lex::AT)) is_parse_intrinsic = true;
 	if(p.acceptd() && !parse_simple(p, lhs)) goto fail;
 	goto begin_brack;
 
@@ -858,6 +860,11 @@ begin_brack:
 		p.sett(lex::SUBS);
 		oper = p.peak();
 		p.next();
+		if(is_parse_intrinsic) {
+			err::set(p.peak(), "only function calls can be intrinsic;"
+					   " attempted subscript here");
+			goto fail;
+		}
 		if(!parse_expr_16(p, rhs)) {
 			err::set(oper, "failed to parse expression for subscript");
 			goto fail;
@@ -914,6 +921,7 @@ begin_brack:
 		rhs  = nullptr;
 		args = {};
 		templates = {};
+		as<StmtExpr>(lhs)->setParseIntrinsic(is_parse_intrinsic);
 
 		if(p.accept(lex::LBRACK, lex::LPAREN)) goto begin_brack;
 	}
@@ -1676,7 +1684,7 @@ bool parse_break(ParseHelper &p, Stmt *&brk)
 		return false;
 	}
 
-	brk = new StmtContinue(p.getModule(), start.line, start.col_beg);
+	brk = new StmtBreak(p.getModule(), start.line, start.col_beg);
 	return true;
 }
 } // namespace parser

@@ -14,6 +14,7 @@
 #include "parser/Stmts.hpp"
 
 #include "parser/Type.hpp"
+#include "parser/ValueMgr.hpp"
 #include "TreeIO.hpp"
 
 namespace sc
@@ -26,7 +27,7 @@ namespace parser
 
 Stmt::Stmt(const Stmts &stmt_type, Module *mod, const size_t &line, const size_t &col)
 	: stmt_type(stmt_type), parent(nullptr), mod(mod), line(line), col(col),
-	  is_specialized(false), type(nullptr)
+	  is_specialized(false), type(nullptr), value(nullptr)
 {}
 Stmt::~Stmt()
 {
@@ -41,16 +42,25 @@ Stmt *Stmt::copy(const bool &copy_type, const bool &copy_val)
 }
 Stmt *Stmt::getParentWithType(const Stmts &typ)
 {
-	Stmt *res = this->parent;
+	Stmt *res = this;
 	while(res && res->stmt_type != typ) {
 		res = res->parent;
 	}
 	return res;
 }
+void Stmt::updateValue(ValueMgr &values, Value *newvalue)
+{
+	if(!value) {
+		value = newvalue;
+		return;
+	}
+	values.updateValue(value, newvalue);
+}
 std::string Stmt::typeString()
 {
 	std::string res;
 	if(type) res += " :: " + type->str();
+	if(value) res += " -> " + value->stringify();
 	return res;
 }
 
@@ -236,7 +246,7 @@ void StmtFnCallInfo::disp(const bool &has_next)
 StmtExpr::StmtExpr(Module *mod, const size_t &line, const size_t &col, Stmt *lhs,
 		   const lex::Lexeme &oper, Stmt *rhs)
 	: Stmt(EXPR, mod, line, col), commas(0), lhs(lhs), oper(oper), rhs(rhs), or_blk(nullptr),
-	  or_blk_var()
+	  or_blk_var(), is_parse_intrinsic(false), intrin_fn(nullptr)
 {}
 StmtExpr::~StmtExpr()
 {
@@ -248,7 +258,8 @@ StmtExpr::~StmtExpr()
 void StmtExpr::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Expression:%s\n", typeString().c_str());
+	tio::print(has_next, "Expression [parsing intinsic: %s]:%s\n",
+		   is_parse_intrinsic ? "yes" : "no", typeString().c_str());
 	if(lhs) {
 		tio::taba(oper.tok.isValid() || rhs || or_blk);
 		tio::print(oper.tok.isValid() || rhs || or_blk, "LHS:\n");
@@ -274,6 +285,31 @@ void StmtExpr::disp(const bool &has_next)
 		tio::tabr();
 	}
 	tio::tabr();
+}
+
+void StmtExpr::setIntrinsic(intrinsic_fn_t intrin)
+{
+	intrin_fn = intrin;
+}
+bool StmtExpr::hasIntrinsic()
+{
+	return intrin_fn != nullptr;
+}
+bool StmtExpr::callIntrinsic(TypeMgr &types, ValueMgr &values, StmtExpr *base,
+			     const std::vector<StmtType *> &templates,
+			     const std::vector<Stmt *> &args)
+{
+	if(!intrin_fn) return false;
+	return intrin_fn(types, values, base, templates, args);
+}
+
+void StmtExpr::setParseIntrinsic(const bool &pi)
+{
+	is_parse_intrinsic = pi;
+}
+bool StmtExpr::isParseIntrinsic()
+{
+	return is_parse_intrinsic;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -621,11 +657,11 @@ StmtForIn::~StmtForIn()
 void StmtForIn::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "For-in loop with iterator: %s [comptime = %s]", iter.data.s.c_str(),
-		   comptime ? "true" : "false");
+	tio::print(has_next, "For-in loop with iterator: %s [comptime = %s]:\n",
+		   iter.data.s.c_str(), comptime ? "true" : "false");
 	tio::taba(true);
 	tio::print(true, "In:\n");
-	in->disp(true);
+	in->disp(false);
 	tio::tabr();
 	tio::taba(false);
 	tio::print(false, "Block:\n");

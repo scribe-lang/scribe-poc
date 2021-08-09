@@ -29,22 +29,26 @@ enum Values
 	VINT, // also char (u8)
 	VFLT,
 	VSTR,
+	VVEC,
 	VSTRUCT,
 };
 
 struct Value
 {
+	uint64_t id;
 	Values type;
 	int64_t i;
 	double f;
 	std::string s;
+	std::vector<Value *> v;			     // list of values (mainly for variadics)
 	std::unordered_map<std::string, Value *> st; // each element contains a field of struct
 
-	Value(const Values &type);
-	Value(const int64_t &idata);
-	Value(const double &fdata);
-	Value(const std::string &sdata);
-	Value(const std::unordered_map<std::string, Value *> &stdata);
+	Value(const uint64_t &id, const Values &type);
+	Value(const uint64_t &id, const int64_t &idata);
+	Value(const uint64_t &id, const double &fdata);
+	Value(const uint64_t &id, const std::string &sdata);
+	Value(const uint64_t &id, const std::vector<Value *> &vdata);
+	Value(const uint64_t &id, const std::unordered_map<std::string, Value *> &stdata);
 
 	bool operator==(const Value &other);
 	bool operator!=(const Value &other);
@@ -72,7 +76,11 @@ public:
 	Value *get(const int64_t &idata);
 	Value *get(const double &fdata);
 	Value *get(const std::string &sdata);
+	Value *get(const std::vector<Value *> &vdata);
 	Value *get(const std::unordered_map<std::string, Value *> &stdata);
+	Value *get(Value *from);
+
+	void updateValue(Value *src, Value *newval);
 };
 } // namespace parser
 } // namespace sc
