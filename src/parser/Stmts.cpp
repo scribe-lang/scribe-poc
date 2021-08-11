@@ -27,7 +27,7 @@ namespace parser
 
 Stmt::Stmt(const Stmts &stmt_type, Module *mod, const size_t &line, const size_t &col)
 	: stmt_type(stmt_type), parent(nullptr), mod(mod), line(line), col(col),
-	  is_specialized(false), type(nullptr), value(nullptr)
+	  is_specialized(false), is_comptime(false), type(nullptr), value(nullptr)
 {}
 Stmt::~Stmt()
 {
@@ -47,6 +47,22 @@ Stmt *Stmt::getParentWithType(const Stmts &typ)
 		res = res->parent;
 	}
 	return res;
+}
+void Stmt::setSpecialized(const bool &specialized)
+{
+	is_specialized = specialized;
+}
+bool Stmt::isSpecialized()
+{
+	return is_specialized;
+}
+void Stmt::setComptime(const bool &comptime)
+{
+	is_comptime = comptime;
+}
+bool Stmt::isComptime()
+{
+	return is_comptime;
 }
 void Stmt::updateValue(ValueMgr &values, Value *newvalue)
 {
@@ -317,8 +333,8 @@ bool StmtExpr::isParseIntrinsic()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 StmtVar::StmtVar(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &name,
-		 StmtType *vtype, Stmt *val, const bool &comptime)
-	: Stmt(VAR, mod, line, col), name(name), vtype(vtype), val(val), comptime(comptime)
+		 StmtType *vtype, Stmt *val)
+	: Stmt(VAR, mod, line, col), name(name), vtype(vtype), val(val)
 {}
 StmtVar::~StmtVar()
 {
@@ -329,8 +345,7 @@ StmtVar::~StmtVar()
 void StmtVar::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Variable: %s [comptime = %s]%s\n", name.data.s.c_str(),
-		   comptime ? "true" : "false", typeString().c_str());
+	tio::print(has_next, "Variable: %s%s\n", name.data.s.c_str(), typeString().c_str());
 	if(vtype) {
 		tio::taba(val);
 		tio::print(val, "Type:\n");
@@ -608,8 +623,8 @@ void StmtVarDecl::disp(const bool &has_next)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 StmtCond::StmtCond(Module *mod, const size_t &line, const size_t &col,
-		   const std::vector<cond_t> &conds, const bool &comptime)
-	: Stmt(COND, mod, line, col), conds(conds), comptime(comptime)
+		   const std::vector<cond_t> &conds)
+	: Stmt(COND, mod, line, col), conds(conds)
 {}
 StmtCond::~StmtCond()
 {
@@ -622,7 +637,7 @@ StmtCond::~StmtCond()
 void StmtCond::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Conditional [comptime = %s]\n", comptime ? "true" : "false");
+	tio::print(has_next, "Conditional\n");
 	for(size_t i = 0; i < conds.size(); ++i) {
 		tio::taba(i != conds.size() - 1);
 		tio::print(i != conds.size() - 1, "Branch:\n");
@@ -645,8 +660,8 @@ void StmtCond::disp(const bool &has_next)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 StmtForIn::StmtForIn(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &iter,
-		     Stmt *in, StmtBlock *blk, const bool &comptime)
-	: Stmt(FORIN, mod, line, col), iter(iter), in(in), blk(blk), comptime(comptime)
+		     Stmt *in, StmtBlock *blk)
+	: Stmt(FORIN, mod, line, col), iter(iter), in(in), blk(blk)
 {}
 StmtForIn::~StmtForIn()
 {
@@ -657,8 +672,7 @@ StmtForIn::~StmtForIn()
 void StmtForIn::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "For-in loop with iterator: %s [comptime = %s]:\n",
-		   iter.data.s.c_str(), comptime ? "true" : "false");
+	tio::print(has_next, "For-in loop with iterator: %s:\n", iter.data.s.c_str());
 	tio::taba(true);
 	tio::print(true, "In:\n");
 	in->disp(false);
@@ -675,7 +689,7 @@ void StmtForIn::disp(const bool &has_next)
 
 StmtFor::StmtFor(Module *mod, const size_t &line, const size_t &col, Stmt *init, Stmt *cond,
 		 Stmt *incr, StmtBlock *blk)
-	: Stmt(FOR, mod, line, col), init(init), cond(cond), incr(incr), blk(blk)
+	: Stmt(FOR, mod, line, col), init(init), cond(cond), incr(incr), blk(blk), is_inline(false)
 {}
 StmtFor::~StmtFor()
 {
@@ -683,6 +697,15 @@ StmtFor::~StmtFor()
 	if(cond) delete cond;
 	if(incr) delete incr;
 	if(blk) delete blk;
+}
+
+void StmtFor::setInline(const bool &_inline)
+{
+	is_inline = _inline;
+}
+bool StmtFor::isInline()
+{
+	return is_inline;
 }
 
 void StmtFor::disp(const bool &has_next)

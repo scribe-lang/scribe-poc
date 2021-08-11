@@ -120,7 +120,6 @@ bool StmtFnCallInfo::assignValue(TypeMgr &types, ValueMgr &vals)
 
 bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 {
-	if(value) return true;
 	if(lhs && !lhs->assignValue(types, vals)) {
 		err::set(lhs->line, lhs->col, "failed to determine value of LHS");
 		return false;
@@ -140,7 +139,6 @@ bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 	}
 	if(oper.tok.val == lex::SUBS) {
 		if(lhs->type->type == TVARIADIC) {
-			disp(false);
 			if(rhs->value->i >= lhs->value->v.size()) {
 				err::set(line, col,
 					 "variadic length is less than"
@@ -202,8 +200,14 @@ bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 			return true;
 		}
 	}
-	assert(lhs && lhs->value && "LHS must have value for function call");
-	if(rhs) assert(rhs->value && "RHS must have value for function call");
+	if(lhs && !lhs->value) {
+		err::set(line, col, "LHS has no value for function call");
+		return false;
+	}
+	if(rhs && !rhs->value) {
+		err::set(line, col, "RHS has no value for function call");
+		return false;
+	}
 	if(!hasIntrinsic()) {
 		err::set(line, col, "no intrinsic available for expression value evaluation");
 		return false;
@@ -306,11 +310,17 @@ bool StmtStruct::assignValue(TypeMgr &types, ValueMgr &vals)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////// StmtVarDecl ///////////////////////////////////////////
+////////////////////////////////////////// StmtVarDecl ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 bool StmtVarDecl::assignValue(TypeMgr &types, ValueMgr &vals)
 {
+	for(auto &d : decls) {
+		if(!d->assignValue(types, vals)) {
+			err::set(d->name, "failed to assign value for variable declaration");
+			return false;
+		}
+	}
 	return true;
 }
 
@@ -358,6 +368,18 @@ bool StmtForIn::assignValue(TypeMgr &types, ValueMgr &vals)
 bool StmtFor::assignValue(TypeMgr &types, ValueMgr &vals)
 {
 	assert(blk && "no block for for-loop");
+	if(is_inline) {
+		if(init && !init->assignValue(types, vals)) {
+			err::set(line, col, "failed to assign value for for-loop init");
+			return false;
+		}
+		if(!blk->assignValue(types, vals)) {
+			err::set(line, col, "failed to assign value for for-loop block");
+			return false;
+		}
+		clearValue();
+		return true;
+	}
 	if(init && !init->assignValue(types, vals)) {
 		err::set(line, col, "failed to assign value for for-init statement");
 		return false;
@@ -369,10 +391,12 @@ bool StmtFor::assignValue(TypeMgr &types, ValueMgr &vals)
 		}
 		continue_stmt = false;
 		if(break_stmt) break;
+		if(incr) incr->clearValue();
 		if(incr && !incr->assignValue(types, vals)) {
 			err::set(line, col, "failed to determine incr value for for-loop");
 			return false;
 		}
+		cond->clearValue();
 	}
 	break_stmt = false;
 	return true;

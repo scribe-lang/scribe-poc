@@ -1,3 +1,4 @@
+let putstr = extern[puts, "<stdio.h>"] fn(data: i32);
 // let Range = struct {
 // 	current: i32;
 // 	start: i32;
@@ -33,18 +34,23 @@
 
 // let comptime p = range(1, 2);
 
-let fmt = fn(comptime f: *const u8, args: ...any) {
-	let comptime i = 0;
-	let comptime len = @strlen(f);
-	inline while i < len {
-		
-	}
-};
+// let fmt = fn(comptime f: *const u8): i32 {
+// 	// let comptime len = @strlen(f);
+// 	let comptime sum = 0;
+// 	inline for let comptime i = 0; i < 5; ++i {
+// 		sum += i;
+// 	}
+// 	return sum;
+// };
 
-let vafn = fn(va: ...any): i32 {
-	for let i = 0; i < 20; ++i {
-		va[i % 3];
+let vafn = fn<T>(va: ...T): i32 {
+	let comptime sum = 0;
+	inline for let comptime i = 0; i < 5; ++i {
+		sum += va[i % 3];
 	}
-	return va[2];
+	return sum;
 };
-let v = vafn(5, 6, 7);
+let comptime v = vafn(5, 6, 7);
+
+// let comptime x = fmt("hi");
+// let comptime y = fmt("hi");

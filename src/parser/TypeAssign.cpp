@@ -101,7 +101,7 @@ static bool InitTemplateFn(TypeMgr &types, Type *&calledfn,
 	if(types.getCurrentModule() == fn->mod->getPath()) {
 		types.unlockScope();
 	}
-	var->is_specialized = true;
+	var->setSpecialized(true);
 
 	var->setParent(templfnparent);
 
@@ -123,7 +123,7 @@ bool StmtBlock::assignType(TypeMgr &types)
 	types.pushLayer();
 	for(size_t i = 0; i < stmts.size(); ++i) {
 		auto &s = stmts[i];
-		if(s->is_specialized) continue;
+		if(s->isSpecialized()) continue;
 		if(!s->assignType(types)) {
 			err::set(s->line, s->col,
 				 "failed to perform type analysis on this statement");
@@ -215,6 +215,15 @@ bool StmtSimple::assignType(TypeMgr &types)
 		err::set(val, "failed to determine type of this statement");
 		return false;
 	}
+	if(val.tok.val != lex::IDEN) {
+		setComptime(true);
+	} else if(type->parent && type->parent->isComptime()) {
+		setComptime(true);
+	}
+	if(isComptime() && !assignValue(types, types.getParser()->getValueMgr())) {
+		err::set(line, col, "failed to determine value of simple data");
+		return false;
+	}
 	return type;
 }
 
@@ -271,43 +280,40 @@ bool StmtExpr::assignType(TypeMgr &types)
 				 lhs->type->str().c_str());
 			return false;
 		}
-		// TODO: if the result of dot operation is a function, that's POSSIBLY a member
-		// function (except when the struct is an import); therefore, add an `is_import`
-		// field in struct. This can be used to push the "self" variable on stack for the
-		// function call to use.
-		if(lhs->type->type == TSTRUCT) {
-			TypeStruct *lst = as<TypeStruct>(lhs->type);
-			if(lst->is_def) {
+		TypeStruct *lst = as<TypeStruct>(lhs->type);
+		if(lst->is_def) {
+			err::set(line, col,
+				 "cannot use dot operator on a struct"
+				 " definition; instantiate it first");
+			return false;
+		}
+		StmtSimple *rsim = as<StmtSimple>(rhs);
+		size_t ptr	 = lst->ptr;
+		if(oper.tok.val == lex::ARROW) --ptr;
+		Type *res = ptr == 0 ? lst->get_field(rsim->val.data.s) : nullptr;
+		if(!res) {
+			if(!(res = types.getFuncMapCopy(rsim->val.data.s, this))) {
 				err::set(line, col,
-					 "cannot use dot operator on a struct"
-					 " definition; instantiate it first");
+					 "no function or struct field"
+					 " (in '%s') named '%s' exists",
+					 lst->str().c_str(), rsim->val.data.s.c_str());
 				return false;
 			}
-			StmtSimple *rsim = as<StmtSimple>(rhs);
-			size_t ptr	 = lst->ptr;
-			if(oper.tok.val == lex::ARROW) --ptr;
-			Type *res = ptr == 0 ? lst->get_field(rsim->val.data.s) : nullptr;
-			if(!res) {
-				if(!(res = types.getFuncMapCopy(rsim->val.data.s, this))) {
-					err::set(line, col,
-						 "no function or struct field"
-						 " (in '%s') named '%s' exists",
-						 lst->str().c_str(), rsim->val.data.s.c_str());
-					return false;
-				}
-			} else {
-				res = res->copy();
-			}
+		} else {
+			res = res->copy();
+		}
 
-			if(res->type == TFUNCMAP && !lst->is_import) {
-				Type *self = lst->copy();
-				self->info |= REF;
-				as<TypeFuncMap>(res)->setSelf(self);
-			}
-			rhs->type	  = res;
-			rhs->type->parent = rhs;
-			type		  = res->copy();
-			type->parent	  = this;
+		if(res->type == TFUNCMAP && !lst->is_import) {
+			Type *self = lst->copy();
+			self->info |= REF;
+			as<TypeFuncMap>(res)->setSelf(self);
+		}
+		rhs->type	  = res;
+		rhs->type->parent = rhs;
+		type		  = res->copy();
+		type->parent	  = this;
+		if(lhs->isComptime() && res->type != TFUNCMAP) {
+			setComptime(true);
 		}
 		break;
 	}
@@ -332,6 +338,9 @@ bool StmtExpr::assignType(TypeMgr &types)
 					 "failed to decide the function "
 					 "to execute, need more info");
 				return false;
+			}
+			if(fmap->getSelf() && fmap->getSelf()->parent->isComptime()) {
+				setComptime(true);
 			}
 			delete lhs->type;
 			lhs->type = type;
@@ -531,6 +540,8 @@ bool StmtExpr::assignType(TypeMgr &types)
 		if(type) delete type;
 		type = nullptr;
 	}
+	if(type->type == TFUNCMAP) return true;
+	if(!isComptime() && lhs->isComptime() && (!rhs || rhs->isComptime())) setComptime(true);
 	return true;
 }
 
@@ -540,7 +551,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 
 bool StmtVar::assignType(TypeMgr &types)
 {
-	if(comptime && !val && parent->stmt_type != FNSIG) {
+	if(isComptime() && !val && parent->stmt_type != FNSIG) {
 		err::set(name, "'comptime' variables must have a value");
 		return false;
 	}
@@ -573,8 +584,9 @@ bool StmtVar::assignType(TypeMgr &types)
 		type = vtype->type->copy();
 	}
 	type->parent = this;
-	if(comptime && parent->stmt_type != FNSIG &&
-	   !assignValue(types, types.getParser()->getValueMgr())) {
+	if(isComptime() && parent->stmt_type != FNSIG &&
+	   !assignValue(types, types.getParser()->getValueMgr()))
+	{
 		err::set(name, "unable to assign value to comptime variable");
 		return false;
 	}
@@ -823,6 +835,69 @@ bool StmtFor::assignType(TypeMgr &types)
 			 "failed to determine type of 'increment' expression");
 		return false;
 	}
+	if(is_inline) {
+		if(init && !init->assignValue(types, types.getParser()->getValueMgr())) {
+			err::set(line, col, "failed to assign init value");
+			return false;
+		}
+		if(!blk || blk->stmts.empty()) {
+			err::set(line, col, "no/empty block for inline-for");
+			return false;
+		}
+		if(!cond) {
+			err::set(line, col, "inline-for must have a comptime condition");
+			return false;
+		}
+		if((!cond->isComptime())) {
+			err::set(line, col,
+				 "inline-for must have a condition "
+				 "that can be computed at comptime");
+			return false;
+		}
+		if(incr && !incr->isComptime()) {
+			err::set(line, col,
+				 "inline-for must have an increment statement "
+				 "that can be computed at comptime");
+			return false;
+		}
+		std::vector<Stmt *> newstmts;
+		while(cond->assignValue(types, types.getParser()->getValueMgr()) &&
+		      cond->value->i != 0) {
+			StmtBlock *newblk = as<StmtBlock>(blk->copy(false, false));
+			if(!newblk->assignType(types)) {
+				err::set(line, col, "failed to determine block type");
+				return false;
+			}
+			newblk->setValueUnique(types.getParser()->getValueMgr());
+			newstmts.insert(newstmts.end(), newblk->stmts.begin(), newblk->stmts.end());
+			newblk->stmts.clear();
+			delete newblk;
+			if(!incr) continue;
+			Stmt *newincr	= incr->copy(false, false);
+			newincr->parent = blk;
+			if(!newincr->assignType(types)) {
+				err::set(line, col,
+					 "failed to assign type"
+					 " of for-increment statement");
+				for(auto &n : newstmts) delete n;
+				return false;
+			}
+			newstmts.push_back(newincr);
+			if(!newincr->assignValue(types, types.getParser()->getValueMgr())) {
+				err::set(line, col,
+					 "failed to determine value"
+					 " of for-increment statement");
+				for(auto &n : newstmts) delete n;
+				return false;
+			}
+		}
+		for(auto &s : blk->stmts) delete s;
+		blk->stmts = newstmts;
+		types.popLayer();
+		disp(false);
+		clearValue();
+		return true;
+	}
 	if(!blk->assignType(types)) {
 		err::set(blk->line, blk->col, "failed to determine type of block");
 		return false;
@@ -859,7 +934,7 @@ bool StmtRet::assignType(TypeMgr &types)
 		err::set(val->line, val->col, "failed to determine type of the return argument");
 		return false;
 	}
-	Type *valtype = val ? val->type->copy() : types.getCopy("void", parent);
+	Type *valtype = val ? val->type->copy() : types.getCopy("void", val);
 	if(!types.hasFunc()) {
 		err::set(line, col, "return statements can be in functions only");
 		return false;
@@ -872,6 +947,16 @@ bool StmtRet::assignType(TypeMgr &types)
 			 types.getFunc()->rettype->str().c_str(), valtype->str().c_str());
 		delete valtype;
 		return false;
+	}
+	if(val && val->isComptime()) {
+		if(!assignValue(types, types.getParser()->getValueMgr())) {
+			err::set(line, col, "failed to determine return's comptime value");
+			return false;
+		}
+		setComptime(true);
+	} else if(!val) {
+		value = types.getParser()->getValueMgr().get(VVOID);
+		setComptime(true);
 	}
 	type = valtype;
 	return true;

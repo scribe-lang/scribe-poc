@@ -51,6 +51,7 @@ const char *TokStrs[_LAST] = {
 "volatile",
 "extern",
 "comptime",
+"inline",
 "struct",
 "enum",
 // "i8",
@@ -367,6 +368,7 @@ static TokType classify_str(const std::string &str)
 	if(str == TokStrs[VOLATILE]) return VOLATILE;
 	if(str == TokStrs[EXTERN]) return EXTERN;
 	if(str == TokStrs[COMPTIME]) return COMPTIME;
+	if(str == TokStrs[INLINE]) return INLINE;
 	if(str == TokStrs[STRUCT]) return STRUCT;
 	if(str == TokStrs[ENUM]) return ENUM;
 	// if(str == TokStrs[I8]) return I8;

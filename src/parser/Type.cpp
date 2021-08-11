@@ -457,7 +457,7 @@ TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
 	for(size_t i = 0; i < callinfo->templates.size(); ++i) {
 		templates["@" + std::to_string(i)] = callinfo->templates[i]->type->copy();
 	}
-	for(size_t i = 0; i < this->args.size(); ++i) {
+	for(size_t i = 0; i < this->args.size() && i < callinfo->args.size(); ++i) {
 		if(!this->args[i]->assignTemplateActuals(callinfo->args[i]->type, templates,
 							 callinfo->line, callinfo->col))
 			return nullptr;

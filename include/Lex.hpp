@@ -56,6 +56,7 @@ enum TokType
 	VOLATILE,
 	EXTERN,
 	COMPTIME,
+	INLINE,
 	STRUCT,
 	ENUM,
 	// I8,

@@ -27,8 +27,10 @@ Stmt *StmtBlock::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *p
 	for(auto &s : stmts) {
 		newstmts.push_back(s->hiddenCopy(copy_type, copy_val, this));
 	}
-	StmtBlock *res = new StmtBlock(mod, line, col, newstmts);
-	res->parent    = par;
+	StmtBlock *res	    = new StmtBlock(mod, line, col, newstmts);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -39,13 +41,17 @@ Stmt *StmtBlock::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *p
 Stmt *StmtType::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par)
 {
 	if(fn) {
-		Stmt *newfn   = fn->hiddenCopy(copy_type, copy_val, this);
-		StmtType *res = new StmtType(mod, line, col, newfn);
-		res->parent   = par;
+		Stmt *newfn	    = fn->hiddenCopy(copy_type, copy_val, this);
+		StmtType *res	    = new StmtType(mod, line, col, newfn);
+		res->parent	    = par;
+		res->is_specialized = is_specialized;
+		res->is_comptime    = is_comptime;
 		return res;
 	}
-	StmtType *res = new StmtType(mod, line, col, ptr, info, name, templates);
-	res->parent   = par;
+	StmtType *res	    = new StmtType(mod, line, col, ptr, info, name, templates);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -55,8 +61,10 @@ Stmt *StmtType::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *pa
 
 Stmt *StmtSimple::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par)
 {
-	StmtSimple *res = new StmtSimple(mod, line, col, val);
-	res->parent	= par;
+	StmtSimple *res	    = new StmtSimple(mod, line, col, val);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -77,6 +85,8 @@ Stmt *StmtFnCallInfo::hiddenCopy(const bool &copy_type, const bool &copy_val, St
 	}
 	StmtFnCallInfo *res = new StmtFnCallInfo(mod, line, col, newtemplates, newargs);
 	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -92,8 +102,10 @@ Stmt *StmtExpr::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *pa
 	if(or_blk)
 		res->or_blk =
 		static_cast<StmtBlock *>(or_blk->hiddenCopy(copy_type, copy_val, this));
-	res->or_blk_var = or_blk_var;
-	res->parent	= par;
+	res->or_blk_var	    = or_blk_var;
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -107,8 +119,10 @@ Stmt *StmtVar::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par
 	vtype ? static_cast<StmtType *>(vtype->hiddenCopy(copy_type, copy_val, this)) : nullptr;
 	Stmt *newval = val ? val->hiddenCopy(copy_type, copy_val, this) : nullptr;
 
-	StmtVar *res = new StmtVar(mod, line, col, name, newvtype, newval, comptime);
-	res->parent  = par;
+	StmtVar *res	    = new StmtVar(mod, line, col, name, newvtype, newval);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -126,6 +140,8 @@ Stmt *StmtFnSig::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *p
 	rettype ? static_cast<StmtType *>(rettype->hiddenCopy(copy_type, copy_val, this)) : nullptr;
 	StmtFnSig *res = new StmtFnSig(mod, line, col, templates, newargs, newret, has_variadic);
 	res->parent    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -138,8 +154,10 @@ Stmt *StmtFnDef::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *p
 	StmtFnSig *newsig = static_cast<StmtFnSig *>(sig->hiddenCopy(copy_type, copy_val, this));
 	StmtBlock *newblk =
 	blk ? static_cast<StmtBlock *>(blk->hiddenCopy(copy_type, copy_val, this)) : nullptr;
-	StmtFnDef *res = new StmtFnDef(mod, line, col, newsig, newblk);
-	res->parent    = par;
+	StmtFnDef *res	    = new StmtFnDef(mod, line, col, newsig, newblk);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -149,8 +167,10 @@ Stmt *StmtFnDef::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *p
 
 Stmt *StmtHeader::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par)
 {
-	StmtHeader *res = new StmtHeader(mod, line, col, names, flags);
-	res->parent	= par;
+	StmtHeader *res	    = new StmtHeader(mod, line, col, names, flags);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -160,8 +180,10 @@ Stmt *StmtHeader::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *
 
 Stmt *StmtLib::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par)
 {
-	StmtLib *res = new StmtLib(mod, line, col, flags);
-	res->parent  = par;
+	StmtLib *res	    = new StmtLib(mod, line, col, flags);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -176,9 +198,11 @@ Stmt *StmtExtern::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *
 		: nullptr;
 	StmtLib *newlibs =
 	libs ? static_cast<StmtLib *>(libs->hiddenCopy(copy_type, copy_val, this)) : nullptr;
-	StmtFnSig *newsig = static_cast<StmtFnSig *>(sig->hiddenCopy(copy_type, copy_val, this));
-	StmtExtern *res	  = new StmtExtern(mod, line, col, fname, newheaders, newlibs, newsig);
-	res->parent	  = par;
+	StmtFnSig *newsig   = static_cast<StmtFnSig *>(sig->hiddenCopy(copy_type, copy_val, this));
+	StmtExtern *res	    = new StmtExtern(mod, line, col, fname, newheaders, newlibs, newsig);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -188,8 +212,10 @@ Stmt *StmtExtern::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *
 
 Stmt *StmtEnum::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par)
 {
-	StmtEnum *res = new StmtEnum(mod, line, col, items);
-	res->parent   = par;
+	StmtEnum *res	    = new StmtEnum(mod, line, col, items);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -204,8 +230,10 @@ Stmt *StmtStruct::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *
 		newfields.push_back(
 		static_cast<StmtVar *>(f->hiddenCopy(copy_type, copy_val, this)));
 	}
-	StmtStruct *res = new StmtStruct(mod, line, col, decl, templates, newfields);
-	res->parent	= par;
+	StmtStruct *res	    = new StmtStruct(mod, line, col, decl, templates, newfields);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -220,8 +248,10 @@ Stmt *StmtVarDecl::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt 
 		newdecls.push_back(
 		static_cast<StmtVar *>(d->hiddenCopy(copy_type, copy_val, this)));
 	}
-	StmtVarDecl *res = new StmtVarDecl(mod, line, col, newdecls);
-	res->parent	 = par;
+	StmtVarDecl *res    = new StmtVarDecl(mod, line, col, newdecls);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -237,8 +267,10 @@ Stmt *StmtCond::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *pa
 			  static_cast<StmtBlock *>(c.blk->hiddenCopy(copy_type, copy_val, this))};
 		newconds.push_back(nc);
 	}
-	StmtCond *res = new StmtCond(mod, line, col, newconds, comptime);
-	res->parent   = par;
+	StmtCond *res	    = new StmtCond(mod, line, col, newconds);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -248,10 +280,12 @@ Stmt *StmtCond::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *pa
 
 Stmt *StmtForIn::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par)
 {
-	Stmt *newin	  = in->hiddenCopy(copy_type, copy_val, this);
-	StmtBlock *newblk = static_cast<StmtBlock *>(blk->hiddenCopy(copy_type, copy_val, this));
-	StmtForIn *res	  = new StmtForIn(mod, line, col, iter, newin, newblk, comptime);
-	res->parent	  = par;
+	Stmt *newin	    = in->hiddenCopy(copy_type, copy_val, this);
+	StmtBlock *newblk   = static_cast<StmtBlock *>(blk->hiddenCopy(copy_type, copy_val, this));
+	StmtForIn *res	    = new StmtForIn(mod, line, col, iter, newin, newblk);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -261,12 +295,15 @@ Stmt *StmtForIn::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *p
 
 Stmt *StmtFor::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par)
 {
-	Stmt *newinit	  = init ? init->hiddenCopy(copy_type, copy_val, this) : nullptr;
-	Stmt *newcond	  = cond ? cond->hiddenCopy(copy_type, copy_val, this) : nullptr;
-	Stmt *newincr	  = incr ? incr->hiddenCopy(copy_type, copy_val, this) : nullptr;
-	StmtBlock *newblk = static_cast<StmtBlock *>(blk->hiddenCopy(copy_type, copy_val, this));
-	StmtFor *res	  = new StmtFor(mod, line, col, newinit, newcond, newincr, newblk);
-	res->parent	  = par;
+	Stmt *newinit	    = init ? init->hiddenCopy(copy_type, copy_val, this) : nullptr;
+	Stmt *newcond	    = cond ? cond->hiddenCopy(copy_type, copy_val, this) : nullptr;
+	Stmt *newincr	    = incr ? incr->hiddenCopy(copy_type, copy_val, this) : nullptr;
+	StmtBlock *newblk   = static_cast<StmtBlock *>(blk->hiddenCopy(copy_type, copy_val, this));
+	StmtFor *res	    = new StmtFor(mod, line, col, newinit, newcond, newincr, newblk);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
+	res->is_inline	    = is_inline;
 	return res;
 }
 
@@ -276,10 +313,12 @@ Stmt *StmtFor::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par
 
 Stmt *StmtWhile::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par)
 {
-	Stmt *newcond	  = cond ? cond->hiddenCopy(copy_type, copy_val, this) : nullptr;
-	StmtBlock *newblk = static_cast<StmtBlock *>(blk->hiddenCopy(copy_type, copy_val, this));
-	StmtWhile *res	  = new StmtWhile(mod, line, col, newcond, newblk);
-	res->parent	  = par;
+	Stmt *newcond	    = cond ? cond->hiddenCopy(copy_type, copy_val, this) : nullptr;
+	StmtBlock *newblk   = static_cast<StmtBlock *>(blk->hiddenCopy(copy_type, copy_val, this));
+	StmtWhile *res	    = new StmtWhile(mod, line, col, newcond, newblk);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -289,9 +328,11 @@ Stmt *StmtWhile::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *p
 
 Stmt *StmtRet::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par)
 {
-	Stmt *newval = val ? val->hiddenCopy(copy_type, copy_val, this) : nullptr;
-	StmtRet *res = new StmtRet(mod, line, col, newval);
-	res->parent  = par;
+	Stmt *newval	    = val ? val->hiddenCopy(copy_type, copy_val, this) : nullptr;
+	StmtRet *res	    = new StmtRet(mod, line, col, newval);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -301,8 +342,10 @@ Stmt *StmtRet::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par
 
 Stmt *StmtContinue::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par)
 {
-	StmtContinue *res = new StmtContinue(mod, line, col);
-	res->parent	  = par;
+	StmtContinue *res   = new StmtContinue(mod, line, col);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 
@@ -312,8 +355,10 @@ Stmt *StmtContinue::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt
 
 Stmt *StmtBreak::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par)
 {
-	StmtBreak *res = new StmtBreak(mod, line, col);
-	res->parent    = par;
+	StmtBreak *res	    = new StmtBreak(mod, line, col);
+	res->parent	    = par;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 } // namespace parser

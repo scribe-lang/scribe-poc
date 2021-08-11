@@ -48,13 +48,9 @@ bool parse_block(ParseHelper &p, StmtBlock *&tree, const bool &with_brace)
 		} else if(p.accept(lex::IF)) {
 			if(!parse_conds(p, stmt)) goto fail;
 			skip_cols = true;
-		} else if(p.accept(lex::COMPTIME)) {
-			if(p.peakt(1) == lex::FOR && p.peakt(2) == lex::IDEN &&
-			   p.peakt(3) == lex::IN) {
-				if(!parse_forin(p, stmt)) goto fail;
-				skip_cols = true;
-			} else if(p.peakt(1) == lex::IF) {
-				if(!parse_conds(p, stmt)) goto fail;
+		} else if(p.accept(lex::INLINE)) { // TODO: replace with inline - for, while loops
+			if(p.peakt(1) == lex::FOR) {
+				if(!parse_for(p, stmt)) goto fail;
 				skip_cols = true;
 			} else {
 				err::set(p.peak(1),
@@ -1047,8 +1043,7 @@ done:
 		}
 		in->info |= TypeInfoMask::REF;
 		lex::Lexeme selfeme = lex::Lexeme(in->line, in->col, in->col, lex::IDEN, "self");
-		StmtVar *self =
-		new StmtVar(p.getModule(), in->line, in->col, selfeme, in, nullptr, false);
+		StmtVar *self = new StmtVar(p.getModule(), in->line, in->col, selfeme, in, nullptr);
 		StmtFnSig *valsig = as<StmtFnDef>(val)->sig;
 		valsig->setMember(true);
 		for(auto &t : in->templates) {
@@ -1058,7 +1053,8 @@ done:
 		std::vector<StmtVar *> &args = valsig->args;
 		args.insert(args.begin(), self);
 	}
-	var = new StmtVar(p.getModule(), name.line, name.col_beg, name, type, val, comptime);
+	var = new StmtVar(p.getModule(), name.line, name.col_beg, name, type, val);
+	var->setComptime(comptime);
 	return true;
 fail:
 	if(in) delete in;
@@ -1444,8 +1440,6 @@ bool parse_conds(ParseHelper &p, Stmt *&conds)
 {
 	conds = nullptr;
 
-	bool comptime = p.acceptn(lex::COMPTIME);
-
 	std::vector<cond_t> cvec;
 	cond_t c	   = {nullptr, nullptr};
 	lex::Lexeme &start = p.peak();
@@ -1476,7 +1470,7 @@ blk:
 		goto blk;
 	}
 
-	conds = new StmtCond(p.getModule(), start.line, start.col_beg, cvec, comptime);
+	conds = new StmtCond(p.getModule(), start.line, start.col_beg, cvec);
 	return true;
 
 fail:
@@ -1496,9 +1490,6 @@ bool parse_forin(ParseHelper &p, Stmt *&fin)
 	Stmt *in	   = nullptr; // L01
 	StmtBlock *blk	   = nullptr;
 	lex::Lexeme &start = p.peak();
-	bool comptime	   = false;
-
-	if(p.acceptn(lex::COMPTIME)) comptime = true;
 
 	if(!p.acceptn(lex::FOR)) {
 		err::set(p.peak(), "expected 'for' here, found: %s", p.peak().tok.str().c_str());
@@ -1534,7 +1525,7 @@ bool parse_forin(ParseHelper &p, Stmt *&fin)
 		goto fail;
 	}
 
-	fin = new StmtForIn(p.getModule(), start.line, start.col_beg, iter, in, blk, comptime);
+	fin = new StmtForIn(p.getModule(), start.line, start.col_beg, iter, in, blk);
 	return true;
 fail:
 	if(in) delete in;
@@ -1549,7 +1540,10 @@ bool parse_for(ParseHelper &p, Stmt *&f)
 	Stmt *cond	   = nullptr;
 	Stmt *incr	   = nullptr;
 	StmtBlock *blk	   = nullptr;
+	bool is_inline	   = false;
 	lex::Lexeme &start = p.peak();
+
+	if(p.acceptn(lex::INLINE)) is_inline = true;
 
 	if(!p.acceptn(lex::FOR)) {
 		err::set(p.peak(), "expected 'for' here, found: %s", p.peak().tok.str().c_str());
@@ -1597,6 +1591,7 @@ body:
 	}
 
 	f = new StmtFor(p.getModule(), start.line, start.col_beg, init, cond, incr, blk);
+	as<StmtFor>(f)->setInline(is_inline);
 	return true;
 fail:
 	if(init) delete init;

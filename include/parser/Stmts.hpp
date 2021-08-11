@@ -77,6 +77,8 @@ struct Stmt
 
 	// these members are not assigned on stmt creation
 	bool is_specialized; // to prevent cycles (fn -> type_fn -> fn ...)
+	bool is_comptime;
+
 	Type *type;
 	Value *value;
 
@@ -91,8 +93,14 @@ struct Stmt
 	virtual bool assignType(TypeMgr &types)						 = 0;
 	virtual bool assignValue(TypeMgr &types, ValueMgr &vals)			 = 0;
 	virtual void clearValue()							 = 0;
+	virtual void setValueUnique(ValueMgr &vals)					 = 0;
 
 	Stmt *getParentWithType(const Stmts &typ);
+
+	void setSpecialized(const bool &specialized);
+	bool isSpecialized();
+	void setComptime(const bool &comptime);
+	bool isComptime();
 
 	// if value is set, updates it (and all references of it),
 	// else, sets the value
@@ -137,6 +145,7 @@ struct StmtType : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 
 	std::string getname();
 };
@@ -154,6 +163,7 @@ struct StmtBlock : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 
 struct StmtSimple : public Stmt
@@ -168,6 +178,7 @@ struct StmtSimple : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 
 struct StmtFnCallInfo : public Stmt
@@ -184,6 +195,7 @@ struct StmtFnCallInfo : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 
 struct StmtExpr : public Stmt
@@ -208,6 +220,7 @@ struct StmtExpr : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 
 	void setIntrinsic(intrinsic_fn_t intrin);
 	bool hasIntrinsic();
@@ -225,9 +238,8 @@ struct StmtVar : public Stmt
 	StmtType *vtype;
 	Stmt *val; // either of expr, funcdef, enumdef, or structdef
 	// at least one of type or val must be present
-	bool comptime;
 	StmtVar(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &name,
-		StmtType *vtype, Stmt *val, const bool &comptime);
+		StmtType *vtype, Stmt *val);
 	~StmtVar();
 
 	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
@@ -236,6 +248,7 @@ struct StmtVar : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 
 struct StmtFnSig : public Stmt
@@ -257,6 +270,7 @@ struct StmtFnSig : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 
 	void setMember(const bool &is_mem);
 	bool isMember();
@@ -276,6 +290,7 @@ struct StmtFnDef : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 
 struct StmtHeader : public Stmt
@@ -292,6 +307,7 @@ struct StmtHeader : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 
 struct StmtLib : public Stmt
@@ -306,6 +322,7 @@ struct StmtLib : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 
 struct StmtExtern : public Stmt
@@ -325,6 +342,7 @@ struct StmtExtern : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 
 struct StmtEnum : public Stmt
@@ -341,6 +359,7 @@ struct StmtEnum : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 
 // both declaration and definition
@@ -360,6 +379,7 @@ struct StmtStruct : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 
 struct StmtVarDecl : public Stmt
@@ -376,6 +396,7 @@ struct StmtVarDecl : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 
 struct cond_t
@@ -387,9 +408,8 @@ struct cond_t
 struct StmtCond : public Stmt
 {
 	std::vector<cond_t> conds;
-	bool comptime;
 	StmtCond(Module *mod, const size_t &line, const size_t &col,
-		 const std::vector<cond_t> &conds, const bool &comptime);
+		 const std::vector<cond_t> &conds);
 	~StmtCond();
 
 	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
@@ -398,6 +418,7 @@ struct StmtCond : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 
 struct StmtForIn : public Stmt
@@ -405,9 +426,8 @@ struct StmtForIn : public Stmt
 	lex::Lexeme iter;
 	Stmt *in; // L01
 	StmtBlock *blk;
-	bool comptime;
 	StmtForIn(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &iter,
-		  Stmt *in, StmtBlock *blk, const bool &comptime);
+		  Stmt *in, StmtBlock *blk);
 	~StmtForIn();
 
 	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
@@ -416,6 +436,7 @@ struct StmtForIn : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 
 struct StmtFor : public Stmt
@@ -424,10 +445,14 @@ struct StmtFor : public Stmt
 	Stmt *cond;
 	Stmt *incr;
 	StmtBlock *blk;
+	bool is_inline;
 	// init, cond, incr can be nullptr
 	StmtFor(Module *mod, const size_t &line, const size_t &col, Stmt *init, Stmt *cond,
 		Stmt *incr, StmtBlock *blk);
 	~StmtFor();
+
+	void setInline(const bool &_inline);
+	bool isInline();
 
 	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);
@@ -435,6 +460,7 @@ struct StmtFor : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 
 struct StmtWhile : public Stmt
@@ -450,6 +476,7 @@ struct StmtWhile : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 
 struct StmtRet : public Stmt
@@ -464,6 +491,7 @@ struct StmtRet : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 struct StmtContinue : public Stmt
 {
@@ -475,6 +503,7 @@ struct StmtContinue : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 struct StmtBreak : public Stmt
 {
@@ -486,6 +515,7 @@ struct StmtBreak : public Stmt
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
+	void setValueUnique(ValueMgr &vals);
 };
 } // namespace parser
 } // namespace sc
