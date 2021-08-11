@@ -39,7 +39,7 @@ Module::~Module()
 bool Module::tokenize()
 {
 	if(!lex::tokenize(code, tokens)) {
-		err::show(stderr, code, path);
+		err::show(stderr);
 		return false;
 	}
 	return true;
@@ -48,7 +48,7 @@ bool Module::parseTokens()
 {
 	ParseHelper p(this, tokens);
 	if(!parse_block(p, (StmtBlock *&)ptree, false)) {
-		err::show(stderr, code, path);
+		err::show(stderr);
 		return false;
 	}
 	ptree->setParent(nullptr);
@@ -61,7 +61,7 @@ bool Module::assignType(TypeMgr &types)
 	if(!types.initTypeFuncsCalled()) types.initTypeFuncs();
 	if(!ptree->assignType(types)) {
 		err::set(ptree->line, ptree->col, "failed to assign types while parsing");
-		err::show(stderr, code, path);
+		err::show(stderr);
 		return false;
 	}
 	types.popModule();
@@ -119,7 +119,9 @@ Module *RAIIParser::addModule(const std::string &path)
 	Module *mod = new Module(path, code);
 	Pointer<Module> mptr(mod);
 
+	err::pushModule(mod);
 	if(!mod->tokenize() || !mod->parseTokens() || !mod->assignType(types)) return nullptr;
+	err::popModule();
 
 	mptr.unset();
 	modules[path] = mod;

@@ -25,16 +25,11 @@ INTRINSIC(import)
 	size_t &line = base->line;
 	size_t &col  = base->col;
 
-	err::set(line, col, "TODO: fix the value system to work here");
-	return false;
-
-	// original: = args->args[0]->type->val;
-	Value *mod = nullptr; // set actual vaule here
-	if(!mod || !mod->has_data() || mod->type != VSTR) {
-		err::set(line, col, "import's argument must be a comptime string");
+	if(!args[0]->assignValue(types, values) || args[0]->value->type != VSTR) {
+		err::set(line, col, "import must be a compile time computable string");
 		return false;
 	}
-	const std::string &modname = mod->s;
+	const std::string &modname = args[0]->value->s;
 	if(modname.empty()) {
 		err::set(line, col, "no module provided");
 		return false;
@@ -68,6 +63,7 @@ gen_struct:
 	if(items.empty()) return true;
 	TypeStruct *src_st = new TypeStruct(base, 0, 0, true, {}, {}, {});
 	src_st->is_def	   = false;
+	src_st->is_import  = true;
 	for(auto &i : items) {
 		src_st->add_field(i.first, i.second);
 	}
@@ -107,8 +103,7 @@ INTRINSIC(va_len)
 			 "the enclosing function for va_len() must be a variadic");
 		return false;
 	}
-	// TODO: set value here
-	// original: base->type->val = types.get((int64_t)va->args.size());
+	base->value = values.get((int64_t)va->args.size());
 	return true;
 }
 INTRINSIC(array)

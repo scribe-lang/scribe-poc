@@ -69,14 +69,14 @@ bool StmtSimple::assignValue(TypeMgr &types, ValueMgr &vals)
 			err::set(val, "variable does not exist");
 			return false;
 		}
+		// nothing to do for funcmap
+		if(type->type == TFUNCMAP || type->type == TFUNC) {
+			value = nullptr;
+			return true;
+		}
 		if(!type->parent) {
 			err::set(val, "type '%s' has no parent", type->str().c_str());
 			return false;
-		}
-		// nothing to do for funcmap
-		if(type->type == TFUNCMAP) {
-			value = nullptr;
-			return true;
 		}
 		assert(type->parent->stmt_type == VAR && "parent must be a variable declaration");
 		StmtVar *pvar = as<StmtVar>(type->parent);
@@ -150,8 +150,9 @@ bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 			return true;
 		}
 	}
-	assert(lhs->type->parent->stmt_type == VAR && "parent must be a variable declaration");
 	if(!hasIntrinsic()) {
+		assert(lhs->type->parent->stmt_type == VAR &&
+		       "parent must be a variable declaration");
 		StmtFnCallInfo *finfo = as<StmtFnCallInfo>(rhs);
 		if(!finfo->assignValue(types, vals)) {
 			err::set(line, col, "failed to determine values for function call args");
@@ -166,7 +167,6 @@ bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 				self_offset	    = 1;
 				sig->args[0]->value = vals.get(lhs->value);
 			}
-			// TODO: write variadic logic
 			size_t args_end = sig->args.size();
 			if(sig->has_variadic) {
 				--args_end;
@@ -200,20 +200,27 @@ bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 			return true;
 		}
 	}
-	if(lhs && !lhs->value) {
+	if(lhs && lhs->type->type != TFUNC && !lhs->value) {
 		err::set(line, col, "LHS has no value for function call");
 		return false;
 	}
-	if(rhs && !rhs->value) {
+	if(rhs && rhs->stmt_type != FNCALLINFO && !rhs->value) {
 		err::set(line, col, "RHS has no value for function call");
 		return false;
 	}
-	if(!hasIntrinsic()) {
-		err::set(line, col, "no intrinsic available for expression value evaluation");
-		return false;
+	std::vector<Stmt *> args;
+	if(lhs && lhs->type->type != TFUNC) {
+		args.push_back(lhs);
 	}
-	std::vector<Stmt *> args = {lhs};
-	if(rhs) args.push_back(rhs);
+	if(rhs) {
+		if(rhs->stmt_type == FNCALLINFO) {
+			for(auto &a : as<StmtFnCallInfo>(rhs)->args) {
+				args.push_back(a);
+			}
+		} else {
+			args.push_back(rhs);
+		}
+	}
 	return callIntrinsic(types, vals, this, {}, args);
 }
 
@@ -223,9 +230,16 @@ bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 
 bool StmtVar::assignValue(TypeMgr &types, ValueMgr &vals)
 {
-	if(!val) {
+	if(!val && parent->stmt_type != FNSIG) {
 		err::set(name, "'comptime' requires value to be present for the variable");
 		return false;
+	}
+	// don't bother with functions that still have templates or are variadic
+	if(val->stmt_type == FNDEF) {
+		StmtFnSig *sig = as<StmtFnDef>(val)->sig;
+		if(sig->templates.size() > 0 || sig->has_variadic) {
+			return true;
+		}
 	}
 	if(!val->assignValue(types, vals)) {
 		err::set(name, "failed to compute value for comptime variable");

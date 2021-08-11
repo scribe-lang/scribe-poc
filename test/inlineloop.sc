@@ -42,15 +42,26 @@ let putstr = extern[puts, "<stdio.h>"] fn(data: i32);
 // 	}
 // 	return sum;
 // };
+// let comptime x = fmt("hi");
+// let comptime y = fmt("hi");
 
 let vafn = fn<T>(va: ...T): i32 {
-	let comptime sum = 0;
-	inline for let comptime i = 0; i < 5; ++i {
-		sum += va[i % 3];
+	let fn2 = fn<U>(vax: ...U): i32 {
+		return vax[0] + vax[1];
+	};
+	let comptime sum = fn2(1, 2);
+	let comptime valen = va_len();
+	inline for let comptime i = 0; i < valen; ++i {
+		sum += va[i];
 	}
 	return sum;
 };
-let comptime v = vafn(5, 6, 7);
+let comptime v = vafn(5, 6, 7); // 21
+let comptime w = vafn(5, 6, 7, 8); // 29
+// TODO: need something for comptime assertion - the function call alone needs to be comptime as well, somehow
 
-// let comptime x = fmt("hi");
-// let comptime y = fmt("hi");
+// let add = fn(comptime a: i32, comptime b: i32): i32 {
+// 	return a + b;
+// };
+
+// let comptime p = add(5, 10);

@@ -1116,6 +1116,8 @@ after_templates:
 
 	// args
 	while(true) {
+		bool is_comptime = false;
+		if(p.acceptn(lex::COMPTIME)) is_comptime = true;
 		if(argnames.find(p.peak().data.s) != argnames.end()) {
 			err::set(p.peak(), "this argument name is already used "
 					   "before in this function signature");
@@ -1130,6 +1132,7 @@ after_templates:
 		if(!parse_var(p, var, Occurs::NO, Occurs::YES, Occurs::NO)) {
 			goto fail;
 		}
+		var->setComptime(is_comptime);
 		if(var->vtype->info & TypeInfoMask::VARIADIC) {
 			found_va = true;
 		}

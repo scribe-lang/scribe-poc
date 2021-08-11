@@ -376,8 +376,14 @@ void TypeStruct::set_fields_copy(const std::vector<std::string> &order,
 Type *TypeStruct::get_field(const std::string &name)
 {
 	auto res = fields.find(name);
-	if(res == fields.end()) return nullptr;
-	return res->second;
+	if(res != fields.end()) return res->second;
+	std::unordered_map<std::string, TypeFunc *> funcs;
+	for(auto &f : fields) {
+		if(startswith(f.first, name + "_fn") && f.second->type == TFUNC) {
+			funcs[f.first] = as<TypeFunc>(f.second);
+		}
+	}
+	return funcs.size() > 0 ? new TypeFuncMap(parent, 0, 0, funcs) : nullptr;
 }
 
 TypeFunc::TypeFunc(Stmt *parent, const size_t &ptr, const size_t &info, const size_t &scope,

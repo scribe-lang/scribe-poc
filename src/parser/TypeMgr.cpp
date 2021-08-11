@@ -44,9 +44,6 @@ bool SrcTypes::add(const std::string &name, Type *val)
 bool SrcTypes::exists(const std::string &name, const size_t &locked_from, const bool &top_only)
 {
 	if(top_only) return stack.back()->exists(name);
-	for(size_t i = 0; i < stack.size(); ++i) {
-		if(i < locked_from) continue;
-	}
 	size_t i = stack.size() - 1;
 	for(auto rit = stack.rbegin(); rit != stack.rend(); ++rit) {
 		if(locked_from != size_t(-1) && i <= locked_from) break;

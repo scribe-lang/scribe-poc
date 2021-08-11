@@ -19,12 +19,22 @@ namespace sc
 {
 namespace err
 {
+static std::vector<parser::Module *> currmod;
+static std::vector<parser::Module *> _mod;
 static std::vector<size_t> _line;
 static std::vector<size_t> _col_beg;
 static std::vector<size_t> _col_end;
 static std::vector<std::string> _e;
 static std::vector<bool> _warn;
 
+void pushModule(parser::Module *mod)
+{
+	currmod.push_back(mod);
+}
+void popModule()
+{
+	currmod.pop_back();
+}
 void set(const size_t &line, const size_t &col, const char *e, ...)
 {
 	va_list args;
@@ -49,6 +59,7 @@ void set(const size_t &line, const size_t &col_beg, const size_t &col_end, const
 void set(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e,
 	 va_list args)
 {
+	_mod.insert(_mod.begin(), currmod.back());
 	_line.insert(_line.begin(), line);
 	_col_beg.insert(_col_beg.begin(), col_beg);
 	_col_end.insert(_col_end.begin(), col_end);
@@ -100,9 +111,10 @@ bool present()
 {
 	return !_e.empty();
 }
-void show(FILE *out, const std::string &data, const std::string &filename)
+void show(FILE *out)
 {
 	while(!_e.empty()) {
+		parser::Module *__mod	= _mod.back();
 		const size_t &__line	= _line.back();
 		const size_t &__col_beg = _col_beg.back();
 		const size_t &__col_end = _col_end.back();
@@ -111,6 +123,9 @@ void show(FILE *out, const std::string &data, const std::string &filename)
 		size_t line		= 0;
 		size_t idx		= 0;
 		bool found		= false;
+
+		const std::string &data	    = __mod->getCode();
+		const std::string &filename = __mod->getPath();
 
 		for(size_t i = 0; i < data.size(); ++i) {
 			if(line == __line) {
@@ -144,6 +159,7 @@ void show(FILE *out, const std::string &data, const std::string &filename)
 			__col_beg + 1, __warn ? "Warning" : "Failure", __e.c_str(),
 			err_line.c_str(), spacing_caret.c_str(), '^');
 
+		_mod.pop_back();
 		_line.pop_back();
 		_col_beg.pop_back();
 		_col_end.pop_back();
@@ -152,6 +168,7 @@ void show(FILE *out, const std::string &data, const std::string &filename)
 }
 void reset()
 {
+	_mod.clear();
 	_line.clear();
 	_col_beg.clear();
 	_col_end.clear();
