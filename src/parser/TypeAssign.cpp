@@ -122,7 +122,7 @@ bool StmtBlock::assignType(TypeMgr &types)
 {
 	types.pushLayer();
 	for(size_t i = 0; i < stmts.size(); ++i) {
-		auto &s = stmts[i];
+		Stmt *s = stmts[i];
 		if(s->isSpecialized()) continue;
 		if(!s->assignType(types)) {
 			err::set(s->line, s->col,
@@ -866,6 +866,8 @@ bool StmtFor::assignType(TypeMgr &types)
 			StmtBlock *newblk = as<StmtBlock>(blk->copy(false, false));
 			if(!newblk->assignType(types)) {
 				err::set(line, col, "failed to determine block type");
+				delete newblk;
+				for(auto &n : newstmts) delete n;
 				return false;
 			}
 			newblk->setValueUnique(types.getParser()->getValueMgr());
