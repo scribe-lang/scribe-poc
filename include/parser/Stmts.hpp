@@ -408,9 +408,13 @@ struct cond_t
 struct StmtCond : public Stmt
 {
 	std::vector<cond_t> conds;
+	bool is_inline;
 	StmtCond(Module *mod, const size_t &line, const size_t &col,
 		 const std::vector<cond_t> &conds);
 	~StmtCond();
+
+	void setInline(const bool &_inline);
+	bool isInline();
 
 	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
 	void disp(const bool &has_next);

@@ -624,7 +624,7 @@ void StmtVarDecl::disp(const bool &has_next)
 
 StmtCond::StmtCond(Module *mod, const size_t &line, const size_t &col,
 		   const std::vector<cond_t> &conds)
-	: Stmt(COND, mod, line, col), conds(conds)
+	: Stmt(COND, mod, line, col), conds(conds), is_inline(false)
 {}
 StmtCond::~StmtCond()
 {
@@ -632,6 +632,15 @@ StmtCond::~StmtCond()
 		if(c.cond) delete c.cond;
 		if(c.blk) delete c.blk;
 	}
+}
+
+void StmtCond::setInline(const bool &_inline)
+{
+	is_inline = _inline;
+}
+bool StmtCond::isInline()
+{
+	return is_inline;
 }
 
 void StmtCond::disp(const bool &has_next)

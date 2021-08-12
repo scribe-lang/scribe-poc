@@ -147,6 +147,11 @@ Type *TypeSimple::copy(const size_t &append_info)
 Type *TypeSimple::specialize(const std::unordered_map<std::string, Type *> &templates)
 {
 	if(name[0] != '@') return copy();
+	if(templates.empty() || templates.find(name) == templates.end()) {
+		err::set(parent->line, parent->col, "could not find type '%s' in templates",
+			 name.c_str());
+		return nullptr;
+	}
 	Type *res = templates.at(name)->copy();
 	res->ptr += ptr;
 	res->info |= info;
@@ -497,7 +502,7 @@ TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
 	size_t val_len = this->args.size();
 	TypeFunc *tmp  = static_cast<TypeFunc *>(this->copy());
 	if(tmp->args.size() > 0 && tmp->args.back()->info & VARIADIC) --val_len;
-	if(!variadics.empty()) {
+	if(has_va) {
 		delete tmp->args.back();
 		tmp->args.pop_back();
 		TypeVariadic *va = new TypeVariadic(nullptr, 0, 0, {});

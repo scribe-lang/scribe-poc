@@ -272,6 +272,7 @@ Stmt *StmtCond::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *pa
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
 	res->is_comptime    = is_comptime;
+	res->is_inline	    = is_inline;
 	return res;
 }
 

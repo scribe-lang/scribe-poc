@@ -52,6 +52,9 @@ bool parse_block(ParseHelper &p, StmtBlock *&tree, const bool &with_brace)
 			if(p.peakt(1) == lex::FOR) {
 				if(!parse_for(p, stmt)) goto fail;
 				skip_cols = true;
+			} else if(p.peakt(1) == lex::IF) {
+				if(!parse_conds(p, stmt)) goto fail;
+				skip_cols = true;
 			} else {
 				err::set(p.peak(1),
 					 "'comptime' is not applicable on '%s' statement",
@@ -1444,7 +1447,11 @@ bool parse_conds(ParseHelper &p, Stmt *&conds)
 	conds = nullptr;
 
 	std::vector<cond_t> cvec;
-	cond_t c	   = {nullptr, nullptr};
+	cond_t c       = {nullptr, nullptr};
+	bool is_inline = false;
+
+	if(p.acceptn(lex::INLINE)) is_inline = true;
+
 	lex::Lexeme &start = p.peak();
 
 cond:
@@ -1474,6 +1481,7 @@ blk:
 	}
 
 	conds = new StmtCond(p.getModule(), start.line, start.col_beg, cvec);
+	as<StmtCond>(conds)->setInline(is_inline);
 	return true;
 
 fail:

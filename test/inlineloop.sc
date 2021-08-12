@@ -49,15 +49,21 @@ let vafn = fn<T>(va: ...T): i32 {
 	let fn2 = fn<U>(vax: ...U): i32 {
 		return vax[0] + vax[1];
 	};
-	let comptime sum = fn2(1, 2);
 	let comptime valen = va_len();
+	let sum = 0;
+	inline if valen < 1 {
+		sum = 5;
+	} else {
+		sum = fn2(va[0], 5);
+	}
 	inline for let comptime i = 0; i < valen; ++i {
 		sum += va[i];
 	}
 	return sum;
 };
-let comptime v = vafn(5, 6, 7); // 21
-let comptime w = vafn(5, 6, 7, 8); // 29
+let comptime v = vafn(:i32); // 5
+let comptime w = vafn(5, 6, 7); // 28
+let comptime x = vafn(5, 6, 7, 8); // 36
 // TODO: need something for comptime assertion - the function call alone needs to be comptime as well, somehow
 
 // let add = fn(comptime a: i32, comptime b: i32): i32 {

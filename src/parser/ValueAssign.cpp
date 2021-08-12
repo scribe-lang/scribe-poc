@@ -230,7 +230,10 @@ bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 
 bool StmtVar::assignValue(TypeMgr &types, ValueMgr &vals)
 {
-	if(!val && parent->stmt_type != FNSIG) {
+	if(parent->stmt_type == FNSIG && isComptime() && value) {
+		return true;
+	}
+	if(!val) {
 		err::set(name, "'comptime' requires value to be present for the variable");
 		return false;
 	}
@@ -344,6 +347,14 @@ bool StmtVarDecl::assignValue(TypeMgr &types, ValueMgr &vals)
 
 bool StmtCond::assignValue(TypeMgr &types, ValueMgr &vals)
 {
+	if(is_inline) {
+		if(conds.empty()) return true;
+		if(!conds[0].blk->assignValue(types, vals)) {
+			err::set(line, col, "failed to assign value for inline-conditional");
+			return false;
+		}
+		return true;
+	}
 	for(auto &c : conds) {
 		if(!c.cond) {
 			if(!c.blk->assignValue(types, vals)) {

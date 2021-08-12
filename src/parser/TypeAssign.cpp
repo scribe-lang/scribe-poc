@@ -69,6 +69,11 @@ static bool InitTemplateFn(TypeMgr &types, Type *&calledfn,
 	// for each types add signature variables
 	for(size_t i = 0; i < fn->sig->templates.size(); ++i) {
 		const std::string &t = fn->sig->templates[i].data.s;
+		if(calltemplates.find("@" + std::to_string(i)) == calltemplates.end()) {
+			err::set(line, col, "template type '%s' not found", t.c_str());
+			delete fndefvar;
+			return false;
+		}
 		types.add(t, calltemplates.at("@" + std::to_string(i)));
 	}
 	fn->sig->templates.clear();
@@ -95,9 +100,6 @@ static bool InitTemplateFn(TypeMgr &types, Type *&calledfn,
 	}
 	fn->sig->has_variadic = has_va;
 	fn->type	      = fn->sig->type->copy();
-	if(has_va) {
-		// TODO: execute has_va() here
-	}
 	types.popFunc();
 	types.popLayer();
 	if(types.getCurrentModule() == fn->mod->getPath()) {
@@ -222,10 +224,6 @@ bool StmtSimple::assignType(TypeMgr &types)
 		setComptime(true);
 	} else if(type->parent && type->parent->isComptime()) {
 		setComptime(true);
-	}
-	if(isComptime() && !assignValue(types, types.getParser()->getValueMgr())) {
-		err::set(line, col, "failed to determine value of simple data");
-		return false;
 	}
 	return type;
 }
@@ -775,6 +773,55 @@ bool StmtVarDecl::assignType(TypeMgr &types)
 
 bool StmtCond::assignType(TypeMgr &types)
 {
+	if(is_inline) {
+		bool found = false;
+		for(auto it = conds.begin(); it != conds.end();) {
+			if(found) {
+				delete it->cond;
+				delete it->blk;
+				it = conds.erase(it);
+				continue;
+			}
+			if(!it->cond) {
+				if(!it->blk->assignType(types)) {
+					err::set(line, col,
+						 "failed to assign inline-else block type");
+					return false;
+				}
+				it->blk->setValueUnique(types.getParser()->getValueMgr());
+				break;
+			}
+			if(!it->cond->assignType(types)) {
+				err::set(it->cond->line, it->cond->col,
+					 "failed to assign inline condition type");
+				return false;
+			}
+			if(!it->cond->isComptime()) {
+				err::set(it->cond->line, it->cond->col,
+					 "inline conditional's condition must be comptime");
+				return false;
+			}
+			if(!it->cond->assignValue(types, types.getParser()->getValueMgr())) {
+				err::set(it->cond->line, it->cond->col,
+					 "failed to determine value of inline conditional");
+				return false;
+			}
+			if(it->cond->value->i == 0) {
+				delete it->cond;
+				delete it->blk;
+				it = conds.erase(it);
+				continue;
+			}
+			if(!it->blk->assignType(types)) {
+				err::set(line, col, "failed to assign inline-if block type");
+				return false;
+			}
+			it->blk->setValueUnique(types.getParser()->getValueMgr());
+			found = true;
+			++it;
+		}
+		return true;
+	}
 	for(auto &c : conds) {
 		if(c.cond && !c.cond->assignType(types)) {
 			err::set(c.cond->line, c.cond->col,
@@ -953,10 +1000,6 @@ bool StmtRet::assignType(TypeMgr &types)
 		return false;
 	}
 	if(val && val->isComptime()) {
-		if(!assignValue(types, types.getParser()->getValueMgr())) {
-			err::set(line, col, "failed to determine return's comptime value");
-			return false;
-		}
 		setComptime(true);
 	} else if(!val) {
 		value = types.getParser()->getValueMgr().get(VVOID);
