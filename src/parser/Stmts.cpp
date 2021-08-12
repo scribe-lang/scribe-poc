@@ -262,7 +262,7 @@ void StmtFnCallInfo::disp(const bool &has_next)
 StmtExpr::StmtExpr(Module *mod, const size_t &line, const size_t &col, Stmt *lhs,
 		   const lex::Lexeme &oper, Stmt *rhs)
 	: Stmt(EXPR, mod, line, col), commas(0), lhs(lhs), oper(oper), rhs(rhs), or_blk(nullptr),
-	  or_blk_var(), is_parse_intrinsic(false), intrin_fn(nullptr)
+	  or_blk_var(), is_intrinsic(false), intrin_fn(nullptr)
 {}
 StmtExpr::~StmtExpr()
 {
@@ -274,8 +274,8 @@ StmtExpr::~StmtExpr()
 void StmtExpr::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Expression [parsing intinsic: %s]:%s\n",
-		   is_parse_intrinsic ? "yes" : "no", typeString().c_str());
+	tio::print(has_next, "Expression [parsing intinsic: %s]:%s\n", is_intrinsic ? "yes" : "no",
+		   typeString().c_str());
 	if(lhs) {
 		tio::taba(oper.tok.isValid() || rhs || or_blk);
 		tio::print(oper.tok.isValid() || rhs || or_blk, "LHS:\n");
@@ -303,13 +303,17 @@ void StmtExpr::disp(const bool &has_next)
 	tio::tabr();
 }
 
-void StmtExpr::setIntrinsic(intrinsic_fn_t intrin)
+void StmtExpr::setIntrinsicFunc(intrinsic_fn_t intrin)
 {
 	intrin_fn = intrin;
 }
-bool StmtExpr::hasIntrinsic()
+bool StmtExpr::hasIntrinsicFunc()
 {
 	return intrin_fn != nullptr;
+}
+bool StmtExpr::isIntrinsic()
+{
+	return is_intrinsic;
 }
 bool StmtExpr::callIntrinsic(TypeMgr &types, ValueMgr &values, StmtExpr *base,
 			     const std::vector<StmtType *> &templates,
@@ -321,11 +325,11 @@ bool StmtExpr::callIntrinsic(TypeMgr &types, ValueMgr &values, StmtExpr *base,
 
 void StmtExpr::setParseIntrinsic(const bool &pi)
 {
-	is_parse_intrinsic = pi;
+	is_intrinsic = pi;
 }
 bool StmtExpr::isParseIntrinsic()
 {
-	return is_parse_intrinsic;
+	return is_intrinsic;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

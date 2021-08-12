@@ -360,16 +360,21 @@ bool StmtExpr::assignType(TypeMgr &types)
 			lhs->type = fn;
 			if(type) delete type;
 			type = fn->rettype->copy();
-			if(fn->intrin_fn) {
-				if(!is_parse_intrinsic) {
-					this->setIntrinsic(fn->intrin_fn);
-				} else if(!fn->call_intrinsic(
-					  types, types.getParser()->getValueMgr(), this, finfo)) {
-					err::set(line, col,
-						 "failed to call parse intrinsic "
-						 "function during type assignment");
-					return false;
-				}
+			if(fn->getIntrinsicFunc() && !isIntrinsic()) {
+				err::set(line, col,
+					 "this is an intrinsic function - "
+					 "requires '@' before function name to call");
+				return false;
+			}
+			ValueMgr &vals = types.getParser()->getValueMgr();
+			if(fn->getIntrinsicFuncType() == IPARSE &&
+			   !fn->callIntrinsicFunc(types, vals, this, finfo)) {
+				err::set(line, col,
+					 "failed to call parse intrinsic "
+					 "function during type assignment");
+				return false;
+			} else if(fn->getIntrinsicFuncType() == IVALUE) {
+				this->setIntrinsicFunc(fn->getIntrinsicFunc());
 			}
 			has_va = fn->has_va;
 		} else if(lhs->type->type == TSTRUCT) {
@@ -525,14 +530,30 @@ bool StmtExpr::assignType(TypeMgr &types)
 			return false;
 		}
 		if(type) delete type;
-		type = decidedfn->rettype->copy();
-		if(decidedfn->intrin_fn) {
-			this->setIntrinsic(decidedfn->intrin_fn);
+		type	       = decidedfn->rettype->copy();
+		ValueMgr &vals = types.getParser()->getValueMgr();
+		bool erred     = false;
+		if(decidedfn->getIntrinsicFuncType() == IPARSE &&
+		   !decidedfn->callIntrinsicFunc(types, vals, this, fci))
+		{
+			erred = true;
+			err::set(line, col,
+				 "failed to call parse intrinsic "
+				 "function during type assignment");
+			goto fail;
+		} else if(decidedfn->getIntrinsicFuncType() == IVALUE) {
+			this->setIntrinsicFunc(decidedfn->getIntrinsicFunc());
 		}
-		if(!InitTemplateFn(types, lhs->type, calltemplates, false, line, col)) return false;
+		if(!InitTemplateFn(types, lhs->type, calltemplates, false, line, col)) {
+			erred = true;
+			err::set(line, col, "failed to intialize template function");
+			goto fail;
+		}
 		fci->args.clear();
 		delete fci;
 		delete decidedfn;
+	fail:
+		if(erred) return false;
 		break;
 	}
 	default: err::set(oper, "nonexistent operator"); return false;

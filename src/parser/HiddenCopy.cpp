@@ -102,11 +102,11 @@ Stmt *StmtExpr::hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *pa
 	if(or_blk)
 		res->or_blk =
 		static_cast<StmtBlock *>(or_blk->hiddenCopy(copy_type, copy_val, this));
-	res->or_blk_var		= or_blk_var;
-	res->parent		= par;
-	res->is_parse_intrinsic = is_parse_intrinsic;
-	res->is_specialized	= is_specialized;
-	res->is_comptime	= is_comptime;
+	res->or_blk_var	    = or_blk_var;
+	res->parent	    = par;
+	res->is_intrinsic   = is_intrinsic;
+	res->is_specialized = is_specialized;
+	res->is_comptime    = is_comptime;
 	return res;
 }
 

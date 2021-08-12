@@ -95,33 +95,33 @@ TypeMgr::TypeMgr(RAIIParser *parser) : parser(parser), vals(parser), init_typefu
 	TypeStruct *empty_struct = new TypeStruct(nullptr, 0, 0, false, {}, {}, {});
 
 	TypeFunc *importfn = new TypeFunc(nullptr, 0, 0, 0, 0, false, {cstr->copy()}, empty_struct);
-	importfn->intrin_fn = intrinsic_import;
-	globals["import"]   = importfn;
+	importfn->setIntrinsicFunc(intrinsic_import, IPARSE);
+	globals["import"] = importfn;
 
-	TypeFunc *asfn	= new TypeFunc(nullptr, 0, 0, 0, 2, false, {templ1}, templ0);
-	asfn->intrin_fn = intrinsic_as;
-	globals["as"]	= asfn;
+	TypeFunc *asfn = new TypeFunc(nullptr, 0, 0, 0, 2, false, {templ1}, templ0);
+	asfn->setIntrinsicFunc(intrinsic_as, IPARSE);
+	globals["as"] = asfn;
 
-	TypeFunc *szfn	  = new TypeFunc(nullptr, 0, 0, 0, 1, false, {}, globals["i32"]->copy());
-	szfn->intrin_fn	  = intrinsic_szof;
+	TypeFunc *szfn = new TypeFunc(nullptr, 0, 0, 0, 1, false, {}, globals["i32"]->copy());
+	szfn->setIntrinsicFunc(intrinsic_szof, IVALUE);
 	globals["sizeof"] = szfn;
 
-	TypeFunc *typeidfn  = new TypeFunc(nullptr, 0, 0, 0, 1, false, {}, globals["i32"]->copy());
-	typeidfn->intrin_fn = intrinsic_typid;
-	globals["typeid"]   = typeidfn;
+	TypeFunc *typeidfn = new TypeFunc(nullptr, 0, 0, 0, 1, false, {}, globals["i32"]->copy());
+	typeidfn->setIntrinsicFunc(intrinsic_typid, IVALUE);
+	globals["typeid"] = typeidfn;
 
-	TypeFunc *valenfn  = new TypeFunc(nullptr, 0, 0, 0, 0, false, {}, globals["i32"]->copy());
-	valenfn->intrin_fn = intrinsic_va_len;
-	globals["va_len"]  = valenfn;
+	TypeFunc *valenfn = new TypeFunc(nullptr, 0, 0, 0, 0, false, {}, globals["i32"]->copy());
+	valenfn->setIntrinsicFunc(intrinsic_va_len, IVALUE);
+	globals["va_len"] = valenfn;
 
-	TypeFunc *arrayfn  = new TypeFunc(nullptr, 0, 0, 0, 1, false, {templ0va}, templ0ptr);
-	arrayfn->intrin_fn = intrinsic_array;
-	globals["array"]   = arrayfn;
+	TypeFunc *arrayfn = new TypeFunc(nullptr, 0, 0, 0, 1, false, {templ0va}, templ0ptr);
+	arrayfn->setIntrinsicFunc(intrinsic_array, IVALUE);
+	globals["array"] = arrayfn;
 
-	TypeFunc *comptime_strlenfn =
+	TypeFunc *comp_strlenfn =
 	new TypeFunc(nullptr, 0, 0, 0, 0, true, {cstr->copy()}, globals["u64"]->copy());
-	comptime_strlenfn->intrin_fn = intrinsic_comptime_strlen;
-	globals["comptime_strlen"]   = comptime_strlenfn;
+	comp_strlenfn->setIntrinsicFunc(intrinsic_comptime_strlen, IVALUE);
+	globals["comp_strlen"] = comp_strlenfn;
 }
 TypeMgr::~TypeMgr()
 {

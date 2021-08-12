@@ -49,7 +49,7 @@ let vafn = fn<T>(va: ...T): i32 {
 	let fn2 = fn<U>(vax: ...U): i32 {
 		return vax[0] + vax[1];
 	};
-	let comptime valen = va_len();
+	let comptime valen = @va_len();
 	let sum = 0;
 	inline if valen < 1 {
 		sum = 5;

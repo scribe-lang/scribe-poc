@@ -150,7 +150,7 @@ bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 			return true;
 		}
 	}
-	if(!hasIntrinsic()) {
+	if(!hasIntrinsicFunc()) {
 		assert(lhs->type->parent->stmt_type == VAR &&
 		       "parent must be a variable declaration");
 		StmtFnCallInfo *finfo = as<StmtFnCallInfo>(rhs);

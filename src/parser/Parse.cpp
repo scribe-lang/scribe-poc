@@ -825,8 +825,8 @@ bool parse_expr_01(ParseHelper &p, Stmt *&expr)
 	std::vector<StmtType *> templates;
 	StmtType *templ = nullptr;
 	std::vector<Stmt *> args;
-	Stmt *arg		= nullptr;
-	bool is_parse_intrinsic = false;
+	Stmt *arg	  = nullptr;
+	bool is_intrinsic = false;
 
 	if(p.acceptn(lex::LPAREN)) {
 		if(!parse_expr(p, expr)) {
@@ -842,7 +842,7 @@ bool parse_expr_01(ParseHelper &p, Stmt *&expr)
 	}
 
 begin:
-	if(p.acceptn(lex::AT)) is_parse_intrinsic = true;
+	if(p.acceptn(lex::AT)) is_intrinsic = true;
 	if(p.acceptd() && !parse_simple(p, lhs)) goto fail;
 	goto begin_brack;
 
@@ -859,7 +859,7 @@ begin_brack:
 		p.sett(lex::SUBS);
 		oper = p.peak();
 		p.next();
-		if(is_parse_intrinsic) {
+		if(is_intrinsic) {
 			err::set(p.peak(), "only function calls can be intrinsic;"
 					   " attempted subscript here");
 			goto fail;
@@ -920,7 +920,7 @@ begin_brack:
 		rhs  = nullptr;
 		args = {};
 		templates = {};
-		as<StmtExpr>(lhs)->setParseIntrinsic(is_parse_intrinsic);
+		as<StmtExpr>(lhs)->setParseIntrinsic(is_intrinsic);
 
 		if(p.accept(lex::LBRACK, lex::LPAREN)) goto begin_brack;
 	}

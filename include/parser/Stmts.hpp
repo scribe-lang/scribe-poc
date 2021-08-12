@@ -207,7 +207,7 @@ struct StmtExpr : public Stmt
 	StmtBlock *or_blk;
 	lex::Lexeme or_blk_var;
 	intrinsic_fn_t intrin_fn;
-	bool is_parse_intrinsic; // if @ is present before function name
+	bool is_intrinsic; // if @ is present before function name
 
 	// or_blk and or_blk_var can be set separately - nullptr/INVALID by default
 	StmtExpr(Module *mod, const size_t &line, const size_t &col, Stmt *lhs,
@@ -222,8 +222,9 @@ struct StmtExpr : public Stmt
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
 
-	void setIntrinsic(intrinsic_fn_t intrin);
-	bool hasIntrinsic();
+	void setIntrinsicFunc(intrinsic_fn_t intrin);
+	bool hasIntrinsicFunc();
+	bool isIntrinsic();
 	bool callIntrinsic(TypeMgr &types, ValueMgr &values, StmtExpr *base,
 			   const std::vector<StmtType *> &templates,
 			   const std::vector<Stmt *> &args);

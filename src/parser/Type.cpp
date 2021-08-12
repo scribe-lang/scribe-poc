@@ -45,11 +45,11 @@ std::vector<std::string> IntegralTypes()
 }
 
 Type::Type(const Types &type, Stmt *parent, const size_t &ptr, const size_t &info)
-	: id(gen_id()), type(type), parent(parent), ptr(ptr), info(info), intrin_fn(nullptr)
+	: id(gen_id()), type(type), parent(parent), ptr(ptr), info(info)
 {}
 Type::Type(const int64_t &id, const Types &type, Stmt *parent, const size_t &ptr,
-	   const size_t &info, intrinsic_fn_t intrin_fn)
-	: id(id), type(type), parent(parent), ptr(ptr), info(info), intrin_fn(intrin_fn)
+	   const size_t &info)
+	: id(id), type(type), parent(parent), ptr(ptr), info(info)
 {}
 Type::~Type() {}
 bool Type::compatible_base(Type *rhs, const bool &is_templ, const size_t &line, const size_t &col)
@@ -137,12 +137,12 @@ TypeSimple::TypeSimple(Stmt *parent, const size_t &ptr, const size_t &info, cons
 	name_id_map[name] = id;
 }
 TypeSimple::TypeSimple(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-		       intrinsic_fn_t intrin_fn, const std::string &name)
-	: Type(id, TSIMPLE, parent, ptr, info, intrin_fn), name(name)
+		       const std::string &name)
+	: Type(id, TSIMPLE, parent, ptr, info), name(name)
 {}
 Type *TypeSimple::copy(const size_t &append_info)
 {
-	return new TypeSimple(id, parent, ptr, info | append_info, intrin_fn, name);
+	return new TypeSimple(id, parent, ptr, info | append_info, name);
 }
 Type *TypeSimple::specialize(const std::unordered_map<std::string, Type *> &templates)
 {
@@ -199,12 +199,11 @@ TypeStruct::TypeStruct(Stmt *parent, const size_t &ptr, const size_t &info, cons
 	  is_def(false), templ(templ), field_order(field_order), fields(fields)
 {}
 TypeStruct::TypeStruct(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-		       const bool &is_import, const bool &is_def, intrinsic_fn_t intrin_fn,
-		       const size_t &templ, const std::vector<std::string> &field_order,
+		       const bool &is_import, const bool &is_def, const size_t &templ,
+		       const std::vector<std::string> &field_order,
 		       const std::unordered_map<std::string, Type *> &fields)
-	: Type(id, TSTRUCT, parent, ptr, info, intrin_fn), is_decl_only(false),
-	  is_import(is_import), is_def(is_def), templ(templ), field_order(field_order),
-	  fields(fields)
+	: Type(id, TSTRUCT, parent, ptr, info), is_decl_only(false), is_import(is_import),
+	  is_def(is_def), templ(templ), field_order(field_order), fields(fields)
 {}
 TypeStruct::~TypeStruct()
 {
@@ -218,8 +217,8 @@ Type *TypeStruct::copy(const size_t &append_info)
 	for(auto &f : fields) {
 		newfields[f.first] = is_import ? f.second : f.second->copy();
 	}
-	return new TypeStruct(id, parent, ptr, info | append_info, is_import, is_def, intrin_fn,
-			      templ, field_order, newfields);
+	return new TypeStruct(id, parent, ptr, info | append_info, is_import, is_def, templ,
+			      field_order, newfields);
 }
 Type *TypeStruct::specialize(const std::unordered_map<std::string, Type *> &templates)
 {
@@ -227,8 +226,8 @@ Type *TypeStruct::specialize(const std::unordered_map<std::string, Type *> &temp
 	for(auto &f : fields) {
 		newfields[f.first] = f.second->specialize(templates);
 	}
-	return new TypeStruct(id, parent, ptr, info, is_import, is_def, intrin_fn, templ,
-			      field_order, newfields);
+	return new TypeStruct(id, parent, ptr, info, is_import, is_def, templ, field_order,
+			      newfields);
 }
 bool TypeStruct::compatible(Type *rhs, const size_t &line, const size_t &col)
 {
@@ -395,13 +394,14 @@ TypeFunc::TypeFunc(Stmt *parent, const size_t &ptr, const size_t &info, const si
 		   const size_t &templ, const bool &has_va, const std::vector<Type *> &args,
 		   Type *rettype)
 	: Type(TFUNC, parent, ptr, info), scope(scope), templ(templ), has_va(has_va), args(args),
-	  rettype(rettype)
+	  rettype(rettype), intrin_fn(nullptr), intrin_fn_type(INONE)
 {}
 TypeFunc::TypeFunc(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-		   intrinsic_fn_t intrin_fn, const size_t &scope, const size_t &templ,
-		   const bool &has_va, const std::vector<Type *> &args, Type *rettype)
-	: Type(id, TFUNC, parent, ptr, info, intrin_fn), scope(scope), templ(templ), has_va(has_va),
-	  args(args), rettype(rettype)
+		   const size_t &scope, const size_t &templ, const bool &has_va,
+		   const std::vector<Type *> &args, Type *rettype, intrinsic_fn_t intrin_fn,
+		   const IntrinFuncType &intrin_fn_type)
+	: Type(id, TFUNC, parent, ptr, info), scope(scope), templ(templ), has_va(has_va),
+	  args(args), rettype(rettype), intrin_fn(intrin_fn), intrin_fn_type(intrin_fn_type)
 {}
 TypeFunc::~TypeFunc()
 {
@@ -414,8 +414,8 @@ Type *TypeFunc::copy(const size_t &append_info)
 	for(auto &a : args) {
 		newargs.push_back(a->copy());
 	}
-	return new TypeFunc(id, parent, ptr, info | append_info, intrin_fn, scope, templ, has_va,
-			    newargs, rettype->copy());
+	return new TypeFunc(id, parent, ptr, info | append_info, scope, templ, has_va, newargs,
+			    rettype->copy(), intrin_fn, intrin_fn_type);
 }
 Type *TypeFunc::specialize(const std::unordered_map<std::string, Type *> &templates)
 {
@@ -424,8 +424,8 @@ Type *TypeFunc::specialize(const std::unordered_map<std::string, Type *> &templa
 	for(auto &a : args) {
 		newargs.push_back(a->specialize(templates));
 	}
-	return new TypeFunc(id, parent, ptr, info, intrin_fn, scope, templ, has_va, newargs,
-			    newret);
+	return new TypeFunc(id, parent, ptr, info, scope, templ, has_va, newargs, newret, intrin_fn,
+			    intrin_fn_type);
 }
 bool TypeFunc::compatible(Type *rhs, const size_t &line, const size_t &col)
 {
@@ -560,7 +560,7 @@ TypeFuncMap::TypeFuncMap(Stmt *parent, const size_t &ptr, const size_t &info,
 {}
 TypeFuncMap::TypeFuncMap(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
 			 const std::unordered_map<std::string, TypeFunc *> &funcs, Type *self)
-	: Type(id, TFUNCMAP, parent, ptr, info, nullptr), funcs(funcs), self(self)
+	: Type(id, TFUNCMAP, parent, ptr, info), funcs(funcs), self(self)
 {}
 TypeFuncMap::~TypeFuncMap()
 {
@@ -643,7 +643,7 @@ TypeVariadic::TypeVariadic(Stmt *parent, const size_t &ptr, const size_t &info,
 {}
 TypeVariadic::TypeVariadic(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
 			   const std::vector<Type *> &args)
-	: Type(id, TVARIADIC, parent, ptr, info, nullptr), args(args)
+	: Type(id, TVARIADIC, parent, ptr, info), args(args)
 {}
 TypeVariadic::~TypeVariadic()
 {

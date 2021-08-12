@@ -3,36 +3,36 @@
 t1 = static_cast<TypeSimple *>(types.get("i1"));
 
 t1 = static_cast<TypeSimple *>(types.get("i8"));
-fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_incx_i8; types.addFunc("++x", fn, true);
-fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_decx_i8; types.addFunc("--x", fn, true);
+fn = func(types, {t1->copy(REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_incx_i8, IVALUE); types.addFunc("++x", fn, true);
+fn = func(types, {t1->copy(REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_decx_i8, IVALUE); types.addFunc("--x", fn, true);
 
 t1 = static_cast<TypeSimple *>(types.get("i16"));
-fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_incx_i16; types.addFunc("++x", fn, true);
-fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_decx_i16; types.addFunc("--x", fn, true);
+fn = func(types, {t1->copy(REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_incx_i16, IVALUE); types.addFunc("++x", fn, true);
+fn = func(types, {t1->copy(REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_decx_i16, IVALUE); types.addFunc("--x", fn, true);
 
 t1 = static_cast<TypeSimple *>(types.get("i32"));
-fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_incx_i32; types.addFunc("++x", fn, true);
-fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_decx_i32; types.addFunc("--x", fn, true);
+fn = func(types, {t1->copy(REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_incx_i32, IVALUE); types.addFunc("++x", fn, true);
+fn = func(types, {t1->copy(REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_decx_i32, IVALUE); types.addFunc("--x", fn, true);
 
 t1 = static_cast<TypeSimple *>(types.get("i64"));
-fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_incx_i64; types.addFunc("++x", fn, true);
-fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_decx_i64; types.addFunc("--x", fn, true);
+fn = func(types, {t1->copy(REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_incx_i64, IVALUE); types.addFunc("++x", fn, true);
+fn = func(types, {t1->copy(REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_decx_i64, IVALUE); types.addFunc("--x", fn, true);
 
 t1 = static_cast<TypeSimple *>(types.get("u8"));
-fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_incx_u8; types.addFunc("++x", fn, true);
-fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_decx_u8; types.addFunc("--x", fn, true);
+fn = func(types, {t1->copy(REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_incx_u8, IVALUE); types.addFunc("++x", fn, true);
+fn = func(types, {t1->copy(REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_decx_u8, IVALUE); types.addFunc("--x", fn, true);
 
 t1 = static_cast<TypeSimple *>(types.get("u16"));
-fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_incx_u16; types.addFunc("++x", fn, true);
-fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_decx_u16; types.addFunc("--x", fn, true);
+fn = func(types, {t1->copy(REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_incx_u16, IVALUE); types.addFunc("++x", fn, true);
+fn = func(types, {t1->copy(REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_decx_u16, IVALUE); types.addFunc("--x", fn, true);
 
 t1 = static_cast<TypeSimple *>(types.get("u32"));
-fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_incx_u32; types.addFunc("++x", fn, true);
-fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_decx_u32; types.addFunc("--x", fn, true);
+fn = func(types, {t1->copy(REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_incx_u32, IVALUE); types.addFunc("++x", fn, true);
+fn = func(types, {t1->copy(REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_decx_u32, IVALUE); types.addFunc("--x", fn, true);
 
 t1 = static_cast<TypeSimple *>(types.get("u64"));
-fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_incx_u64; types.addFunc("++x", fn, true);
-fn = func(types, {t1->copy(REF)}, t1->copy()); fn->intrin_fn = intrinsic_decx_u64; types.addFunc("--x", fn, true);
+fn = func(types, {t1->copy(REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_incx_u64, IVALUE); types.addFunc("++x", fn, true);
+fn = func(types, {t1->copy(REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_decx_u64, IVALUE); types.addFunc("--x", fn, true);
 
 t1 = static_cast<TypeSimple *>(types.get("f32"));
 

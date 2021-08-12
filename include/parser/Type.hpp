@@ -56,11 +56,10 @@ struct Type
 	int64_t id;
 	size_t ptr;
 	size_t info;
-	intrinsic_fn_t intrin_fn;
 
 	Type(const Types &type, Stmt *parent, const size_t &ptr, const size_t &info);
 	Type(const int64_t &id, const Types &type, Stmt *parent, const size_t &ptr,
-	     const size_t &info, intrinsic_fn_t intrin_fn);
+	     const size_t &info);
 	virtual ~Type();
 
 	virtual Type *copy(const size_t &append_info = 0)				   = 0;
@@ -72,17 +71,6 @@ struct Type
 	virtual bool assignTemplateActuals(Type *actual,
 					   std::unordered_map<std::string, Type *> &templates,
 					   const size_t &line, const size_t &col) = 0;
-
-	inline void set_intrinsic(intrinsic_fn_t intrinsic)
-	{
-		intrin_fn = intrinsic;
-	}
-	inline bool call_intrinsic(TypeMgr &types, ValueMgr &values, StmtExpr *base,
-				   StmtFnCallInfo *args)
-	{
-		return intrin_fn ? intrin_fn(types, values, base, args->templates, args->args)
-				 : true;
-	}
 
 	bool booleanCompatible();
 	bool integerCompatible();
@@ -105,7 +93,7 @@ struct TypeSimple : public Type
 
 	TypeSimple(Stmt *parent, const size_t &ptr, const size_t &info, const std::string &name);
 	TypeSimple(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-		   intrinsic_fn_t intrin_fn, const std::string &name);
+		   const std::string &name);
 
 	Type *copy(const size_t &append_info = 0);
 	Type *specialize(const std::unordered_map<std::string, Type *> &templates);
@@ -130,8 +118,8 @@ struct TypeStruct : public Type
 		   const size_t &templ, const std::vector<std::string> &field_order,
 		   const std::unordered_map<std::string, Type *> &fields);
 	TypeStruct(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-		   const bool &is_import, const bool &is_def, intrinsic_fn_t intrin_fn,
-		   const size_t &templ, const std::vector<std::string> &field_order,
+		   const bool &is_import, const bool &is_def, const size_t &templ,
+		   const std::vector<std::string> &field_order,
 		   const std::unordered_map<std::string, Type *> &fields);
 	~TypeStruct();
 
@@ -169,6 +157,13 @@ struct TypeStruct : public Type
 	}
 };
 
+enum IntrinFuncType
+{
+	INONE,
+	IPARSE, // must be evaluated at parse time
+	IVALUE, // provides value, so evaluate when retrieving (comptime) values
+};
+
 struct TypeFunc : public Type
 {
 	size_t scope;
@@ -176,14 +171,37 @@ struct TypeFunc : public Type
 	bool has_va;
 	std::vector<Type *> args;
 	Type *rettype;
+	intrinsic_fn_t intrin_fn;
+	IntrinFuncType intrin_fn_type;
 
 	TypeFunc(Stmt *parent, const size_t &ptr, const size_t &info, const size_t &scope,
 		 const size_t &templ, const bool &has_va, const std::vector<Type *> &args,
 		 Type *rettype);
 	TypeFunc(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-		 intrinsic_fn_t intrin_fn, const size_t &scope, const size_t &templ,
-		 const bool &has_va, const std::vector<Type *> &args, Type *rettype);
+		 const size_t &scope, const size_t &templ, const bool &has_va,
+		 const std::vector<Type *> &args, Type *rettype, intrinsic_fn_t intrin_fn,
+		 const IntrinFuncType &intrin_fn_type);
 	~TypeFunc();
+
+	inline void setIntrinsicFunc(intrinsic_fn_t intrinsic, const IntrinFuncType &ift)
+	{
+		intrin_fn      = intrinsic;
+		intrin_fn_type = ift;
+	}
+	inline intrinsic_fn_t &getIntrinsicFunc()
+	{
+		return intrin_fn;
+	}
+	inline IntrinFuncType &getIntrinsicFuncType()
+	{
+		return intrin_fn_type;
+	}
+	inline bool callIntrinsicFunc(TypeMgr &types, ValueMgr &values, StmtExpr *base,
+				      StmtFnCallInfo *args)
+	{
+		return intrin_fn ? intrin_fn(types, values, base, args->templates, args->args)
+				 : true;
+	}
 
 	Type *copy(const size_t &append_info = 0);
 	Type *specialize(const std::unordered_map<std::string, Type *> &templates);
