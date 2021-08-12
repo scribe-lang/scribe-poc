@@ -155,6 +155,8 @@ struct TypeStruct : public Type
 	{
 		return fields.find(name) != fields.end();
 	}
+
+	int32_t getFieldIndex(const std::string &name);
 };
 
 enum IntrinFuncType

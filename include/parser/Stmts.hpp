@@ -86,14 +86,14 @@ struct Stmt
 	virtual ~Stmt();
 
 	// NEVER use hiddenCopy(); instead use copy()
-	Stmt *copy(const bool &copy_type, const bool &copy_val);
-	virtual Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par) = 0;
-	virtual void disp(const bool &has_next)						 = 0;
-	virtual void setParent(Stmt *parent)						 = 0;
-	virtual bool assignType(TypeMgr &types)						 = 0;
-	virtual bool assignValue(TypeMgr &types, ValueMgr &vals)			 = 0;
-	virtual void clearValue()							 = 0;
-	virtual void setValueUnique(ValueMgr &vals)					 = 0;
+	Stmt *copy();
+	virtual Stmt *hiddenCopy(Stmt *par)			 = 0;
+	virtual void disp(const bool &has_next)			 = 0;
+	virtual void setParent(Stmt *parent)			 = 0;
+	virtual bool assignType(TypeMgr &types)			 = 0;
+	virtual bool assignValue(TypeMgr &types, ValueMgr &vals) = 0;
+	virtual void clearValue()				 = 0;
+	virtual void setValueUnique(ValueMgr &vals)		 = 0;
 
 	Stmt *getParentWithType(const Stmts &typ);
 
@@ -139,7 +139,7 @@ struct StmtType : public Stmt
 	StmtType(Module *mod, const size_t &line, const size_t &col, Stmt *fn);
 	~StmtType();
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -157,7 +157,7 @@ struct StmtBlock : public Stmt
 		  const std::vector<Stmt *> &stmts);
 	~StmtBlock();
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -172,7 +172,7 @@ struct StmtSimple : public Stmt
 	StmtSimple(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &val);
 	~StmtSimple();
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -189,7 +189,7 @@ struct StmtFnCallInfo : public Stmt
 		       const std::vector<StmtType *> &templates, const std::vector<Stmt *> &args);
 	~StmtFnCallInfo();
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -208,13 +208,14 @@ struct StmtExpr : public Stmt
 	lex::Lexeme or_blk_var;
 	intrinsic_fn_t intrin_fn;
 	bool is_intrinsic; // if @ is present before function name
+	int64_t decidedfn_id;
 
 	// or_blk and or_blk_var can be set separately - nullptr/INVALID by default
 	StmtExpr(Module *mod, const size_t &line, const size_t &col, Stmt *lhs,
 		 const lex::Lexeme &oper, Stmt *rhs);
 	~StmtExpr();
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -231,6 +232,9 @@ struct StmtExpr : public Stmt
 
 	void setParseIntrinsic(const bool &pi);
 	bool isParseIntrinsic();
+
+	void setDecidedFuncID(const int64_t &id);
+	int64_t &getDecidedFuncID();
 };
 
 struct StmtVar : public Stmt
@@ -243,7 +247,7 @@ struct StmtVar : public Stmt
 		StmtType *vtype, Stmt *val);
 	~StmtVar();
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -265,7 +269,7 @@ struct StmtFnSig : public Stmt
 		  StmtType *rettype, const bool &has_variadic);
 	~StmtFnSig();
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -285,7 +289,7 @@ struct StmtFnDef : public Stmt
 		  StmtBlock *blk);
 	~StmtFnDef();
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -302,7 +306,7 @@ struct StmtHeader : public Stmt
 	StmtHeader(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &names,
 		   const lex::Lexeme &flags);
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -317,7 +321,7 @@ struct StmtLib : public Stmt
 	lex::Lexeme flags;
 	StmtLib(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &flags);
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -337,7 +341,7 @@ struct StmtExtern : public Stmt
 		   StmtHeader *headers, StmtLib *libs, StmtFnSig *sig);
 	~StmtExtern();
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -354,7 +358,7 @@ struct StmtEnum : public Stmt
 		 const std::vector<lex::Lexeme> &items);
 	~StmtEnum();
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -374,7 +378,7 @@ struct StmtStruct : public Stmt
 		   const std::vector<lex::Lexeme> &templates, const std::vector<StmtVar *> &fields);
 	~StmtStruct();
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -391,7 +395,7 @@ struct StmtVarDecl : public Stmt
 		    const std::vector<StmtVar *> &decls);
 	~StmtVarDecl();
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -417,7 +421,7 @@ struct StmtCond : public Stmt
 	void setInline(const bool &_inline);
 	bool isInline();
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -435,7 +439,7 @@ struct StmtForIn : public Stmt
 		  Stmt *in, StmtBlock *blk);
 	~StmtForIn();
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -459,7 +463,7 @@ struct StmtFor : public Stmt
 	void setInline(const bool &_inline);
 	bool isInline();
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -475,7 +479,7 @@ struct StmtWhile : public Stmt
 	StmtWhile(Module *mod, const size_t &line, const size_t &col, Stmt *cond, StmtBlock *blk);
 	~StmtWhile();
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -490,7 +494,7 @@ struct StmtRet : public Stmt
 	StmtRet(Module *mod, const size_t &line, const size_t &col, Stmt *val);
 	~StmtRet();
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -502,7 +506,7 @@ struct StmtContinue : public Stmt
 {
 	StmtContinue(Module *mod, const size_t &line, const size_t &col);
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
@@ -514,7 +518,7 @@ struct StmtBreak : public Stmt
 {
 	StmtBreak(Module *mod, const size_t &line, const size_t &col);
 
-	Stmt *hiddenCopy(const bool &copy_type, const bool &copy_val, Stmt *par);
+	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);

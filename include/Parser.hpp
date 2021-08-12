@@ -35,7 +35,7 @@ class Module
 	Stmt *ptree;
 
 public:
-	Module(const std::string &path, const std::string &code);
+	Module(const std::string &path, const std::string &code, llvm::LLVMContext &context);
 	~Module();
 
 	bool tokenize();
@@ -58,6 +58,8 @@ class RAIIParser
 	TypeMgr types;
 	ValueMgr values;
 
+	llvm::LLVMContext context;
+
 	// as new sources are imported, they'll be pushed back
 	// the reverse iteration of this list will give the order of imports
 	std::vector<std::string> modulestack;
@@ -72,8 +74,11 @@ public:
 
 	bool hasModule(const std::string &path);
 	Module *getModule(const std::string &path);
+	const std::vector<std::string> &getModuleStack();
 
 	bool parse(const std::string &path);
+
+	args::ArgParser &getCommandArgs();
 
 	ValueMgr &getValueMgr();
 

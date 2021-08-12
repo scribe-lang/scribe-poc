@@ -389,6 +389,13 @@ Type *TypeStruct::get_field(const std::string &name)
 	}
 	return funcs.size() > 0 ? new TypeFuncMap(parent, 0, 0, funcs) : nullptr;
 }
+int32_t TypeStruct::getFieldIndex(const std::string &name)
+{
+	for(size_t i = 0; i < field_order.size(); ++i) {
+		if(field_order[i] == name) return i;
+	}
+	return -1;
+}
 
 TypeFunc::TypeFunc(Stmt *parent, const size_t &ptr, const size_t &info, const size_t &scope,
 		   const size_t &templ, const bool &has_va, const std::vector<Type *> &args,

@@ -15,6 +15,7 @@
 #include <stdexcept>
 
 #include "Args.hpp"
+#include "codegen/llvm/Driver.hpp"
 #include "Config.hpp"
 #include "Error.hpp"
 #include "FS.hpp"
@@ -29,6 +30,7 @@ int main(int argc, char **argv)
 	args.add("tokens").set_short("t").set_long("tokens").set_help("shows lexical tokens");
 	args.add("parse").set_short("p").set_long("parse").set_help("shows AST");
 	args.add("semantic").set_short("s").set_long("semantic").set_help("shows Semantic Tree");
+	args.add("ir").set_short("i").set_long("ir").set_help("shows codegen IR");
 
 	args.parse();
 
@@ -56,8 +58,10 @@ int main(int argc, char **argv)
 
 	parser::RAIIParser parser(args);
 	if(!parser.parse(file)) return 1;
-
 	parser.dumpTokens(false);
 	parser.dumpParseTree(false);
+	// codegen::LLVMDriver lldriver(parser);
+	// if(!lldriver.genIR()) return 1;
+	// lldriver.dumpIR(false);
 	return 0;
 }

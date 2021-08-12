@@ -56,7 +56,8 @@ bool StmtType::assignValue(TypeMgr &types, ValueMgr &vals)
 bool StmtSimple::assignValue(TypeMgr &types, ValueMgr &vals)
 {
 	switch(val.tok.val) {
-	case lex::VOID: value = vals.get(VVOID); break;
+	// case lex::VOID: value = vals.get(VVOID); break;
+	case lex::VOID: err::set(val, "void cannot be a value"); return false;
 	case lex::TRUE: value = vals.get((int64_t)1); break;
 	case lex::FALSE: // fallthrough
 	case lex::NIL: value = vals.get((int64_t)0); break;
@@ -192,11 +193,13 @@ bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 		} else if(lvar->val->stmt_type == STRUCTDEF) {
 			StmtStruct *def = as<StmtStruct>(lvar->val);
 			std::unordered_map<std::string, Value *> fields;
+			std::vector<std::string> fieldsorder;
 			for(size_t i = 0; i < finfo->args.size(); ++i) {
 				fields[def->fields[i]->name.data.s] =
 				vals.get(finfo->args[i]->value);
+				fieldsorder.push_back(def->fields[i]->name.data.s);
 			}
-			value = vals.get(fields);
+			value = vals.get(fields, fieldsorder);
 			return true;
 		}
 	}

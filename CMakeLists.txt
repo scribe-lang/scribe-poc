@@ -1,12 +1,8 @@
-cmake_minimum_required(VERSION 3.20.5)
+cmake_minimum_required(VERSION 3.21.1)
 
 project(Scribe C CXX)
 
-set(CMAKE_CXX_STANDARD 11)
-
-if(CMAKE_VERSION VERSION_LESS "3.1")
-	add_compile_options(-std=c++11)
-endif()
+set(CMAKE_CXX_STANDARD 14)
 
 if(DEFINED ENV{PREFIX_DIR} AND NOT "$ENV{PREFIX_DIR}" STREQUAL "")
 	set(CMAKE_INSTALL_PREFIX "$ENV{PREFIX_DIR}")
@@ -120,7 +116,7 @@ list(REMOVE_ITEM SRCS "src/Main.cpp")
 
 add_executable(scribe "${PROJECT_SOURCE_DIR}/src/Main.cpp" ${SRCS} ${INCS})
 # Link against LLVM libraries
-# target_link_libraries(scribe ${llvm_libs})
+target_link_libraries(scribe ${llvm_libs})
 set_target_properties(scribe
 	PROPERTIES
 	OUTPUT_NAME scribe

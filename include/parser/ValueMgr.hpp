@@ -153,9 +153,10 @@ public:
 	{
 		return vallocator.get(vdata);
 	}
-	inline Value *get(const std::unordered_map<std::string, Value *> &stdata)
+	inline Value *get(const std::unordered_map<std::string, Value *> &stdata,
+			  const std::vector<std::string> &storder)
 	{
-		return vallocator.get(stdata);
+		return vallocator.get(stdata, storder);
 	}
 	// this is for unknown and void values
 	inline Value *get(const Values &type)

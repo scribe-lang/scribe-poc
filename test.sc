@@ -1,5 +1,9 @@
-let tmp = @import("./tmp");
+let st = struct {
+	i: i32;
+	u: *const u8;
+};
 
-let a = tmp.Vec(:i32, 5);
-let b = tmp.Map(5, '5');
-tmp.f(a, b);
+let comptime x = 5;
+// let f = fn(i: i32, j: i32): i32 {
+// 	return i;
+// };

@@ -14,6 +14,8 @@
 #ifndef PARSER_VALUE_HPP
 #define PARSER_VALUE_HPP
 
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Value.h>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -42,13 +44,15 @@ struct Value
 	std::string s;
 	std::vector<Value *> v;			     // list of values (mainly for variadics)
 	std::unordered_map<std::string, Value *> st; // each element contains a field of struct
+	std::vector<std::string> storder;
 
 	Value(const uint64_t &id, const Values &type);
 	Value(const uint64_t &id, const int64_t &idata);
 	Value(const uint64_t &id, const double &fdata);
 	Value(const uint64_t &id, const std::string &sdata);
 	Value(const uint64_t &id, const std::vector<Value *> &vdata);
-	Value(const uint64_t &id, const std::unordered_map<std::string, Value *> &stdata);
+	Value(const uint64_t &id, const std::unordered_map<std::string, Value *> &stdata,
+	      const std::vector<std::string> &storder);
 
 	bool operator==(const Value &other);
 	bool operator!=(const Value &other);
@@ -77,7 +81,8 @@ public:
 	Value *get(const double &fdata);
 	Value *get(const std::string &sdata);
 	Value *get(const std::vector<Value *> &vdata);
-	Value *get(const std::unordered_map<std::string, Value *> &stdata);
+	Value *get(const std::unordered_map<std::string, Value *> &stdata,
+		   const std::vector<std::string> &storder);
 	Value *get(Value *from);
 
 	void updateValue(Value *src, Value *newval);

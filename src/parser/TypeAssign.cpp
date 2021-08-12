@@ -48,7 +48,7 @@ static bool InitTemplateFn(TypeMgr &types, Type *&calledfn,
 		err::set(line, col, "could not find function definition's variable declaration!");
 		return false;
 	}
-	fndefvar     = fndefvar->copy(false, false);
+	fndefvar     = fndefvar->copy();
 	StmtVar *var = as<StmtVar>(fndefvar);
 	var->setParent(templfnparent);
 	assert(var->val && var->val->stmt_type == FNDEF && var->val &&
@@ -549,6 +549,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 			err::set(line, col, "failed to intialize template function");
 			goto fail;
 		}
+		setDecidedFuncID(decidedfn->id);
 		fci->args.clear();
 		delete fci;
 		delete decidedfn;
@@ -602,6 +603,7 @@ bool StmtVar::assignType(TypeMgr &types)
 	}
 	if(val) {
 		type = val->type->copy();
+		if(vtype) type->info |= vtype->type->info;
 	} else if(vtype) {
 		type = vtype->type->copy();
 	}
@@ -934,7 +936,7 @@ bool StmtFor::assignType(TypeMgr &types)
 		std::vector<Stmt *> newstmts;
 		while(cond->assignValue(types, types.getParser()->getValueMgr()) &&
 		      cond->value->i != 0) {
-			StmtBlock *newblk = as<StmtBlock>(blk->copy(false, false));
+			StmtBlock *newblk = as<StmtBlock>(blk->copy());
 			if(!newblk->assignType(types)) {
 				err::set(line, col, "failed to determine block type");
 				delete newblk;
@@ -946,7 +948,7 @@ bool StmtFor::assignType(TypeMgr &types)
 			newblk->stmts.clear();
 			delete newblk;
 			if(!incr) continue;
-			Stmt *newincr	= incr->copy(false, false);
+			Stmt *newincr	= incr->copy();
 			newincr->parent = blk;
 			if(!newincr->assignType(types)) {
 				err::set(line, col,

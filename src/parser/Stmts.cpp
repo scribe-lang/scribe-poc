@@ -34,9 +34,9 @@ Stmt::~Stmt()
 	if(type) delete type;
 }
 
-Stmt *Stmt::copy(const bool &copy_type, const bool &copy_val)
+Stmt *Stmt::copy()
 {
-	Stmt *cp = hiddenCopy(copy_type, copy_val, this);
+	Stmt *cp = hiddenCopy(this);
 	if(!cp) return nullptr;
 	return cp;
 }
@@ -331,7 +331,14 @@ bool StmtExpr::isParseIntrinsic()
 {
 	return is_intrinsic;
 }
-
+void StmtExpr::setDecidedFuncID(const int64_t &id)
+{
+	decidedfn_id = id;
+}
+int64_t &StmtExpr::getDecidedFuncID()
+{
+	return decidedfn_id;
+}
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////// StmtVar //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////

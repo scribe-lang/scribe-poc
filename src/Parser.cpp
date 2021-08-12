@@ -29,7 +29,7 @@ namespace parser
 //////////////////////////////////////////// Module ///////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Module::Module(const std::string &path, const std::string &code)
+Module::Module(const std::string &path, const std::string &code, llvm::LLVMContext &context)
 	: path(path), code(code), tokens(), ptree(nullptr)
 {}
 Module::~Module()
@@ -116,7 +116,7 @@ Module *RAIIParser::addModule(const std::string &path)
 		return nullptr;
 	}
 
-	Module *mod = new Module(path, code);
+	Module *mod = new Module(path, code, context);
 	Pointer<Module> mptr(mod);
 
 	err::pushModule(mod);
@@ -138,6 +138,10 @@ Module *RAIIParser::getModule(const std::string &path)
 	if(res != modules.end()) return res->second;
 	return nullptr;
 }
+const std::vector<std::string> &RAIIParser::getModuleStack()
+{
+	return modulestack;
+}
 bool RAIIParser::parse(const std::string &path)
 {
 	if(hasModule(path)) {
@@ -151,6 +155,10 @@ bool RAIIParser::parse(const std::string &path)
 	if(!addModule(path)) return false;
 	fs::scwd(wd);
 	return true;
+}
+args::ArgParser &RAIIParser::getCommandArgs()
+{
+	return args;
 }
 ValueMgr &RAIIParser::getValueMgr()
 {

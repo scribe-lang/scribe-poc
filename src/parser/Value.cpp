@@ -28,8 +28,9 @@ Value::Value(const uint64_t &id, const std::string &sdata)
 Value::Value(const uint64_t &id, const std::vector<Value *> &vdata)
 	: id(id), type(VVEC), i(0), f(0), v(vdata)
 {}
-Value::Value(const uint64_t &id, const std::unordered_map<std::string, Value *> &stdata)
-	: type(VSTRUCT), i(0), f(0), st(stdata)
+Value::Value(const uint64_t &id, const std::unordered_map<std::string, Value *> &stdata,
+	     const std::vector<std::string> &storder)
+	: type(VSTRUCT), i(0), f(0), st(stdata), storder(storder)
 {}
 bool Value::operator==(const Value &other)
 {
@@ -48,10 +49,10 @@ bool Value::operator==(const Value &other)
 		return true;
 	case VSTRUCT:
 		if(st.size() != other.st.size()) return false;
-		for(auto &s : st) {
-			auto res = other.st.find(s.first);
+		for(auto &s : storder) {
+			auto res = other.st.find(s);
 			if(res == other.st.end()) return false;
-			if((*s.second) != (*res->second)) return false;
+			if((*st[s]) != (*res->second)) return false;
 		}
 		return true;
 	}
@@ -85,8 +86,8 @@ std::string Value::stringify()
 	case VSTRUCT: {
 		std::string res;
 		res = "{";
-		for(auto &f : st) {
-			res += f.first + " = " + f.second->stringify() + ", ";
+		for(auto &f : storder) {
+			res += f + " = " + st[f]->stringify() + ", ";
 		}
 		if(st.size() > 0) {
 			res.pop_back();
@@ -162,9 +163,10 @@ Value *ValueAllocator::get(const std::vector<Value *> &vdata)
 	allvalues.push_back(v);
 	return v;
 }
-Value *ValueAllocator::get(const std::unordered_map<std::string, Value *> &stdata)
+Value *ValueAllocator::get(const std::unordered_map<std::string, Value *> &stdata,
+			   const std::vector<std::string> &storder)
 {
-	Value *v = new Value(allvalues.size(), stdata);
+	Value *v = new Value(allvalues.size(), stdata, storder);
 	allvalues.push_back(v);
 	return v;
 }
@@ -178,12 +180,13 @@ Value *ValueAllocator::get(Value *from)
 
 void ValueAllocator::updateValue(Value *src, Value *newval)
 {
-	src->type = newval->type;
-	src->i	  = newval->i;
-	src->f	  = newval->f;
-	src->s	  = newval->s;
-	src->v	  = newval->v;
-	src->st	  = newval->st;
+	src->type    = newval->type;
+	src->i	     = newval->i;
+	src->f	     = newval->f;
+	src->s	     = newval->s;
+	src->v	     = newval->v;
+	src->st	     = newval->st;
+	src->storder = newval->storder;
 }
 } // namespace parser
 } // namespace sc

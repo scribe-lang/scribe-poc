@@ -5,16 +5,36 @@ let io = import('std/io');
 let fs = import('std/fs');
 let str = import('std/str');
 let fmt = import('std/fmt');
+let map = import('std/map');
 let vec = import('std/vec');
 
 let types = vec.new('i1', 'i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64', 'f32', 'f64');
+let typepref = map.new(
+	'i1',  1,
+	'i8',  2,
+	'u8',  3,
+	'i16', 4,
+	'u16', 5,
+	'i32', 6,
+	'u32', 7,
+	'i64', 8,
+	'u64', 9,
+	'f32', 10,
+	'f64', 11
+);
+
+let decide_ret_type = fn(lhs, rhs) {
+	if rhs == nil { return lhs; }
+	if typepref[lhs] < typepref[rhs] { return rhs; }
+	return lhs;
+};
 
 let arith = fn() {
 	let f = fs.fopen('src/parser/PrimitiveFuncs/Arithmetic.def', 'w+');
 
 	let template_base1 = `t1 = static_cast<TypeSimple *>(types.get("{t1}"));\n`;
 	let template_base2 = `t2 = static_cast<TypeSimple *>(types.get("{t2}"));`;
-	let template_core = `fn = func(types, \\{t1->copy(CONST | REF), t2->copy(CONST | REF)}, {rest}->copy()); fn->setIntrinsicFunc(intrinsic_{opname}_{t1}_{t2}, IVALUE); types.addFunc("{op}", fn, true);`;
+	let template_core = `fn = func(types, \\{t1->copy(CONST | REF), t2->copy(CONST | REF)}, types.get("{rest}")->copy()); fn->setIntrinsicFunc(intrinsic_{opname}_{t1}_{t2}, IVALUE); types.addFunc("{op}", fn, true);`;
 	let binop = vec.new(.add, .sub, .mul, .div, .mod, .band, .bor, .bxor, .lshift, .rshift);
 	let binoper = vec.new('+', '-', '*', '/', '%', '&', '|', '^', '<<', '>>');
 
@@ -32,8 +52,7 @@ let arith = fn() {
 				if t1 == 'i1' || t2 == 'i1' { continue; }
 				let opname = binop[i];
 				let op = binoper[i];
-				let rest = 't1';
-				if t2.front() == 'f' { rest = 't2'; }
+				let rest = decide_ret_type(t1, t2);
 				if t1.front() == 'f' || t2.front() == 'f' {
 					if op == '%' || op == '&' || op == '|' || op == '^' || op == '<<' || op == '>>' {
 						continue;
@@ -52,7 +71,7 @@ let arithassn = fn() {
 
 	let template_base1 = `t1 = static_cast<TypeSimple *>(types.get("{t1}"));\n`;
 	let template_base2 = `t2 = static_cast<TypeSimple *>(types.get("{t2}"));`;
-	let template_core = `fn = func(types, \\{t1->copy(REF), t2->copy(CONST | REF)}, {rest}->copy()); fn->setIntrinsicFunc(intrinsic_{opname}_{t1}_{t2}, IVALUE); types.addFunc("{op}", fn, true);`;
+	let template_core = `fn = func(types, \\{t1->copy(REF), t2->copy(CONST | REF)}, types.get("{rest}")->copy()); fn->setIntrinsicFunc(intrinsic_{opname}_{t1}_{t2}, IVALUE); types.addFunc("{op}", fn, true);`;
 	let binop = vec.new(.assn, .addassn, .subassn, .mulassn, .divassn, .modassn, .bandassn, .borassn, .bxorassn, .lshiftassn, .rshiftassn);
 	let binoper = vec.new('=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=');
 
@@ -69,8 +88,7 @@ let arithassn = fn() {
 			for let i = 0; i < binop.len(); ++i {
 				let opname = binop[i];
 				let op = binoper[i];
-				let rest = 't1';
-				if t2.front() == 'f' { rest = 't2'; }
+				let rest = decide_ret_type(t1, t2);
 				if t1.front() == 'f' || t2.front() == 'f' {
 					if op == '%=' || op == '&=' || op == '|=' || op == '^=' || op == '<<=' || op == '>>=' {
 						continue;
