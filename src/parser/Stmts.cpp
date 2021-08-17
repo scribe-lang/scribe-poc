@@ -40,10 +40,19 @@ Stmt *Stmt::copy()
 	if(!cp) return nullptr;
 	return cp;
 }
-Stmt *Stmt::getParentWithType(const Stmts &typ)
+Stmt *Stmt::getParentWithType(const Stmts &typ, Stmt **childofparent)
 {
 	Stmt *res = this;
 	while(res && res->stmt_type != typ) {
+		if(childofparent) *childofparent = res;
+		res = res->parent;
+	}
+	return res;
+}
+Stmt *Stmt::getTopLevelParent()
+{
+	Stmt *res = this;
+	while(res->parent) {
 		res = res->parent;
 	}
 	return res;
@@ -118,7 +127,10 @@ StmtBlock::StmtBlock(Module *mod, const size_t &line, const size_t &col,
 {}
 StmtBlock::~StmtBlock()
 {
-	for(auto &stmt : stmts) delete stmt;
+	for(auto &stmt : stmts) {
+		if(!stmt) continue;
+		delete stmt;
+	}
 }
 
 void StmtBlock::StmtBlock::disp(const bool &has_next)
@@ -126,6 +138,12 @@ void StmtBlock::StmtBlock::disp(const bool &has_next)
 	tio::taba(has_next);
 	tio::print(has_next, "Block:\n");
 	for(size_t i = 0; i < stmts.size(); ++i) {
+		if(!stmts[i]) {
+			tio::taba(has_next);
+			tio::print(i != stmts.size() - 1, "<Source End>\n");
+			tio::tabr();
+			continue;
+		}
 		stmts[i]->disp(i != stmts.size() - 1);
 	}
 	tio::tabr();
@@ -204,7 +222,7 @@ std::string StmtType::getname()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 StmtSimple::StmtSimple(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &val)
-	: Stmt(SIMPLE, mod, line, col), val(val)
+	: Stmt(SIMPLE, mod, line, col), val(val), applied_module_id(false)
 {}
 
 void StmtSimple::disp(const bool &has_next)
@@ -215,6 +233,15 @@ void StmtSimple::disp(const bool &has_next)
 }
 
 StmtSimple::~StmtSimple() {}
+
+void StmtSimple::setAppliedModuleID(const bool &applied)
+{
+	applied_module_id = applied;
+}
+bool StmtSimple::isAppliedModuleID()
+{
+	return applied_module_id;
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////// StmtFnCallInfo //////////////////////////////////////////

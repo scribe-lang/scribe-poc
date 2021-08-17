@@ -34,6 +34,7 @@ static bool continue_stmt = false;
 bool StmtBlock::assignValue(TypeMgr &types, ValueMgr &vals)
 {
 	for(auto &s : stmts) {
+		if(!s) break;
 		if(!s->assignValue(types, vals)) return false;
 		if(break_stmt || continue_stmt) break;
 	}
@@ -124,6 +125,10 @@ bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 	if(lhs && !lhs->assignValue(types, vals)) {
 		err::set(lhs->line, lhs->col, "failed to determine value of LHS");
 		return false;
+	}
+	if(oper.tok.val == lex::EMPTY) {
+		value = lhs->value;
+		return true;
 	}
 	if(oper.tok.val == lex::DOT) {
 		Types rhstype = rhs->type->type;

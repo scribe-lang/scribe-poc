@@ -26,6 +26,7 @@ void StmtBlock::setParent(Stmt *parent)
 {
 	this->parent = parent;
 	for(auto &s : stmts) {
+		if(!s) break;
 		s->setParent(this);
 	}
 }

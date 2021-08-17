@@ -91,7 +91,8 @@ llvm::Type *GetLLType(llvm::LLVMContext &c, parser::Stmt *stmt, parser::Type *ty
 			}
 			structtypes.push_back(t);
 		}
-		llvm::StructType *t = llvm::StructType::get(c, structtypes);
+
+		llvm::StructType *t = llvm::StructType::create(c, structtypes, "<unnamed>");
 		return ApplyTypeInfo(c, stmt, type, t);
 	}
 	case parser::TENUM: {

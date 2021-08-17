@@ -25,6 +25,15 @@ INTRINSIC(import)
 	size_t &line = base->line;
 	size_t &col  = base->col;
 
+	Stmt *topparentbase = base->getTopLevelParent();
+
+	if(!topparentbase || topparentbase->stmt_type != BLOCK) {
+		err::set(line, col, "import not in any code block (internal error)");
+		return false;
+	}
+
+	StmtBlock *topparent = as<StmtBlock>(topparentbase);
+
 	if(!args[0]->assignValue(types, values) || args[0]->value->type != VSTR) {
 		err::set(line, col, "import must be a compile time computable string");
 		return false;
@@ -43,32 +52,29 @@ INTRINSIC(import)
 	file = fs::absPath(file);
 
 	RAIIParser *parser = types.getParser();
+	Module *mod	   = nullptr;
+	StmtBlock *blk	   = nullptr;
 	if(parser->hasModule(file)) {
-		goto gen_struct;
+		mod = parser->getModule(file);
+		goto gen_import;
 	}
 	if(!parser->parse(file)) {
 		err::set(line, col, "failed to parse source: %s", file.c_str());
 		return false;
 	}
+	mod = parser->getModule(file);
+	blk = as<StmtBlock>(mod->getParseTree());
+	for(auto &s : blk->stmts) {
+		if(!s) continue;
+		s->parent = topparent;
+	}
+	topparent->stmts.push_back(nullptr);
+	topparent->stmts.insert(topparent->stmts.end(), blk->stmts.begin(), blk->stmts.end());
+	blk->stmts.clear();
 
-gen_struct:
-	SrcTypes *src	= types.getModule(file);
-	LayerTypes *top = src->get_top();
-	if(!top) {
-		err::set(line, col, "module '%s' contains no stack to get items from",
-			 file.c_str());
-		return false;
-	}
-	std::unordered_map<std::string, Type *> &items = top->get_items();
-	if(items.empty()) return true;
-	TypeStruct *src_st = new TypeStruct(base, 0, 0, true, {}, {}, {});
-	src_st->is_def	   = false;
-	src_st->is_import  = true;
-	for(auto &i : items) {
-		src_st->add_field(i.first, i.second);
-	}
+gen_import:
 	if(base->type) delete base->type;
-	base->type = src_st;
+	base->type = new TypeImport(base, 0, 0, mod->getID());
 	return true;
 }
 INTRINSIC(as)

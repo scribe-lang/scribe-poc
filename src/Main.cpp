@@ -12,6 +12,8 @@
 */
 
 #include <cstdio>
+#include <llvm/Support/Host.h>
+#include <llvm/Support/TargetSelect.h>
 #include <stdexcept>
 
 #include "Args.hpp"
@@ -58,9 +60,17 @@ int main(int argc, char **argv)
 
 	parser::RAIIParser parser(args);
 	if(!parser.parse(file)) return 1;
+	parser.cleanupParseTrees();
 	parser.dumpTokens(false);
 	parser.dumpParseTree(false);
+
+	// llvm::InitializeAllTargetInfos();
+	// llvm::InitializeAllTargets();
+	// llvm::InitializeAllTargetMCs();
+	// llvm::InitializeAllAsmParsers();
+	// llvm::InitializeAllAsmPrinters();
 	// codegen::LLVMDriver lldriver(parser);
+	// if(!lldriver.setTargetTriple(llvm::sys::getDefaultTargetTriple())) return 1;
 	// if(!lldriver.genIR()) return 1;
 	// lldriver.dumpIR(false);
 	return 0;

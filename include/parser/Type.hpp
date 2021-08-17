@@ -42,6 +42,7 @@ namespace parser
 enum Types
 {
 	TSIMPLE,
+	TIMPORT,
 	TSTRUCT,
 	TENUM,
 	TFUNC,
@@ -105,20 +106,39 @@ struct TypeSimple : public Type
 	std::string mangled_name();
 };
 
+struct TypeImport : public Type
+{
+	std::string mod_id;
+
+	TypeImport(Stmt *parent, const size_t &ptr, const size_t &info, const std::string &mod_id);
+	TypeImport(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
+		   const std::string &mod_id);
+
+	const std::string &getModID();
+
+	Type *copy(const size_t &append_info = 0);
+	Type *specialize(const std::unordered_map<std::string, Type *> &templates);
+	bool compatible(Type *rhs, const size_t &line, const size_t &col);
+	bool assignTemplateActuals(Type *actual, std::unordered_map<std::string, Type *> &templates,
+				   const size_t &line, const size_t &col);
+
+	std::string str();
+	std::string mangled_name();
+};
+
 struct TypeStruct : public Type
 {
 	bool is_decl_only;
-	bool is_import; // does not delete stored fields (intended to prevent unnecessary copies)
 	bool is_def;
 	size_t templ;
 	std::vector<std::string> field_order;
 	std::unordered_map<std::string, Type *> fields;
 
-	TypeStruct(Stmt *parent, const size_t &ptr, const size_t &info, const bool &is_import,
-		   const size_t &templ, const std::vector<std::string> &field_order,
+	TypeStruct(Stmt *parent, const size_t &ptr, const size_t &info, const size_t &templ,
+		   const std::vector<std::string> &field_order,
 		   const std::unordered_map<std::string, Type *> &fields);
 	TypeStruct(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-		   const bool &is_import, const bool &is_def, const size_t &templ,
+		   const bool &is_def, const size_t &templ,
 		   const std::vector<std::string> &field_order,
 		   const std::unordered_map<std::string, Type *> &fields);
 	~TypeStruct();

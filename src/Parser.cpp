@@ -17,6 +17,7 @@
 
 #include "Error.hpp"
 #include "FS.hpp"
+#include "parser/Cleanup.hpp"
 #include "parser/Parse.hpp"
 #include "parser/ParseHelper.hpp"
 #include "Utils.hpp"
@@ -29,8 +30,9 @@ namespace parser
 //////////////////////////////////////////// Module ///////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Module::Module(const std::string &path, const std::string &code, llvm::LLVMContext &context)
-	: path(path), code(code), tokens(), ptree(nullptr)
+Module::Module(const std::string &id, const std::string &path, const std::string &code,
+	       llvm::LLVMContext &context)
+	: id(id), path(path), code(code), tokens(), ptree(nullptr)
 {}
 Module::~Module()
 {
@@ -56,16 +58,47 @@ bool Module::parseTokens()
 }
 bool Module::assignType(TypeMgr &types)
 {
-	types.addModule(path);
-	types.pushModule(path);
 	if(!types.initTypeFuncsCalled()) types.initTypeFuncs();
 	if(!ptree->assignType(types)) {
 		err::set(ptree->line, ptree->col, "failed to assign types while parsing");
 		err::show(stderr);
 		return false;
 	}
-	types.popModule();
 	return true;
+}
+void Module::rearrangeParseTree()
+{
+	if(ptree->stmt_type != BLOCK) {
+		return;
+	}
+	StmtBlock *tree		   = as<StmtBlock>(ptree);
+	std::vector<Stmt *> &stmts = tree->stmts;
+	std::vector<Stmt *> newstmts;
+	bool first_done = false;
+	for(auto it = stmts.begin(); it != stmts.end();) {
+		if(!*it) {
+			if(!first_done) first_done = true;
+			it = stmts.erase(it);
+			continue;
+		}
+		if(!first_done) {
+			++it;
+			continue;
+		}
+		newstmts.push_back(*it);
+		it = stmts.erase(it);
+	}
+	if(newstmts.empty()) return;
+	newstmts.insert(newstmts.end(), stmts.begin(), stmts.end());
+	tree->stmts = newstmts;
+}
+void Module::cleanupParseTree()
+{
+	cleanup(ptree, &ptree);
+}
+const std::string &Module::getID()
+{
+	return id;
 }
 const std::string &Module::getPath()
 {
@@ -116,16 +149,20 @@ Module *RAIIParser::addModule(const std::string &path)
 		return nullptr;
 	}
 
-	Module *mod = new Module(path, code, context);
+	Module *mod = new Module(std::to_string(modulestack.size()), path, code, context);
 	Pointer<Module> mptr(mod);
 
+	modulestack.push_back(path);
 	err::pushModule(mod);
+
 	if(!mod->tokenize() || !mod->parseTokens() || !mod->assignType(types)) return nullptr;
+	mod->rearrangeParseTree();
+
 	err::popModule();
+	if(modulestack.size() > 1) modulestack.pop_back();
 
 	mptr.unset();
 	modules[path] = mod;
-	modulestack.push_back(path);
 	return mod;
 }
 bool RAIIParser::hasModule(const std::string &path)
@@ -155,6 +192,12 @@ bool RAIIParser::parse(const std::string &path)
 	if(!addModule(path)) return false;
 	fs::scwd(wd);
 	return true;
+}
+void RAIIParser::cleanupParseTrees()
+{
+	for(auto file = modulestack.rbegin(); file != modulestack.rend(); ++file) {
+		modules[*file]->cleanupParseTree();
+	}
 }
 args::ArgParser &RAIIParser::getCommandArgs()
 {

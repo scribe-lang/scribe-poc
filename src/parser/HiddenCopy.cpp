@@ -25,6 +25,7 @@ Stmt *StmtBlock::hiddenCopy(Stmt *par)
 {
 	std::vector<Stmt *> newstmts;
 	for(auto &s : stmts) {
+		if(!s) break;
 		newstmts.push_back(s->hiddenCopy(this));
 	}
 	StmtBlock *res	    = new StmtBlock(mod, line, col, newstmts);
@@ -61,10 +62,11 @@ Stmt *StmtType::hiddenCopy(Stmt *par)
 
 Stmt *StmtSimple::hiddenCopy(Stmt *par)
 {
-	StmtSimple *res	    = new StmtSimple(mod, line, col, val);
-	res->parent	    = par;
-	res->is_specialized = is_specialized;
-	res->is_comptime    = is_comptime;
+	StmtSimple *res	       = new StmtSimple(mod, line, col, val);
+	res->parent	       = par;
+	res->is_specialized    = is_specialized;
+	res->is_comptime       = is_comptime;
+	res->applied_module_id = applied_module_id;
 	return res;
 }
 

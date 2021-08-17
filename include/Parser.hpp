@@ -29,19 +29,25 @@ struct Stmt;
 
 class Module
 {
+	std::string id;
 	std::string path;
 	std::string code;
 	std::vector<lex::Lexeme> tokens;
 	Stmt *ptree;
 
 public:
-	Module(const std::string &path, const std::string &code, llvm::LLVMContext &context);
+	Module(const std::string &id, const std::string &path, const std::string &code,
+	       llvm::LLVMContext &context);
 	~Module();
 
 	bool tokenize();
 	bool parseTokens();
 	bool assignType(TypeMgr &types);
+	// performs rearrangement of ptree to make all imports in order
+	void rearrangeParseTree();
+	void cleanupParseTree();
 
+	const std::string &getID();
 	const std::string &getPath();
 	const std::string &getCode();
 	const std::vector<lex::Lexeme> &getTokens();
@@ -77,6 +83,7 @@ public:
 	const std::vector<std::string> &getModuleStack();
 
 	bool parse(const std::string &path);
+	void cleanupParseTrees();
 
 	args::ArgParser &getCommandArgs();
 

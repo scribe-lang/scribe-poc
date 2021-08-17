@@ -95,7 +95,8 @@ struct Stmt
 	virtual void clearValue()				 = 0;
 	virtual void setValueUnique(ValueMgr &vals)		 = 0;
 
-	Stmt *getParentWithType(const Stmts &typ);
+	Stmt *getParentWithType(const Stmts &typ, Stmt **childofparent = nullptr);
+	Stmt *getTopLevelParent();
 
 	void setSpecialized(const bool &specialized);
 	bool isSpecialized();
@@ -169,8 +170,13 @@ struct StmtBlock : public Stmt
 struct StmtSimple : public Stmt
 {
 	lex::Lexeme val;
+	bool applied_module_id;
+
 	StmtSimple(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &val);
 	~StmtSimple();
+
+	void setAppliedModuleID(const bool &applied);
+	bool isAppliedModuleID();
 
 	Stmt *hiddenCopy(Stmt *par);
 	void disp(const bool &has_next);

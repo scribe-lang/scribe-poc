@@ -26,6 +26,7 @@ void StmtBlock::setValueUnique(ValueMgr &vals)
 {
 	if(value) value = vals.get(value);
 	for(auto &s : stmts) {
+		if(!s) break;
 		s->setValueUnique(vals);
 	}
 }

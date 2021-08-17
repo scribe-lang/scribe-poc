@@ -125,6 +125,9 @@ enum TokType
 
 	FNCALL,
 
+	// Empty operator - used in expr to show only LHS (no RHS)
+	EMPTY,
+
 	// Varargs
 	PreVA,
 	PostVA,

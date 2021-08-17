@@ -192,33 +192,73 @@ std::string TypeSimple::mangled_name()
 	return tname.empty() ? "_" + name : tname + name;
 }
 
-TypeStruct::TypeStruct(Stmt *parent, const size_t &ptr, const size_t &info, const bool &is_import,
-		       const size_t &templ, const std::vector<std::string> &field_order,
-		       const std::unordered_map<std::string, Type *> &fields)
-	: Type(TSTRUCT, parent, ptr, info), is_decl_only(false), is_import(is_import),
-	  is_def(false), templ(templ), field_order(field_order), fields(fields)
+TypeImport::TypeImport(Stmt *parent, const size_t &ptr, const size_t &info,
+		       const std::string &mod_id)
+	: Type(TIMPORT, parent, ptr, info), mod_id(mod_id)
 {}
-TypeStruct::TypeStruct(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
-		       const bool &is_import, const bool &is_def, const size_t &templ,
+TypeImport::TypeImport(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
+		       const std::string &mod_id)
+	: Type(TIMPORT, parent, ptr, info), mod_id(mod_id)
+{}
+
+const std::string &TypeImport::getModID()
+{
+	return mod_id;
+}
+
+Type *TypeImport::copy(const size_t &append_info)
+{
+	return new TypeImport(id, parent, ptr, info, mod_id);
+}
+Type *TypeImport::specialize(const std::unordered_map<std::string, Type *> &templates)
+{
+	return copy();
+}
+bool TypeImport::compatible(Type *rhs, const size_t &line, const size_t &col)
+{
+	return true;
+}
+bool TypeImport::assignTemplateActuals(Type *actual,
+				       std::unordered_map<std::string, Type *> &templates,
+				       const size_t &line, const size_t &col)
+{
+	return true;
+}
+
+std::string TypeImport::str()
+{
+	return "<import>(" + mod_id + ")";
+}
+std::string TypeImport::mangled_name()
+{
+	return str();
+}
+
+TypeStruct::TypeStruct(Stmt *parent, const size_t &ptr, const size_t &info, const size_t &templ,
 		       const std::vector<std::string> &field_order,
 		       const std::unordered_map<std::string, Type *> &fields)
-	: Type(id, TSTRUCT, parent, ptr, info), is_decl_only(false), is_import(is_import),
-	  is_def(is_def), templ(templ), field_order(field_order), fields(fields)
+	: Type(TSTRUCT, parent, ptr, info), is_decl_only(false), is_def(false), templ(templ),
+	  field_order(field_order), fields(fields)
+{}
+TypeStruct::TypeStruct(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
+		       const bool &is_def, const size_t &templ,
+		       const std::vector<std::string> &field_order,
+		       const std::unordered_map<std::string, Type *> &fields)
+	: Type(id, TSTRUCT, parent, ptr, info), is_decl_only(false), is_def(is_def), templ(templ),
+	  field_order(field_order), fields(fields)
 {}
 TypeStruct::~TypeStruct()
 {
-	if(!is_import) {
-		for(auto &f : fields) delete f.second;
-	}
+	for(auto &f : fields) delete f.second;
 }
 Type *TypeStruct::copy(const size_t &append_info)
 {
 	std::unordered_map<std::string, Type *> newfields;
 	for(auto &f : fields) {
-		newfields[f.first] = is_import ? f.second : f.second->copy();
+		newfields[f.first] = f.second->copy();
 	}
-	return new TypeStruct(id, parent, ptr, info | append_info, is_import, is_def, templ,
-			      field_order, newfields);
+	return new TypeStruct(id, parent, ptr, info | append_info, is_def, templ, field_order,
+			      newfields);
 }
 Type *TypeStruct::specialize(const std::unordered_map<std::string, Type *> &templates)
 {
@@ -226,8 +266,7 @@ Type *TypeStruct::specialize(const std::unordered_map<std::string, Type *> &temp
 	for(auto &f : fields) {
 		newfields[f.first] = f.second->specialize(templates);
 	}
-	return new TypeStruct(id, parent, ptr, info, is_import, is_def, templ, field_order,
-			      newfields);
+	return new TypeStruct(id, parent, ptr, info, is_def, templ, field_order, newfields);
 }
 bool TypeStruct::compatible(Type *rhs, const size_t &line, const size_t &col)
 {

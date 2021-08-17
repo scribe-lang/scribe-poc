@@ -6,7 +6,7 @@
 	Permission is hereby granted, free of charge, to any person obtaining a copy
 	of this software and associated documentation files (the "Software"), to deal
 	in the Software without restriction, including without limitation the rights
-	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	to use, copyodifyerge, publish, distribute, sublicense, and/or sell
 	copies of the Software, and to permit persons to whom the Software is
 	furnished to do so.
 */
@@ -15,6 +15,10 @@
 
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/IRBuilder.h>
+#include <llvm/Support/CodeGen.h>
+#include <llvm/Support/TargetRegistry.h>
+#include <llvm/Target/TargetMachine.h>
+#include <llvm/Target/TargetOptions.h>
 
 #include "codegen/llvm/Types.hpp"
 #include "codegen/llvm/Values.hpp"
@@ -24,31 +28,46 @@ namespace sc
 {
 namespace codegen
 {
-LLVMDriver::LLVMDriver(parser::RAIIParser &parser) : Driver(parser) {}
-LLVMDriver::~LLVMDriver()
+static std::unordered_map<std::string, llvm::Type *> structdefs;
+
+static inline std::string GetMangledName(const std::string &name, parser::Type *type)
 {
-	for(auto &m : mods) delete m.second;
-}
-llvm::Module *LLVMDriver::getLLModule(const std::string &path)
-{
-	if(mods.find(path) == mods.end()) {
-		mods[path] = new llvm::Module(path, c);
-	}
-	return mods[path];
+	return name + "." + std::to_string(type->id);
 }
 
+LLVMDriver::LLVMDriver(parser::RAIIParser &parser) : Driver(parser)
+{
+	mod = new llvm::Module(parser.getModuleStack().back(), c);
+}
+LLVMDriver::~LLVMDriver()
+{
+	delete mod;
+}
+bool LLVMDriver::setTargetTriple(const std::string &triple)
+{
+	mod->setTargetTriple(triple);
+	std::string e;
+	const llvm::Target *target = llvm::TargetRegistry::lookupTarget(triple, e);
+	if(!target) {
+		fprintf(stderr, "failed to get target triple with error: %s\n", e.c_str());
+		return false;
+	}
+	llvm::TargetOptions opt;
+	llvm::Optional<llvm::Reloc::Model> rm = llvm::Optional<llvm::Reloc::Model>();
+	llvm::TargetMachine *tm = target->createTargetMachine(triple, "generic", "", opt, rm);
+	mod->setDataLayout(tm->createDataLayout());
+	return true;
+}
 bool LLVMDriver::genIR()
 {
 	const std::vector<std::string> &modulestack = parser.getModuleStack();
 	for(auto it = modulestack.rbegin(); it != modulestack.rend(); ++it) {
-		parser::Module *mod = parser.getModule(*it);
-		err::pushModule(mod);
-		parser::Stmt *&ptree = mod->getParseTree();
-		llvm::Module *m	     = getLLModule(mod->getPath());
+		parser::Module *pmod = parser.getModule(*it);
+		err::pushModule(pmod);
+		parser::Stmt *&ptree = pmod->getParseTree();
 		llvm::IRBuilder<> b(c);
-		if(!visit(ptree, m, b)) {
-			err::set(ptree->line, ptree->col, "failed to gen IR for source: %s",
-				 mod->getPath().c_str());
+		if(!visit(ptree, b)) {
+			err::set(ptree->line, ptree->col, "failed to gen IR");
 			err::show(stderr);
 			return false;
 		}
@@ -59,61 +78,57 @@ bool LLVMDriver::genIR()
 void LLVMDriver::dumpIR(const bool &force)
 {
 	if(!args.has("ir") && !force) return;
-	const std::vector<std::string> &modulestack = parser.getModuleStack();
-	for(auto it = modulestack.rbegin(); it != modulestack.rend(); ++it) {
-		llvm::Module *mod = mods[*it];
-		mod->print(llvm::errs(), nullptr);
-	}
+	mod->print(llvm::errs(), nullptr);
 }
 bool LLVMDriver::genObjFile(const std::string &dest)
 {
 	return true;
 }
 
-llvm::Value *LLVMDriver::visit(parser::Stmt *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::Stmt *stmt, llvm::IRBuilder<> &b)
 {
 	switch(stmt->stmt_type) {
-	case parser::BLOCK: return visit(parser::as<parser::StmtBlock>(stmt), m, b);
-	case parser::TYPE: return visit(parser::as<parser::StmtType>(stmt), m, b);
-	case parser::SIMPLE: return visit(parser::as<parser::StmtSimple>(stmt), m, b);
-	case parser::EXPR: return visit(parser::as<parser::StmtExpr>(stmt), m, b);
-	case parser::FNCALLINFO: return visit(parser::as<parser::StmtFnCallInfo>(stmt), m, b);
-	case parser::VAR: return visit(parser::as<parser::StmtVar>(stmt), m, b);
-	case parser::FNSIG: return visit(parser::as<parser::StmtFnSig>(stmt), m, b);
-	case parser::FNDEF: return visit(parser::as<parser::StmtFnDef>(stmt), m, b);
-	case parser::HEADER: return visit(parser::as<parser::StmtHeader>(stmt), m, b);
-	case parser::LIB: return visit(parser::as<parser::StmtLib>(stmt), m, b);
-	case parser::EXTERN: return visit(parser::as<parser::StmtExtern>(stmt), m, b);
-	case parser::ENUMDEF: return visit(parser::as<parser::StmtEnum>(stmt), m, b);
-	case parser::STRUCTDEF: return visit(parser::as<parser::StmtStruct>(stmt), m, b);
-	case parser::VARDECL: return visit(parser::as<parser::StmtVarDecl>(stmt), m, b);
-	case parser::COND: return visit(parser::as<parser::StmtCond>(stmt), m, b);
-	case parser::FORIN: return visit(parser::as<parser::StmtForIn>(stmt), m, b);
-	case parser::FOR: return visit(parser::as<parser::StmtFor>(stmt), m, b);
-	case parser::WHILE: return visit(parser::as<parser::StmtWhile>(stmt), m, b);
-	case parser::RET: return visit(parser::as<parser::StmtRet>(stmt), m, b);
-	case parser::CONTINUE: return visit(parser::as<parser::StmtContinue>(stmt), m, b);
-	case parser::BREAK: return visit(parser::as<parser::StmtBreak>(stmt), m, b);
+	case parser::BLOCK: return visit(parser::as<parser::StmtBlock>(stmt), b);
+	case parser::TYPE: return visit(parser::as<parser::StmtType>(stmt), b);
+	case parser::SIMPLE: return visit(parser::as<parser::StmtSimple>(stmt), b);
+	case parser::EXPR: return visit(parser::as<parser::StmtExpr>(stmt), b);
+	case parser::FNCALLINFO: return visit(parser::as<parser::StmtFnCallInfo>(stmt), b);
+	case parser::VAR: return visit(parser::as<parser::StmtVar>(stmt), b);
+	case parser::FNSIG: return visit(parser::as<parser::StmtFnSig>(stmt), b);
+	case parser::FNDEF: return visit(parser::as<parser::StmtFnDef>(stmt), b);
+	case parser::HEADER: return visit(parser::as<parser::StmtHeader>(stmt), b);
+	case parser::LIB: return visit(parser::as<parser::StmtLib>(stmt), b);
+	case parser::EXTERN: return visit(parser::as<parser::StmtExtern>(stmt), b);
+	case parser::ENUMDEF: return visit(parser::as<parser::StmtEnum>(stmt), b);
+	case parser::STRUCTDEF: return visit(parser::as<parser::StmtStruct>(stmt), b);
+	case parser::VARDECL: return visit(parser::as<parser::StmtVarDecl>(stmt), b);
+	case parser::COND: return visit(parser::as<parser::StmtCond>(stmt), b);
+	case parser::FORIN: return visit(parser::as<parser::StmtForIn>(stmt), b);
+	case parser::FOR: return visit(parser::as<parser::StmtFor>(stmt), b);
+	case parser::WHILE: return visit(parser::as<parser::StmtWhile>(stmt), b);
+	case parser::RET: return visit(parser::as<parser::StmtRet>(stmt), b);
+	case parser::CONTINUE: return visit(parser::as<parser::StmtContinue>(stmt), b);
+	case parser::BREAK: return visit(parser::as<parser::StmtBreak>(stmt), b);
 	}
 	return nullptr;
 }
 
-llvm::Value *LLVMDriver::visit(parser::StmtBlock *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtBlock *stmt, llvm::IRBuilder<> &b)
 {
 	for(auto &s : stmt->stmts) {
-		if(!visit(s, m, b)) {
+		if(!visit(s, b)) {
 			err::set(s->line, s->col, "failed to generate IR for statement");
 			return nullptr;
 		}
 	}
 	return b.getTrue();
 }
-llvm::Value *LLVMDriver::visit(parser::StmtType *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtType *stmt, llvm::IRBuilder<> &b)
 {
 	// nothing to do here
 	return nullptr;
 }
-llvm::Value *LLVMDriver::visit(parser::StmtSimple *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtSimple *stmt, llvm::IRBuilder<> &b)
 {
 	if(stmt->value) return GetLLValue(c, stmt, stmt->value);
 	llvm::Type *t = GetLLType(c, stmt, stmt->type);
@@ -123,32 +138,33 @@ llvm::Value *LLVMDriver::visit(parser::StmtSimple *stmt, llvm::Module *m, llvm::
 	case lex::NIL:	 // fallthrough
 	case lex::INT: return llvm::ConstantInt::get(t, stmt->val.data.i);
 	case lex::FLT: return llvm::ConstantFP::get(t, stmt->val.data.f);
-	case lex::CHAR: return llvm::ConstantDataArray::getString(c, stmt->val.data.s);
+	case lex::CHAR: return llvm::ConstantInt::get(t, stmt->val.data.i);
+	case lex::STR: return llvm::ConstantDataArray::getString(c, stmt->val.data.s);
 	default: break;
 	}
 	// the following part is only valid for existing variables.
 	// the part for variable declaration exists in Var visit
-	std::string varname = stmt->val.data.s + '.' + std::to_string(stmt->type->id);
+	std::string varname = GetMangledName(stmt->val.data.s, stmt->type);
 	if(stmt->type->type == parser::TFUNC) {
-		llvm::Function *f = m->getFunction(varname);
+		llvm::Function *f = mod->getFunction(varname);
 		if(!f) {
 			err::set(stmt->val, "function does not exist in IR");
 			return nullptr;
 		}
 		return f;
 	}
-	llvm::Value *v = GetVar(m, b, stmt, varname);
+	llvm::Value *v = GetVar(b, stmt, varname);
 	if(!v) {
 		err::set(stmt->val, "variable does not exist in IR");
 		return nullptr;
 	}
 	return v;
 }
-llvm::Value *LLVMDriver::visit(parser::StmtFnCallInfo *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtFnCallInfo *stmt, llvm::IRBuilder<> &b)
 {
 	// std::vector<llvm::Value *> vals;
 	// for(auto &a : stmt->args) {
-	// 	vals.push_back(visit(a, m, b));
+	// 	vals.push_back(visit(a, b));
 	// 	if(!vals.back()) {
 	// 		err::set(a->line, a->col,
 	// 			 "failed to generate IR for function call argument");
@@ -157,88 +173,79 @@ llvm::Value *LLVMDriver::visit(parser::StmtFnCallInfo *stmt, llvm::Module *m, ll
 	// }
 	return nullptr;
 }
-llvm::Value *LLVMDriver::visit(parser::StmtExpr *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtExpr *stmt, llvm::IRBuilder<> &b)
 {
 	if(stmt->value) return GetLLValue(c, stmt, stmt->value);
 
-	// const lex::TokType &oper = stmt->oper.tok.val;
-	// llvm::Value *l		 = visit(stmt->lhs, m, b);
-	// if(!l) {
-	// 	err::set(stmt->lhs->line, stmt->lhs->col, "failed to get IR for LHS");
-	// 	return nullptr;
-	// }
-	// llvm::Value *r = nullptr;
-	// if(stmt->rhs && oper != lex::DOT && oper != lex::FNCALL) r = visit(stmt->rhs, m, b);
+	const lex::TokType &oper = stmt->oper.tok.val;
+	llvm::Value *l		 = visit(stmt->lhs, b);
+	if(!l) {
+		err::set(stmt->lhs->line, stmt->lhs->col, "failed to get IR for LHS");
+		return nullptr;
+	}
+	llvm::Value *r = nullptr;
+	if(stmt->rhs && oper != lex::DOT && oper != lex::FNCALL) r = visit(stmt->rhs, b);
 
-	// switch(oper) {
-	// case lex::DOT: {
-	// 	if(!l->getType()->isStructTy()) {
-	// 		err::set(stmt->line, stmt->col, "expected LHS load to give a struct type");
-	// 		return nullptr;
-	// 	}
-	// 	const std::string &field = parser::as<parser::StmtSimple>(stmt->rhs)->val.data.s;
-	// 	llvm::StructType *st	 = llvm::cast<llvm::StructType>(l->getType());
-	// 	int32_t idx    = parser::as<parser::TypeStruct>(stmt->type)->getFieldIndex(field);
-	// 	llvm::Value *i = llvm::ConstantInt::get(b.getInt32Ty(), idx);
-	// 	return b.CreateGEP(st, l, i, field);
-	// }
-	// case lex::FNCALL: {
-	// 	stmt->lhs->disp(false);
-	// 	if(!llvm::isa<llvm::Function>(l) && stmt->lhs->type->type != parser::TSTRUCT) {
-	// 		err::set(stmt->line, stmt->col,
-	// 			 "expected a function or struct for fncall operation");
-	// 		return nullptr;
-	// 	}
-	// 	if(llvm::isa<llvm::Function>(l)) {
-	// 		llvm::Function *f = llvm::cast<llvm::Function>(l);
-	// 		std::vector<llvm::Value *> args;
-	// 		for(auto &a : parser::as<parser::StmtFnCallInfo>(stmt->rhs)->args) {
-	// 			llvm::Value *v = visit(a, m, b);
-	// 			if(!v) {
-	// 				err::set(a->line, a->col,
-	// 					 "failed to generate IR for fncall arg");
-	// 				return nullptr;
-	// 			}
-	// 			args.push_back(v);
-	// 		}
-	// 		return b.CreateCall(f, args);
-	// 	} else if(stmt->lhs->type->type == parser::TSTRUCT) {
-	// 		llvm::Type *type = GetLLType(c, stmt->lhs, stmt->lhs->type);
-	// 		if(!type || !type->isStructTy()) {
-	// 			err::set(stmt->lhs->line, stmt->lhs->col,
-	// 				 "failed to get IR for scribe struct type '%s'",
-	// 				 stmt->lhs->type->str().c_str());
-	// 			return nullptr;
-	// 		}
-	// 		std::vector<llvm::Value *> args;
-	// 		for(auto &a : parser::as<parser::StmtFnCallInfo>(stmt->rhs)->args) {
-	// 			llvm::Value *v = visit(a, m, b);
-	// 			if(!v) {
-	// 				err::set(a->line, a->col,
-	// 					 "failed to generate IR for fncall arg");
-	// 				return nullptr;
-	// 			}
-	// 			args.push_back(v);
-	// 		}
-	// 		llvm::Value *alloca = AddVar(m, b, stmt, "<unnamed>", type, nullptr);
-	// 		for(size_t i = 0; i < args.size(); ++i) {
-	// 			llvm::Value *idx   = llvm::ConstantInt::get(b.getInt32Ty(), i);
-	// 			llvm::Value *field = b.CreateGEP(type, alloca, idx);
-	// 			b.CreateStore(args[i], field);
-	// 		}
-	// 		return alloca;
-	// 	}
-	// }
-	// case lex::SUBS: {
-	// }
-	// }
+	switch(oper) {
+	case lex::DOT: {
+		if(!l->getType()->isStructTy()) {
+			err::set(stmt->line, stmt->col, "expected LHS load to give a struct type");
+			return nullptr;
+		}
+		const std::string &field = parser::as<parser::StmtSimple>(stmt->rhs)->val.data.s;
+		llvm::StructType *st	 = llvm::cast<llvm::StructType>(l->getType());
+		int32_t idx    = parser::as<parser::TypeStruct>(stmt->type)->getFieldIndex(field);
+		llvm::Value *i = llvm::ConstantInt::get(b.getInt32Ty(), idx);
+		return b.CreateGEP(st, l, i, field);
+	}
+	case lex::FNCALL: {
+		if(!llvm::isa<llvm::Function>(l) && stmt->lhs->type->type != parser::TSTRUCT) {
+			err::set(stmt->line, stmt->col,
+				 "expected a function or struct for fncall operation");
+			return nullptr;
+		}
+		if(llvm::isa<llvm::Function>(l)) {
+			llvm::Function *f = llvm::cast<llvm::Function>(l);
+			std::vector<llvm::Value *> args;
+			for(auto &a : parser::as<parser::StmtFnCallInfo>(stmt->rhs)->args) {
+				llvm::Value *v = visit(a, b);
+				if(!v) {
+					err::set(a->line, a->col,
+						 "failed to generate IR for fncall arg");
+					return nullptr;
+				}
+				args.push_back(v);
+			}
+			return b.CreateCall(f, args);
+		} else if(stmt->lhs->type->type == parser::TSTRUCT) {
+			std::vector<llvm::Value *> args;
+			for(auto &a : parser::as<parser::StmtFnCallInfo>(stmt->rhs)->args) {
+				llvm::Value *v = visit(a, b);
+				if(!v) {
+					err::set(a->line, a->col,
+						 "failed to generate IR for fncall arg");
+					return nullptr;
+				}
+				args.push_back(v);
+			}
+			for(size_t i = 0; i < args.size(); ++i) {
+				llvm::Value *idx0 = llvm::ConstantInt::get(b.getInt32Ty(), 0);
+				llvm::Value *idx  = llvm::ConstantInt::get(b.getInt32Ty(), i);
+				// llvm::Value *field = b.CreateGEP(l->getType(), l, {idx0, idx});
+				// b.CreateStore(args[i], field);
+			}
+			return l;
+		}
+	}
+	case lex::SUBS: {
+	}
+	}
 	return nullptr;
 }
-llvm::Value *LLVMDriver::visit(parser::StmtVar *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtVar *stmt, llvm::IRBuilder<> &b)
 {
-	std::string varname = stmt->name.data.s + "." + std::to_string(stmt->type->id);
+	std::string varname = GetMangledName(stmt->name.data.s, stmt->type);
 
-	llvm::Type *type   = GetLLType(c, stmt, stmt->type);
 	llvm::Value *value = nullptr;
 	if(stmt->value) {
 		value = GetLLValue(c, stmt, stmt->value);
@@ -252,7 +259,7 @@ llvm::Value *LLVMDriver::visit(parser::StmtVar *stmt, llvm::Module *m, llvm::IRB
 	}
 	if(stmt->val && stmt->val->stmt_type == parser::FNDEF) {
 		// check that function is not template or variadic
-		llvm::Value *fn = visit(stmt->val, m, b);
+		llvm::Value *fn = visit(stmt->val, b);
 		if(!fn) {
 			err::set(stmt->name, "failed to generate IR for function");
 			return nullptr;
@@ -262,18 +269,16 @@ llvm::Value *LLVMDriver::visit(parser::StmtVar *stmt, llvm::Module *m, llvm::IRB
 		return f;
 	}
 	if(stmt->val && stmt->val->stmt_type == parser::STRUCTDEF) {
-		// a structure definition is unnecessary
-		return b.getTrue();
-	}
-	if(stmt->val && stmt->val->stmt_type == parser::EXPR &&
-	   parser::as<parser::StmtExpr>(stmt->val)->isIntrinsic())
-	{
+		llvm::Type *ty	     = GetLLType(c, stmt->val, stmt->val->type);
+		llvm::StructType *st = llvm::cast<llvm::StructType>(ty);
+		st->setName(varname);
+		structdefs[varname] = st;
 		return b.getTrue();
 	}
 
 	if(stmt->val) {
 		// any value with instrinsic should be in stmt->value (for above condition)
-		value = visit(stmt->val, m, b);
+		value = visit(stmt->val, b);
 		if(!value) {
 			err::set(stmt->line, stmt->col,
 				 "failed to get LLVM value from scribe declaration value");
@@ -281,19 +286,20 @@ llvm::Value *LLVMDriver::visit(parser::StmtVar *stmt, llvm::Module *m, llvm::IRB
 		}
 	}
 createvar:
-	return AddVar(m, b, stmt, varname, type, value);
+	llvm::Type *type = value ? value->getType() : GetLLType(c, stmt, stmt->type);
+	return AddVar(b, stmt, varname, type, value);
 }
-llvm::Value *LLVMDriver::visit(parser::StmtFnSig *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtFnSig *stmt, llvm::IRBuilder<> &b)
 {
 	return nullptr;
 }
-llvm::Value *LLVMDriver::visit(parser::StmtFnDef *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtFnDef *stmt, llvm::IRBuilder<> &b)
 {
 	llvm::FunctionType *ftype = llvm::cast<llvm::FunctionType>(GetLLType(c, stmt, stmt->type));
-	llvm::Function *f = llvm::Function::Create(ftype, llvm::Function::InternalLinkage, "", m);
+	llvm::Function *f = llvm::Function::Create(ftype, llvm::Function::InternalLinkage, "", mod);
 	for(size_t i = 0; i < stmt->sig->args.size(); ++i) {
 		auto &arg = stmt->sig->args[i];
-		f->getArg(i)->setName(arg->name.data.s + "." + std::to_string(arg->type->id));
+		f->getArg(i)->setName(GetMangledName(arg->name.data.s, arg->type));
 	}
 	if(!stmt->blk) return f;
 	llvm::BasicBlock *entry	      = GetOrCreateBasicBlock(f, "entry", nullptr);
@@ -308,43 +314,38 @@ llvm::Value *LLVMDriver::visit(parser::StmtFnDef *stmt, llvm::Module *m, llvm::I
 		newb.CreateBr(content);
 	}
 	llvm::IRBuilder<> newb(content);
-	if(!visit(stmt->blk, m, newb)) {
+	if(!visit(stmt->blk, newb)) {
 		err::set(stmt->line, stmt->col, "failed to generate IR for function block");
 		return nullptr;
 	}
 	f->setCallingConv(llvm::CallingConv::C);
 	return f;
 }
-llvm::Value *LLVMDriver::visit(parser::StmtHeader *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtHeader *stmt, llvm::IRBuilder<> &b)
 {
 	return nullptr;
 }
-llvm::Value *LLVMDriver::visit(parser::StmtLib *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtLib *stmt, llvm::IRBuilder<> &b)
 {
 	return nullptr;
 }
-llvm::Value *LLVMDriver::visit(parser::StmtExtern *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtExtern *stmt, llvm::IRBuilder<> &b)
 {
 	return nullptr;
 }
-llvm::Value *LLVMDriver::visit(parser::StmtEnum *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtEnum *stmt, llvm::IRBuilder<> &b)
 {
 	return nullptr;
 }
-llvm::Value *LLVMDriver::visit(parser::StmtStruct *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtStruct *stmt, llvm::IRBuilder<> &b)
 {
-	llvm::Type *t = GetLLType(c, stmt, stmt->type);
-	if(!t) {
-		err::set(stmt->line, stmt->col, "failed to get IR type for scribe type '%s'",
-			 stmt->type->str().c_str());
-		return nullptr;
-	}
-	return AddVar(m, b, stmt, "struct." + std::to_string(stmt->type->id), t, nullptr);
+	// should never be encountered - cleanup pass removes this
+	return nullptr;
 }
-llvm::Value *LLVMDriver::visit(parser::StmtVarDecl *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtVarDecl *stmt, llvm::IRBuilder<> &b)
 {
 	for(auto &d : stmt->decls) {
-		llvm::Value *v = visit(d, m, b);
+		llvm::Value *v = visit(d, b);
 		if(!v) {
 			err::set(d->line, d->col, "failed to generate IR for variable declaration");
 			return nullptr;
@@ -352,48 +353,48 @@ llvm::Value *LLVMDriver::visit(parser::StmtVarDecl *stmt, llvm::Module *m, llvm:
 	}
 	return b.getTrue();
 }
-llvm::Value *LLVMDriver::visit(parser::StmtCond *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtCond *stmt, llvm::IRBuilder<> &b)
 {
 	return nullptr;
 }
-llvm::Value *LLVMDriver::visit(parser::StmtForIn *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtForIn *stmt, llvm::IRBuilder<> &b)
 {
 	return nullptr;
 }
-llvm::Value *LLVMDriver::visit(parser::StmtFor *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtFor *stmt, llvm::IRBuilder<> &b)
 {
 	return nullptr;
 }
-llvm::Value *LLVMDriver::visit(parser::StmtWhile *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtWhile *stmt, llvm::IRBuilder<> &b)
 {
 	return nullptr;
 }
-llvm::Value *LLVMDriver::visit(parser::StmtRet *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtRet *stmt, llvm::IRBuilder<> &b)
 {
 	if(!stmt->val) return b.CreateRetVoid();
-	llvm::Value *v = visit(stmt->val, m, b);
+	llvm::Value *v = visit(stmt->val, b);
 	if(!v) {
 		err::set(stmt->line, stmt->col, "failed to generate IR for return value");
 		return nullptr;
 	}
 	return b.CreateRet(v);
 }
-llvm::Value *LLVMDriver::visit(parser::StmtContinue *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtContinue *stmt, llvm::IRBuilder<> &b)
 {
 	return nullptr;
 }
-llvm::Value *LLVMDriver::visit(parser::StmtBreak *stmt, llvm::Module *m, llvm::IRBuilder<> &b)
+llvm::Value *LLVMDriver::visit(parser::StmtBreak *stmt, llvm::IRBuilder<> &b)
 {
 	return nullptr;
 }
 
-llvm::Value *LLVMDriver::AddVar(llvm::Module *m, llvm::IRBuilder<> &b, parser::Stmt *stmt,
+llvm::Value *LLVMDriver::AddVar(llvm::IRBuilder<> &b, parser::Stmt *stmt,
 				const std::string &varname, llvm::Type *type, llvm::Value *value)
 {
 	if(!b.GetInsertBlock()) {
-		llvm::Value *gc		= m->getOrInsertGlobal(varname, type);
+		llvm::Value *gc		= mod->getOrInsertGlobal(varname, type);
 		llvm::GlobalVariable *g = llvm::cast<llvm::GlobalVariable>(gc);
-		g->setLinkage(llvm::GlobalValue::InternalLinkage);
+		g->setLinkage(llvm::GlobalValue::PrivateLinkage);
 		g->setConstant(stmt->type->info & parser::CONST);
 		if(value && llvm::isa<llvm::Constant>(value)) {
 			llvm::Constant *c = llvm::cast<llvm::Constant>(value);
@@ -431,7 +432,7 @@ llvm::Value *LLVMDriver::CreateInitAssignAfterAlloca(llvm::Function *f, llvm::Al
 	return b.CreateStore(value, load);
 }
 
-llvm::Value *LLVMDriver::GetVar(llvm::Module *m, llvm::IRBuilder<> &b, parser::StmtSimple *stmt,
+llvm::Value *LLVMDriver::GetVar(llvm::IRBuilder<> &b, parser::StmtSimple *stmt,
 				const std::string &varname)
 {
 	if(b.GetInsertBlock()) {
@@ -442,12 +443,16 @@ llvm::Value *LLVMDriver::GetVar(llvm::Module *m, llvm::IRBuilder<> &b, parser::S
 			if(a.getName() == varname) return &a;
 		}
 	}
-	llvm::Value *g = m->getGlobalVariable(varname, true);
-	if(!g) {
-		err::set(stmt->val, "failed to get variable '%s'", varname.c_str());
+
+	llvm::Value *g = mod->getGlobalVariable(varname, true);
+	if(g) return b.CreateLoad(g->getType(), g);
+
+	auto ty = structdefs.find(varname);
+	if(ty == structdefs.end()) {
+		err::set(stmt->val, "failed to get entity named '%s'", varname.c_str());
 		return nullptr;
 	}
-	return b.CreateLoad(g->getType(), g);
+	return AddVar(b, stmt, varname, ty->second, nullptr);
 }
 llvm::AllocaInst *LLVMDriver::GetEntryBlockAlloca(llvm::Function *f, const std::string &varname)
 {

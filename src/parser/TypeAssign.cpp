@@ -27,7 +27,7 @@ namespace parser
 {
 // TODO: replace all variadic weird type assignment code with comptime ValueAssign based
 // logic once that is built
-static bool InitTemplateFn(TypeMgr &types, Type *&calledfn,
+static bool InitTemplateFn(TypeMgr &types, Stmt *caller, Type *&calledfn,
 			   const std::unordered_map<std::string, Type *> &calltemplates,
 			   const bool &has_va, const size_t &line, const size_t &col)
 {
@@ -58,10 +58,9 @@ static bool InitTemplateFn(TypeMgr &types, Type *&calledfn,
 		delete fndefvar;
 		return false;
 	}
-	if(types.getCurrentModule() == fn->mod->getPath()) {
+	if(caller->mod->getPath() == fn->mod->getPath()) {
 		types.lockScopesBefore(origsig->scope);
 	} else {
-		types.pushModule(fn->mod->getPath());
 		err::pushModule(fn->mod);
 	}
 	types.pushLayer();
@@ -102,10 +101,9 @@ static bool InitTemplateFn(TypeMgr &types, Type *&calledfn,
 	fn->type	      = fn->sig->type->copy();
 	types.popFunc();
 	types.popLayer();
-	if(types.getCurrentModule() == fn->mod->getPath()) {
+	if(caller->mod->getPath() == fn->mod->getPath()) {
 		types.unlockScope();
 	} else {
-		types.popModule();
 		err::popModule();
 	}
 	var->setSpecialized(true);
@@ -128,6 +126,7 @@ bool StmtBlock::assignType(TypeMgr &types)
 	types.pushLayer();
 	for(size_t i = 0; i < stmts.size(); ++i) {
 		Stmt *s = stmts[i];
+		if(!s) break;
 		if(s->isSpecialized()) continue;
 		if(!s->assignType(types)) {
 			err::set(s->line, s->col,
@@ -213,7 +212,17 @@ bool StmtSimple::assignType(TypeMgr &types)
 	case lex::FLT: type = types.getCopy("f32", this); break;
 	case lex::CHAR: type = types.getCopy("u8", this); break;
 	case lex::STR: type = types.getCopy("*const u8", this); break;
-	case lex::IDEN: type = types.getCopy(val.data.s, nullptr); break;
+	case lex::IDEN:
+		if(!isAppliedModuleID()) {
+			type = types.getCopy(mod->getID() + "." + val.data.s, nullptr);
+		}
+		if(!type) {
+			type = types.getCopy(val.data.s, nullptr);
+			break;
+		}
+		val.data.s = mod->getID() + "." + val.data.s;
+		setAppliedModuleID(true);
+		break;
 	default: return false;
 	}
 	if(!type) {
@@ -261,11 +270,17 @@ bool StmtExpr::assignType(TypeMgr &types)
 		err::set(lhs->line, lhs->col, "failed to determine type of LHS");
 		return false;
 	}
+	if(oper.tok.val == lex::EMPTY) {
+		type = lhs->type->copy();
+		return true;
+	}
 	if(oper.tok.val != lex::DOT && oper.tok.val != lex::ARROW && rhs && !rhs->assignType(types))
 	{
 		err::set(rhs->line, rhs->col, "failed to determine type of RHS");
 		return false;
 	}
+	static std::vector<std::string> importids;
+	if(oper.tok.val != lex::DOT) importids.clear();
 	// TODO: or-var & or-blk
 	switch(oper.tok.val) {
 	case lex::ARROW:
@@ -275,11 +290,30 @@ bool StmtExpr::assignType(TypeMgr &types)
 		}
 	case lex::DOT: {
 		assert(rhs->stmt_type == SIMPLE && "RHS for dot/arrow MUST be a simple type");
-		if(lhs->type->type != TSTRUCT) {
+		if(lhs->type->type != TSTRUCT && lhs->type->type != TIMPORT) {
 			err::set(line, col,
 				 "LHS must be a structure to use the dot operator, found: %s",
 				 lhs->type->str().c_str());
 			return false;
+		}
+		StmtSimple *rsim = as<StmtSimple>(rhs);
+		if(lhs->type->type == TIMPORT) {
+			importids.push_back(as<TypeImport>(lhs->type)->getModID());
+			rsim->val.data.s = importids.back() + "." + rsim->val.data.s;
+			rsim->setAppliedModuleID(true);
+			if(!rhs->assignType(types)) {
+				err::set(rhs->line, rhs->col,
+					 "failed to determine type of RHS in import");
+				return false;
+			}
+			type	     = rhs->type->copy();
+			type->parent = this;
+			if(rhs->isComptime()) setComptime(true);
+			delete lhs;
+			lhs	     = rhs;
+			rhs	     = nullptr;
+			oper.tok.val = lex::EMPTY;
+			break;
 		}
 		TypeStruct *lst = as<TypeStruct>(lhs->type);
 		if(lst->is_def) {
@@ -288,8 +322,9 @@ bool StmtExpr::assignType(TypeMgr &types)
 				 " definition; instantiate it first");
 			return false;
 		}
-		StmtSimple *rsim = as<StmtSimple>(rhs);
-		size_t ptr	 = lst->ptr;
+		std::string mod_id = importids.empty() ? mod->getID() : importids.back();
+		rsim->val.data.s   = mod_id + "." + rsim->val.data.s;
+		size_t ptr	   = lst->ptr;
 		if(oper.tok.val == lex::ARROW) --ptr;
 		Type *res = ptr == 0 ? lst->get_field(rsim->val.data.s) : nullptr;
 		if(!res) {
@@ -304,7 +339,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 			res = res->copy();
 		}
 
-		if(res->type == TFUNCMAP && !lst->is_import) {
+		if(res->type == TFUNCMAP) {
 			Type *self = lst->copy();
 			self->info |= REF;
 			as<TypeFuncMap>(res)->setSelf(self);
@@ -397,7 +432,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 			break; // no need to clone the struct
 		}
 		// apply stmt template specialization
-		if(!InitTemplateFn(types, lhs->type, calltemplates, has_va, line, col))
+		if(!InitTemplateFn(types, this, lhs->type, calltemplates, has_va, line, col))
 			return false;
 		break;
 	}
@@ -544,7 +579,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 		} else if(decidedfn->getIntrinsicFuncType() == IVALUE) {
 			this->setIntrinsicFunc(decidedfn->getIntrinsicFunc());
 		}
-		if(!InitTemplateFn(types, lhs->type, calltemplates, false, line, col)) {
+		if(!InitTemplateFn(types, this, lhs->type, calltemplates, false, line, col)) {
 			erred = true;
 			err::set(line, col, "failed to intialize template function");
 			goto fail;
@@ -574,6 +609,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 
 bool StmtVar::assignType(TypeMgr &types)
 {
+	name.data.s = mod->getID() + "." + name.data.s;
 	if(isComptime() && !val && parent->stmt_type != FNSIG) {
 		err::set(name, "'comptime' variables must have a value");
 		return false;
@@ -768,8 +804,7 @@ bool StmtStruct::assignType(TypeMgr &types)
 	for(size_t i = 0; i < field_type_orders.size(); ++i) {
 		field_types[field_type_orders[i]] = fields[i]->type->copy();
 	}
-	type = new TypeStruct(this, 0, 0, false, templates.size(), field_type_orders,
-			      field_types); // comment for correct auto formatting of this
+	type = new TypeStruct(this, 0, 0, templates.size(), field_type_orders, field_types);
 	as<TypeStruct>(type)->is_def = true;
 	types.popLayer();
 	return true;

@@ -52,41 +52,11 @@ public:
 		return items;
 	}
 };
-class SrcTypes
-{
-	std::vector<LayerTypes *> stack;
-
-public:
-	~SrcTypes();
-	inline void pushLayer()
-	{
-		stack.push_back(new LayerTypes);
-	};
-	inline void popLayer()
-	{
-		delete stack.back();
-		stack.pop_back();
-	}
-	bool add(const std::string &name, Type *val);
-	bool exists(const std::string &name, const size_t &locked_from, const bool &top_only);
-	Type *get(const std::string &name, const size_t &locked_from);
-	inline LayerTypes *get_top()
-	{
-		return stack.empty() ? nullptr : stack.back();
-	}
-
-	inline std::vector<LayerTypes *> &get_layers()
-	{
-		return stack;
-	}
-};
 class TypeMgr
 {
 	RAIIParser *parser;
 	std::unordered_map<std::string, Type *> globals;
-	std::unordered_map<std::string, SrcTypes *> srcs;
-	std::vector<SrcTypes *> srcstack;
-	std::vector<std::string> srcnamestack;
+	std::vector<LayerTypes *> stack;
 	std::vector<TypeFuncMap *> managedfnmaps;
 	// current function type (for type checking return statement, checking comptime, etc.)
 	std::vector<TypeFunc *> funcstack;
@@ -109,33 +79,16 @@ public:
 	}
 	inline void pushLayer()
 	{
-		srcstack.back()->pushLayer();
+		stack.push_back(new LayerTypes);
 	}
 	inline void popLayer()
 	{
-		srcstack.back()->popLayer();
+		delete stack.back();
+		stack.pop_back();
 	}
 	inline size_t getLayer()
 	{
-		return srcstack.back()->get_layers().size() - 1;
-	}
-	inline void addModule(const std::string &path)
-	{
-		srcs[path] = new SrcTypes;
-	}
-	bool pushModule(const std::string &path);
-	void popModule();
-	inline std::string getCurrentModule()
-	{
-		return srcnamestack.back();
-	}
-	inline bool hasModule(const std::string &path)
-	{
-		return srcs.find(path) != srcs.end();
-	}
-	inline SrcTypes *getModule(const std::string &path)
-	{
-		return srcs[path];
+		return stack.size() - 1;
 	}
 	bool add(const std::string &name, Type *val, const bool &global = false);
 	bool addCopy(const std::string &name, Type *val, const bool &global = false);

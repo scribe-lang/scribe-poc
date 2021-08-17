@@ -33,37 +33,6 @@ LayerTypes::~LayerTypes()
 	for(auto &i : items) delete i.second;
 }
 
-SrcTypes::~SrcTypes()
-{
-	for(auto &s : stack) delete s;
-}
-bool SrcTypes::add(const std::string &name, Type *val)
-{
-	return stack.back()->add(name, val);
-}
-bool SrcTypes::exists(const std::string &name, const size_t &locked_from, const bool &top_only)
-{
-	if(top_only) return stack.back()->exists(name);
-	size_t i = stack.size() - 1;
-	for(auto rit = stack.rbegin(); rit != stack.rend(); ++rit) {
-		if(locked_from != size_t(-1) && i <= locked_from) break;
-		if((*rit)->exists(name)) return true;
-		--i;
-	}
-	return false;
-}
-Type *SrcTypes::get(const std::string &name, const size_t &locked_from)
-{
-	size_t i = stack.size() - 1;
-	for(auto rit = stack.rbegin(); rit != stack.rend(); ++rit) {
-		if(locked_from != size_t(-1) && i <= locked_from) break;
-		Type *res = (*rit)->get(name);
-		if(res) return res;
-		--i;
-	}
-	return nullptr;
-}
-
 TypeMgr::TypeMgr(RAIIParser *parser) : parser(parser), vals(parser), init_typefuncs_called(false)
 {
 	globals["any"]	= new TypeSimple(nullptr, 0, 0, "any");
@@ -88,13 +57,13 @@ TypeMgr::TypeMgr(RAIIParser *parser) : parser(parser), vals(parser), init_typefu
 	globals["*const u8"] = cstr;
 
 	// intrinsics
-	TypeSimple *templ0	 = new TypeSimple(nullptr, 0, 0, "@0");
-	TypeSimple *templ1	 = new TypeSimple(nullptr, 0, 0, "@1");
-	TypeSimple *templ0va	 = new TypeSimple(nullptr, 0, VARIADIC, "@0");
-	TypeSimple *templ0ptr	 = new TypeSimple(nullptr, 1, 0, "@0");
-	TypeStruct *empty_struct = new TypeStruct(nullptr, 0, 0, false, {}, {}, {});
+	TypeSimple *templ0    = new TypeSimple(nullptr, 0, 0, "@0");
+	TypeSimple *templ1    = new TypeSimple(nullptr, 0, 0, "@1");
+	TypeSimple *templ0va  = new TypeSimple(nullptr, 0, VARIADIC, "@0");
+	TypeSimple *templ0ptr = new TypeSimple(nullptr, 1, 0, "@0");
+	TypeImport *importty  = new TypeImport(nullptr, 0, 0, "");
 
-	TypeFunc *importfn = new TypeFunc(nullptr, 0, 0, 0, 0, false, {cstr->copy()}, empty_struct);
+	TypeFunc *importfn = new TypeFunc(nullptr, 0, 0, 0, 0, false, {cstr->copy()}, importty);
 	importfn->setIntrinsicFunc(intrinsic_import, IPARSE);
 	globals["import"] = importfn;
 
@@ -126,7 +95,7 @@ TypeMgr::TypeMgr(RAIIParser *parser) : parser(parser), vals(parser), init_typefu
 TypeMgr::~TypeMgr()
 {
 	for(auto &g : globals) delete g.second;
-	for(auto &s : srcs) delete s.second;
+	for(auto &s : stack) delete s;
 	for(auto &mfn : managedfnmaps) delete mfn;
 }
 void TypeMgr::initTypeFuncs()
@@ -135,18 +104,6 @@ void TypeMgr::initTypeFuncs()
 
 	init_typefuncs_called = true;
 }
-bool TypeMgr::pushModule(const std::string &path)
-{
-	if(!hasModule(path)) return false;
-	srcstack.push_back(srcs[path]);
-	srcnamestack.push_back(path);
-	return true;
-}
-void TypeMgr::popModule()
-{
-	srcstack.pop_back();
-	srcnamestack.pop_back();
-}
 bool TypeMgr::add(const std::string &name, Type *val, const bool &global)
 {
 	if(global) {
@@ -154,7 +111,7 @@ bool TypeMgr::add(const std::string &name, Type *val, const bool &global)
 		globals[name] = val;
 		return true;
 	}
-	return srcstack.back()->add(name, val);
+	return stack.back()->add(name, val);
 }
 bool TypeMgr::addCopy(const std::string &name, Type *val, const bool &global)
 {
@@ -168,14 +125,25 @@ bool TypeMgr::addCopy(const std::string &name, Type *val, const bool &global)
 bool TypeMgr::exists(const std::string &name, const bool &top_only, const bool &with_globals)
 {
 	size_t lock_from = lockedlayers.size() > 0 ? lockedlayers.back() : size_t(-1);
-	if(srcstack.back()->exists(name, lock_from, top_only)) return true;
+	if(top_only) return stack.back()->exists(name);
+	size_t i = stack.size() - 1;
+	for(auto rit = stack.rbegin(); rit != stack.rend(); ++rit) {
+		if(lock_from != size_t(-1) && i <= lock_from) break;
+		if((*rit)->exists(name)) return true;
+		--i;
+	}
 	return with_globals ? globals.find(name) != globals.end() : false;
 }
 Type *TypeMgr::get(const std::string &name)
 {
 	size_t lock_from = lockedlayers.size() > 0 ? lockedlayers.back() : size_t(-1);
-	Type *res	 = srcstack.back()->get(name, lock_from);
-	if(res) return res;
+	size_t i	 = stack.size() - 1;
+	for(auto rit = stack.rbegin(); rit != stack.rend(); ++rit) {
+		if(lock_from != size_t(-1) && i <= lock_from) break;
+		Type *res = (*rit)->get(name);
+		if(res) return res;
+		--i;
+	}
 	auto gres = globals.find(name);
 	if(gres != globals.end()) return gres->second;
 	return getFuncMap(name, nullptr);
@@ -208,17 +176,13 @@ TypeFuncMap *TypeMgr::getFuncMap(const std::string &name, Stmt *parent)
 TypeFuncMap *TypeMgr::getFuncMapCopy(const std::string &name, Stmt *parent)
 {
 	std::unordered_map<std::string, TypeFunc *> funcs;
-	for(auto si = srcstack.rbegin(); si != srcstack.rend(); ++si) {
-		SrcTypes *s			  = *si;
-		std::vector<LayerTypes *> &layers = s->get_layers();
-		for(auto li = layers.rbegin(); li != layers.rend(); ++li) {
-			LayerTypes *l				       = *li;
-			std::unordered_map<std::string, Type *> &items = l->get_items();
-			for(auto &i : items) {
-				if(startswith(i.first, name + "_fn") && i.second->type == TFUNC) {
-					if(funcs.find(i.first) != funcs.end()) continue;
-					funcs[i.first] = static_cast<TypeFunc *>(i.second);
-				}
+	for(auto li = stack.rbegin(); li != stack.rend(); ++li) {
+		LayerTypes *l				       = *li;
+		std::unordered_map<std::string, Type *> &items = l->get_items();
+		for(auto &i : items) {
+			if(startswith(i.first, name + "_fn") && i.second->type == TFUNC) {
+				if(funcs.find(i.first) != funcs.end()) continue;
+				funcs[i.first] = static_cast<TypeFunc *>(i.second);
 			}
 		}
 	}

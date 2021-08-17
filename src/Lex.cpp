@@ -118,6 +118,7 @@ const char *TokStrs[_LAST] = {
 
 "[]",
 "()",
+"<EMPTY>",
 
 // Varargs
 "x...",
