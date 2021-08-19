@@ -78,27 +78,6 @@ let unpost_assn_def = `INTRINSIC({opname}_{t1})
 
 let types = vec.new('i1', 'i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64', 'f32', 'f64');
 
-let binop = vec.new(
-	# .add, .sub, .mul, .div, .mod, .band, .bor, .bxor, .lshift, .rshift);
-	.assn, .addassn, .subassn, .mulassn, .divassn, .modassn,
-	# .logand, .logor, .eq, .lt, .gt, .le, .ge, .ne);
-	.bandassn, .borassn, .bxorassn, .lshiftassn, .rshiftassn);
-let binoper = vec.new(
-	# '+', '-', '*', '/', '%', '&', '|', '^', '<<', '>>');
-	'=', '+=', '-=', '*=', '/=', '%=',
-	# '&&', '||', '==', '<', '>', '<=', '>=', '!=');
-	'&=', '|=', '^=', '<<=', '>>=');
-
-let unop = vec.new(
-	.xinc, .xdec);
-	# .incx, .decx);
-	# .uadd, .usub, .not, .bnot);
-let unoper = vec.new(
-	'++', '--');
-	# '++', '--');
-	# '+', '-', '!', '~');
-
-
 let arith = fn() {
 	let fdecl = fs.fopen('include/parser/Intrinsics/Arithmetic.def', 'w+');
 	let fdef  = fs.fopen('src/parser/Intrinsics/Arithmetic.cpp', 'w+');

@@ -141,18 +141,13 @@ TypeSimple::TypeSimple(const int64_t &id, Stmt *parent, const size_t &ptr, const
 		       const std::string &name)
 	: Type(id, TSIMPLE, parent, ptr, info), name(name)
 {}
-Type *TypeSimple::copy(const size_t &append_info)
+Type *TypeSimple::copy(const size_t &append_info, const size_t &ptr)
 {
-	return new TypeSimple(id, parent, ptr, info | append_info, name);
+	return new TypeSimple(id, parent, this->ptr + ptr, info | append_info, name);
 }
 Type *TypeSimple::specialize(const std::unordered_map<std::string, Type *> &templates)
 {
 	if(name[0] != '@') return copy();
-	if(templates.empty() || templates.find(name) == templates.end()) {
-		err::set(parent->line, parent->col, "could not find type '%s' in templates",
-			 name.c_str());
-		return nullptr;
-	}
 	Type *res = templates.at(name)->copy();
 	res->ptr += ptr;
 	res->info |= info;
@@ -180,7 +175,15 @@ bool TypeSimple::assignTemplateActuals(Type *actual,
 		}
 		return true;
 	}
-	templates[name] = actual->copy();
+	if(!compatible(actual, line, col)) {
+		err::set(line, col, "incompatible actual '%s' to template '%s'",
+			 actual->str().c_str(), str().c_str());
+		return false;
+	}
+	Type *t		= actual->copy();
+	t->info		= 0;
+	t->ptr		= 0;
+	templates[name] = t;
 	return true;
 }
 std::string TypeSimple::str()
@@ -207,7 +210,7 @@ const std::string &TypeImport::getModID()
 	return mod_id;
 }
 
-Type *TypeImport::copy(const size_t &append_info)
+Type *TypeImport::copy(const size_t &append_info, const size_t &ptr)
 {
 	return new TypeImport(id, parent, ptr, info, mod_id);
 }
@@ -252,14 +255,14 @@ TypeStruct::~TypeStruct()
 {
 	for(auto &f : fields) delete f.second;
 }
-Type *TypeStruct::copy(const size_t &append_info)
+Type *TypeStruct::copy(const size_t &append_info, const size_t &ptr)
 {
 	std::unordered_map<std::string, Type *> newfields;
 	for(auto &f : fields) {
 		newfields[f.first] = f.second->copy();
 	}
-	return new TypeStruct(id, parent, ptr, info | append_info, is_def, templ, field_order,
-			      newfields);
+	return new TypeStruct(id, parent, this->ptr + ptr, info | append_info, is_def, templ,
+			      field_order, newfields);
 }
 Type *TypeStruct::specialize(const std::unordered_map<std::string, Type *> &templates)
 {
@@ -455,14 +458,14 @@ TypeFunc::~TypeFunc()
 	for(auto &a : args) delete a;
 	delete rettype;
 }
-Type *TypeFunc::copy(const size_t &append_info)
+Type *TypeFunc::copy(const size_t &append_info, const size_t &ptr)
 {
 	std::vector<Type *> newargs;
 	for(auto &a : args) {
 		newargs.push_back(a->copy());
 	}
-	return new TypeFunc(id, parent, ptr, info | append_info, scope, templ, has_va, newargs,
-			    rettype->copy(), intrin_fn, intrin_fn_type);
+	return new TypeFunc(id, parent, this->ptr + ptr, info | append_info, scope, templ, has_va,
+			    newargs, rettype->copy(), intrin_fn, intrin_fn_type);
 }
 Type *TypeFunc::specialize(const std::unordered_map<std::string, Type *> &templates)
 {
@@ -613,9 +616,9 @@ TypeFuncMap::~TypeFuncMap()
 {
 	if(self) delete self;
 }
-Type *TypeFuncMap::copy(const size_t &append_info)
+Type *TypeFuncMap::copy(const size_t &append_info, const size_t &ptr)
 {
-	return new TypeFuncMap(id, parent, ptr, info | append_info, funcs,
+	return new TypeFuncMap(id, parent, this->ptr + ptr, info | append_info, funcs,
 			       self ? self->copy() : nullptr);
 }
 Type *TypeFuncMap::specialize(const std::unordered_map<std::string, Type *> &templates)
@@ -697,11 +700,11 @@ TypeVariadic::~TypeVariadic()
 	for(auto &a : args) delete a;
 }
 
-Type *TypeVariadic::copy(const size_t &append_info)
+Type *TypeVariadic::copy(const size_t &append_info, const size_t &ptr)
 {
 	std::vector<Type *> newargs;
 	for(auto &a : args) newargs.push_back(a->copy());
-	return new TypeVariadic(id, parent, ptr, info | append_info, newargs);
+	return new TypeVariadic(id, parent, this->ptr + ptr, info | append_info, newargs);
 }
 Type *TypeVariadic::specialize(const std::unordered_map<std::string, Type *> &templates)
 {

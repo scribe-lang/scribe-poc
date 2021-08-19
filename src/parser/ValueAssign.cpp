@@ -207,6 +207,8 @@ bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 			value = vals.get(fields, fieldsorder);
 			return true;
 		}
+		err::set(line, col, "failed to comptime call non intrinsic function");
+		return false;
 	}
 	if(lhs && lhs->type->type != TFUNC && !lhs->value) {
 		err::set(line, col, "LHS has no value for function call");

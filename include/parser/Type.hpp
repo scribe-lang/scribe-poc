@@ -63,7 +63,7 @@ struct Type
 	     const size_t &info);
 	virtual ~Type();
 
-	virtual Type *copy(const size_t &append_info = 0)				   = 0;
+	virtual Type *copy(const size_t &append_info = 0, const size_t &ptr = 0)	   = 0;
 	virtual Type *specialize(const std::unordered_map<std::string, Type *> &templates) = 0;
 	// ignore_id is for templates
 	bool compatible_base(Type *rhs, const bool &is_templ, const size_t &line,
@@ -96,7 +96,7 @@ struct TypeSimple : public Type
 	TypeSimple(const int64_t &id, Stmt *parent, const size_t &ptr, const size_t &info,
 		   const std::string &name);
 
-	Type *copy(const size_t &append_info = 0);
+	Type *copy(const size_t &append_info = 0, const size_t &ptr = 0);
 	Type *specialize(const std::unordered_map<std::string, Type *> &templates);
 	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 	bool assignTemplateActuals(Type *actual, std::unordered_map<std::string, Type *> &templates,
@@ -116,7 +116,7 @@ struct TypeImport : public Type
 
 	const std::string &getModID();
 
-	Type *copy(const size_t &append_info = 0);
+	Type *copy(const size_t &append_info = 0, const size_t &ptr = 0);
 	Type *specialize(const std::unordered_map<std::string, Type *> &templates);
 	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 	bool assignTemplateActuals(Type *actual, std::unordered_map<std::string, Type *> &templates,
@@ -148,7 +148,7 @@ struct TypeStruct : public Type
 		is_decl_only = decl_only;
 	}
 
-	Type *copy(const size_t &append_info = 0);
+	Type *copy(const size_t &append_info = 0, const size_t &ptr = 0);
 	Type *specialize(const std::unordered_map<std::string, Type *> &templates);
 	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 	// checks if instantiation is viable with callinfo, returns specialized instance of struct
@@ -225,7 +225,7 @@ struct TypeFunc : public Type
 				 : true;
 	}
 
-	Type *copy(const size_t &append_info = 0);
+	Type *copy(const size_t &append_info = 0, const size_t &ptr = 0);
 	Type *specialize(const std::unordered_map<std::string, Type *> &templates);
 	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 	// checks for compatibility and specializes the signature (for templates)
@@ -249,7 +249,7 @@ struct TypeFuncMap : public Type
 		    const std::unordered_map<std::string, TypeFunc *> &funcs, Type *self);
 	~TypeFuncMap();
 
-	Type *copy(const size_t &append_info = 0);
+	Type *copy(const size_t &append_info = 0, const size_t &ptr = 0);
 	Type *specialize(const std::unordered_map<std::string, Type *> &templates);
 	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 	bool assignTemplateActuals(Type *actual, std::unordered_map<std::string, Type *> &templates,
@@ -277,7 +277,7 @@ struct TypeVariadic : public Type
 		     const std::vector<Type *> &args);
 	~TypeVariadic();
 
-	Type *copy(const size_t &append_info = 0);
+	Type *copy(const size_t &append_info = 0, const size_t &ptr = 0);
 	Type *specialize(const std::unordered_map<std::string, Type *> &templates);
 	bool compatible(Type *rhs, const size_t &line, const size_t &col);
 	bool assignTemplateActuals(Type *actual, std::unordered_map<std::string, Type *> &templates,

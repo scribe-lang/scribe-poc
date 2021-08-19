@@ -74,7 +74,7 @@ void cleanup(parser::StmtExpr *stmt, parser::Stmt **source)
 void cleanup(parser::StmtVar *stmt, parser::Stmt **source)
 {
 	// imports are irrelevant now
-	if(stmt->type->type == TIMPORT) {
+	if(stmt->type && stmt->type->type == TIMPORT) {
 		delete stmt;
 		*source = nullptr;
 		return;

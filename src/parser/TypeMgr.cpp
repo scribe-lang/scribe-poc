@@ -90,6 +90,12 @@ TypeMgr::TypeMgr(RAIIParser *parser) : parser(parser), vals(parser), init_typefu
 	new TypeFunc(nullptr, 0, 0, 0, 0, true, {cstr->copy()}, globals["u64"]->copy());
 	comp_strlenfn->setIntrinsicFunc(intrinsic_comptime_strlen, IVALUE);
 	globals["comp_strlen"] = comp_strlenfn;
+
+	TypeFunc *ptr_subscrfn =
+	new TypeFunc(nullptr, 0, 0, 0, 1, false, {templ0->copy(CONST, 1), globals["i32"]->copy()},
+		     templ0->copy());
+	ptr_subscrfn->setIntrinsicFunc(intrinsic_subscr, IVALUE);
+	addFunc("[]", ptr_subscrfn, true);
 }
 TypeMgr::~TypeMgr()
 {

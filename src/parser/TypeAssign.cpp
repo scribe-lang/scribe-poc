@@ -28,7 +28,7 @@ namespace parser
 // TODO: replace all variadic weird type assignment code with comptime ValueAssign based
 // logic once that is built
 static bool InitTemplateFn(TypeMgr &types, Stmt *caller, Type *&calledfn,
-			   const std::unordered_map<std::string, Type *> &calltemplates,
+			   std::unordered_map<std::string, Type *> &calltemplates,
 			   const bool &has_va, const size_t &line, const size_t &col)
 {
 	if(calltemplates.empty() && !has_va) return true;
@@ -75,6 +75,7 @@ static bool InitTemplateFn(TypeMgr &types, Stmt *caller, Type *&calledfn,
 		}
 		types.add(t, calltemplates.at("@" + std::to_string(i)));
 	}
+	calltemplates.clear();
 	fn->sig->templates.clear();
 	fn->sig->has_variadic = false;
 	if(origsig->args.size() > 0 && origsig->args.back()->type == TVARIADIC) {
@@ -438,6 +439,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 		// apply stmt template specialization
 		if(!InitTemplateFn(types, this, lhs->type, calltemplates, has_va, line, col))
 			return false;
+		for(auto &t : calltemplates) delete t.second;
 		break;
 	}
 	case lex::SUBS: {
@@ -463,8 +465,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 			}
 			type = va->args[rhs->value->i]->copy();
 			break;
-		}
-		if(lhs->type->ptr > 0) {
+		} else if(lhs->type->ptr > 0) {
 			if(!rhs->type->integerCompatible()) {
 				err::set(line, col,
 					 "pointer subscript can only take one of the "
@@ -474,11 +475,13 @@ bool StmtExpr::assignType(TypeMgr &types)
 			}
 			type = lhs->type->copy();
 			--type->ptr;
-			break;
+		} else {
+			err::set(line, col, "unimplemented subscript for type: %s",
+				 lhs->type->str().c_str());
+			return false;
 		}
-		err::set(line, col, "unimplemented subscript for type: %s",
-			 lhs->type->str().c_str());
-		return false;
+		goto applyoperfn;
+		// fallthrough
 	}
 	// address of
 	case lex::UAND: {
@@ -501,6 +504,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 		Stmt *store = lhs;
 		lhs	    = rhs;
 		rhs	    = store;
+		goto applyoperfn;
 	}
 	// Arithmetic
 	case lex::ADD:
@@ -546,6 +550,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 	case lex::RSHIFT:
 	case lex::LSHIFT_ASSN:
 	case lex::RSHIFT_ASSN: {
+	applyoperfn:
 		if(lhs->type->type != TSIMPLE && lhs->type->type != TSTRUCT) {
 			err::set(line, col,
 				 "operators are only usable on primitive types or structs");
@@ -583,11 +588,13 @@ bool StmtExpr::assignType(TypeMgr &types)
 		} else if(decidedfn->getIntrinsicFuncType() == IVALUE) {
 			this->setIntrinsicFunc(decidedfn->getIntrinsicFunc());
 		}
-		if(!InitTemplateFn(types, this, lhs->type, calltemplates, false, line, col)) {
+		if(!InitTemplateFn(types, this, (Type *&)decidedfn, calltemplates, false, line,
+				   col)) {
 			erred = true;
 			err::set(line, col, "failed to intialize template function");
 			goto fail;
 		}
+		for(auto &t : calltemplates) delete t.second;
 		setDecidedFuncID(decidedfn->id);
 		fci->args.clear();
 		delete fci;

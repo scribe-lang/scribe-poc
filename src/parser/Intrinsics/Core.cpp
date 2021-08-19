@@ -128,5 +128,31 @@ INTRINSIC(comptime_strlen)
 	base->value = values.get((int64_t)mod->v.size());
 	return true;
 }
+INTRINSIC(subscr)
+{
+	Value *lhs = args[0]->value;
+	Value *rhs = args[1]->value;
+	if(!lhs || !lhs->has_data()) {
+		err::set(base->line, base->col,
+			 "comptime pointer subscript is only applicable on comptime pointer data");
+		return false;
+	}
+	if(!rhs || !rhs->has_data()) {
+		err::set(base->line, base->col,
+			 "comptime pointer subscript must be a comptime integer value");
+		return false;
+	}
+	if(lhs->v.size() <= rhs->i) {
+		err::set(base->line, base->col, "attempted to index '%zu', total count is '%zu'",
+			 (size_t)rhs->i, lhs->v.size());
+		return false;
+	}
+	if(args[0]->type->info & REF) {
+		base->value = lhs->v[rhs->i];
+	} else {
+		base->value = values.get(lhs->v[rhs->i]);
+	}
+	return true;
+}
 } // namespace parser
 } // namespace sc
