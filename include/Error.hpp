@@ -31,6 +31,8 @@ void set(const lex::Lexeme &tok, const char *e, ...);
 void set(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e, ...);
 void set(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e,
 	 va_list args);
+// TODO: implement
+void set(parser::Stmt *stmt, const char *e, va_list args);
 
 // equivalent to set(), but for warnings
 void setw(const size_t &line, const size_t &col, const char *e, ...);
@@ -38,6 +40,8 @@ void setw(const lex::Lexeme &tok, const char *e, ...);
 void setw(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e, ...);
 void setw(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e,
 	  va_list args);
+// TODO: implement
+void setw(parser::Stmt *stmt, const char *e, va_list args);
 bool present();
 void show(FILE *f);
 void reset();

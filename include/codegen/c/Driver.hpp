@@ -1,0 +1,64 @@
+/*
+	MIT License
+	Copyright (c) 2021 Scribe Language Repositories
+	Permission is hereby granted, free of charge, to any person obtaining a copy
+	of this software and associated documentation files (the "Software"), to deal
+	in the Software without restriction, including without limitation the rights
+	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	copies of the Software, and to permit persons to whom the Software is
+	furnished to do so.
+*/
+
+#ifndef CODEGEN_C_DRIVER_HPP
+#define CODEGEN_C_DRIVER_HPP
+
+#include "codegen/Base.hpp"
+#include "codegen/c/Writer.hpp"
+
+namespace sc
+{
+namespace codegen
+{
+class CDriver : public Driver
+{
+	Writer mod;
+
+public:
+	CDriver(parser::RAIIParser &parser);
+	~CDriver();
+
+	// generate C code
+	bool genIR();
+	// dump C code to output
+	void dumpIR(const bool &force);
+	// dump C code to file and compile
+	bool genObjFile(const std::string &dest);
+
+	bool visit(parser::Stmt *stmt, Writer &writer);
+
+	bool visit(parser::StmtBlock *stmt, Writer &writer);
+	bool visit(parser::StmtType *stmt, Writer &writer);
+	bool visit(parser::StmtSimple *stmt, Writer &writer);
+	bool visit(parser::StmtFnCallInfo *stmt, Writer &writer);
+	bool visit(parser::StmtExpr *stmt, Writer &writer);
+	bool visit(parser::StmtVar *stmt, Writer &writer);
+	bool visit(parser::StmtFnSig *stmt, Writer &writer);
+	bool visit(parser::StmtFnDef *stmt, Writer &writer);
+	bool visit(parser::StmtHeader *stmt, Writer &writer);
+	bool visit(parser::StmtLib *stmt, Writer &writer);
+	bool visit(parser::StmtExtern *stmt, Writer &writer);
+	bool visit(parser::StmtEnum *stmt, Writer &writer);
+	bool visit(parser::StmtStruct *stmt, Writer &writer);
+	bool visit(parser::StmtVarDecl *stmt, Writer &writer);
+	bool visit(parser::StmtCond *stmt, Writer &writer);
+	bool visit(parser::StmtForIn *stmt, Writer &writer);
+	bool visit(parser::StmtFor *stmt, Writer &writer);
+	bool visit(parser::StmtWhile *stmt, Writer &writer);
+	bool visit(parser::StmtRet *stmt, Writer &writer);
+	bool visit(parser::StmtContinue *stmt, Writer &writer);
+	bool visit(parser::StmtBreak *stmt, Writer &writer);
+};
+} // namespace codegen
+} // namespace sc
+
+#endif // CODEGEN_C_DRIVER_HPP

@@ -15,6 +15,7 @@
 #include <stdexcept>
 
 #include "Args.hpp"
+#include "codegen/c/Driver.hpp"
 #include "Config.hpp"
 #include "Error.hpp"
 #include "FS.hpp"
@@ -60,5 +61,9 @@ int main(int argc, char **argv)
 	parser.cleanupParseTrees();
 	parser.dumpTokens(false);
 	parser.dumpParseTree(false);
+
+	codegen::CDriver cdriver(parser);
+	if(!cdriver.genIR()) return 1;
+	cdriver.dumpIR(false);
 	return 0;
 }

@@ -25,6 +25,15 @@ namespace sc
 {
 namespace parser
 {
+static inline std::string GetMangledName(const std::string &mod_id, const lex::Lexeme &name)
+{
+	return name.data.s + "_" + mod_id;
+}
+static inline std::string GetMangledName(Stmt *stmt, const lex::Lexeme &name)
+{
+	return GetMangledName(stmt->mod->getID(), name);
+}
+
 // TODO: replace all variadic weird type assignment code with comptime ValueAssign based
 // logic once that is built
 static bool InitTemplateFn(TypeMgr &types, Stmt *caller, Type *&calledfn,
@@ -219,13 +228,13 @@ bool StmtSimple::assignType(TypeMgr &types)
 		break;
 	case lex::IDEN:
 		if(!isAppliedModuleID()) {
-			type = types.getCopy(mod->getID() + "." + val.data.s, nullptr);
+			type = types.getCopy(GetMangledName(this, val), nullptr);
 		}
 		if(!type) {
 			type = types.getCopy(val.data.s, nullptr);
 			break;
 		}
-		val.data.s = mod->getID() + "." + val.data.s;
+		val.data.s = GetMangledName(this, val);
 		setAppliedModuleID(true);
 		break;
 	default: return false;
@@ -304,7 +313,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 		StmtSimple *rsim = as<StmtSimple>(rhs);
 		if(lhs->type->type == TIMPORT) {
 			importids.push_back(as<TypeImport>(lhs->type)->getModID());
-			rsim->val.data.s = importids.back() + "." + rsim->val.data.s;
+			rsim->val.data.s = GetMangledName(importids.back(), rsim->val);
 			rsim->setAppliedModuleID(true);
 			if(!rhs->assignType(types)) {
 				err::set(rhs->line, rhs->col,
@@ -328,7 +337,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 			return false;
 		}
 		std::string mod_id = importids.empty() ? mod->getID() : importids.back();
-		rsim->val.data.s   = mod_id + "." + rsim->val.data.s;
+		rsim->val.data.s   = GetMangledName(mod_id, rsim->val);
 		size_t ptr	   = lst->ptr;
 		if(oper.tok.val == lex::ARROW) --ptr;
 		Type *res = ptr == 0 ? lst->get_field(rsim->val.data.s) : nullptr;
@@ -620,7 +629,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 
 bool StmtVar::assignType(TypeMgr &types)
 {
-	name.data.s = mod->getID() + "." + name.data.s;
+	name.data.s = GetMangledName(this, name);
 	if(isComptime() && !val && parent->stmt_type != FNSIG) {
 		err::set(name, "'comptime' variables must have a value");
 		return false;
