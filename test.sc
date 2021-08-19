@@ -1,12 +1,10 @@
 let st = struct {
 	i: i32;
-	u: u8;
+	u: *const u8;
 };
 
-let f = fn() {
-	// let stvar = st(5, 'h');
-	let x = 5;
+let stvar = st(5, 'h');
+let x = 5;
+let f = fn(i: i32, j: i32): i32 {
+	return i;
 };
-// let f = fn(i: i32, j: i32): i32 {
-// 	return i;
-// };

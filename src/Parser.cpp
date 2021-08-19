@@ -30,8 +30,7 @@ namespace parser
 //////////////////////////////////////////// Module ///////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Module::Module(const std::string &id, const std::string &path, const std::string &code,
-	       llvm::LLVMContext &context)
+Module::Module(const std::string &id, const std::string &path, const std::string &code)
 	: id(id), path(path), code(code), tokens(), ptree(nullptr)
 {}
 Module::~Module()
@@ -149,7 +148,7 @@ Module *RAIIParser::addModule(const std::string &path)
 		return nullptr;
 	}
 
-	Module *mod = new Module(std::to_string(modulestack.size()), path, code, context);
+	Module *mod = new Module(std::to_string(modulestack.size()), path, code);
 	Pointer<Module> mptr(mod);
 
 	modulestack.push_back(path);

@@ -90,7 +90,7 @@ separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS_LIST})
 # Find the libraries that correspond to the LLVM components
 # that we wish to use
-llvm_map_components_to_libnames(llvm_libs support core irreader target mc x86info x86codegen x86desc x86asmparser)
+# llvm_map_components_to_libnames(llvm_libs support core irreader target mc x86info x86codegen x86desc x86asmparser)
 
 # Finally! The sources!!!!!
 

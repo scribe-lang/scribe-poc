@@ -14,8 +14,6 @@
 #ifndef PARSER_VALUE_HPP
 #define PARSER_VALUE_HPP
 
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Value.h>
 #include <string>
 #include <unordered_map>
 #include <vector>

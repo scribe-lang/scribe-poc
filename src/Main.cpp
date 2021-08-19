@@ -12,12 +12,9 @@
 */
 
 #include <cstdio>
-#include <llvm/Support/Host.h>
-#include <llvm/Support/TargetSelect.h>
 #include <stdexcept>
 
 #include "Args.hpp"
-#include "codegen/llvm/Driver.hpp"
 #include "Config.hpp"
 #include "Error.hpp"
 #include "FS.hpp"
@@ -63,15 +60,5 @@ int main(int argc, char **argv)
 	parser.cleanupParseTrees();
 	parser.dumpTokens(false);
 	parser.dumpParseTree(false);
-
-	// llvm::InitializeAllTargetInfos();
-	// llvm::InitializeAllTargets();
-	// llvm::InitializeAllTargetMCs();
-	// llvm::InitializeAllAsmParsers();
-	// llvm::InitializeAllAsmPrinters();
-	// codegen::LLVMDriver lldriver(parser);
-	// if(!lldriver.setTargetTriple(llvm::sys::getDefaultTargetTriple())) return 1;
-	// if(!lldriver.genIR()) return 1;
-	// lldriver.dumpIR(false);
 	return 0;
 }
