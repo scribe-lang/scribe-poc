@@ -168,6 +168,11 @@ public:
 		return vallocator.get(from);
 	}
 
+	inline std::string getStringFromVec(Value *vec)
+	{
+		return parser::getStringFromVec(vec);
+	}
+
 	inline void updateValue(Value *src, Value *newval)
 	{
 		return vallocator.updateValue(src, newval);

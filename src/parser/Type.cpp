@@ -78,6 +78,7 @@ bool Type::compatible_base(Type *rhs, const bool &is_templ, const size_t &line, 
 	}
 	if(rptr != ptr) {
 		err::setw(line, col, "inequal pointer assignment here, continuing...");
+		err::show(stderr);
 	}
 	if(rinfo & CONST && !(info & CONST)) {
 		err::set(line, col, "losing constness here, cannot continue (LHS: %s, RHS: %s)",

@@ -211,7 +211,11 @@ bool StmtSimple::assignType(TypeMgr &types)
 	case lex::INT: type = types.getCopy("i32", this); break;
 	case lex::FLT: type = types.getCopy("f32", this); break;
 	case lex::CHAR: type = types.getCopy("u8", this); break;
-	case lex::STR: type = types.getCopy("*const u8", this); break;
+	case lex::STR:
+		type = types.getCopy("u8", this);
+		type->info |= CONST;
+		type->ptr = 1;
+		break;
 	case lex::IDEN:
 		if(!isAppliedModuleID()) {
 			type = types.getCopy(mod->getID() + "." + val.data.s, nullptr);

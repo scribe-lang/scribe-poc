@@ -22,9 +22,6 @@ namespace parser
 Value::Value(const uint64_t &id, const Values &type) : id(id), type(type), i(0), f(0) {}
 Value::Value(const uint64_t &id, const int64_t &idata) : id(id), type(VINT), i(idata), f(0) {}
 Value::Value(const uint64_t &id, const double &fdata) : id(id), type(VFLT), i(0), f(fdata) {}
-Value::Value(const uint64_t &id, const std::string &sdata)
-	: id(id), type(VSTR), i(0), f(0), s(sdata)
-{}
 Value::Value(const uint64_t &id, const std::vector<Value *> &vdata)
 	: id(id), type(VVEC), i(0), f(0), v(vdata)
 {}
@@ -40,7 +37,6 @@ bool Value::operator==(const Value &other)
 	case VVOID: return other.type == VVOID;
 	case VINT: return i == other.i;
 	case VFLT: return f == other.f;
-	case VSTR: return s == other.s;
 	case VVEC:
 		if(v.size() != other.v.size()) return false;
 		for(size_t i = 0; i < v.size(); ++i) {
@@ -69,7 +65,6 @@ std::string Value::stringify()
 	case VVOID: return "<void>";
 	case VINT: return std::to_string(i);
 	case VFLT: return std::to_string(f);
-	case VSTR: return s;
 	case VVEC: {
 		std::string res;
 		res = "[";
@@ -106,7 +101,6 @@ bool Value::has_data()
 	case VVOID: // fallthrough
 	case VINT:  // fallthrough
 	case VFLT:  // fallthrough
-	case VSTR:  // fallthrough
 	case VVEC:
 	case VSTRUCT: return true;
 	}
@@ -153,7 +147,11 @@ Value *ValueAllocator::get(const double &fdata)
 }
 Value *ValueAllocator::get(const std::string &sdata)
 {
-	Value *v = new Value(allvalues.size(), sdata);
+	std::vector<Value *> chars;
+	for(auto &s : sdata) {
+		chars.push_back(get((int64_t)s));
+	}
+	Value *v = new Value(allvalues.size(), chars);
 	allvalues.push_back(v);
 	return v;
 }
@@ -183,10 +181,19 @@ void ValueAllocator::updateValue(Value *src, Value *newval)
 	src->type    = newval->type;
 	src->i	     = newval->i;
 	src->f	     = newval->f;
-	src->s	     = newval->s;
 	src->v	     = newval->v;
 	src->st	     = newval->st;
 	src->storder = newval->storder;
+}
+
+std::string getStringFromVec(Value *vec)
+{
+	if(vec->type != VVEC) return "";
+	std::string res;
+	for(auto &e : vec->v) {
+		res.push_back((char)e->i);
+	}
+	return res;
 }
 } // namespace parser
 } // namespace sc

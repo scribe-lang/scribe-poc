@@ -34,11 +34,11 @@ INTRINSIC(import)
 
 	StmtBlock *topparent = as<StmtBlock>(topparentbase);
 
-	if(!args[0]->assignValue(types, values) || args[0]->value->type != VSTR) {
+	if(!args[0]->assignValue(types, values) || args[0]->value->type != VVEC) {
 		err::set(line, col, "import must be a compile time computable string");
 		return false;
 	}
-	const std::string &modname = args[0]->value->s;
+	std::string modname = values.getStringFromVec(args[0]->value);
 	if(modname.empty()) {
 		err::set(line, col, "no module provided");
 		return false;
@@ -119,16 +119,13 @@ INTRINSIC(array)
 }
 INTRINSIC(comptime_strlen)
 {
-	// TODO: set value here
-	// original: = args->args[0]->type->val;
-	Value *mod = nullptr;
-	if(!mod || !mod->has_data() || mod->type != VSTR) {
+	Value *mod = args[0]->value;
+	if(!mod || !mod->has_data() || mod->type != VVEC) {
 		err::set(base->line, base->col,
 			 "comptime_strlen's argument must be a comptime string");
 		return false;
 	}
-	// TODO: set value here
-	// original: base->type->val = types.get((int64_t)mod->s.size());
+	base->value = values.get((int64_t)mod->v.size());
 	return true;
 }
 } // namespace parser

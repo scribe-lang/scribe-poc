@@ -96,6 +96,7 @@ void setw(const size_t &line, const size_t &col_beg, const size_t &col_end, cons
 void setw(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e,
 	  va_list args)
 {
+	_mod.insert(_mod.begin(), currmod.back());
 	_line.insert(_line.begin(), line);
 	_col_beg.insert(_col_beg.begin(), col_beg);
 	_col_end.insert(_col_end.begin(), col_end);

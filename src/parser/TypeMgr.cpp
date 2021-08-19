@@ -54,7 +54,6 @@ TypeMgr::TypeMgr(RAIIParser *parser) : parser(parser), vals(parser), init_typefu
 	TypeSimple *cstr = static_cast<TypeSimple *>(globals["u8"]->copy());
 	cstr->ptr	 = 1;
 	cstr->info |= CONST;
-	globals["*const u8"] = cstr;
 
 	// intrinsics
 	TypeSimple *templ0    = new TypeSimple(nullptr, 0, 0, "@0");
@@ -63,7 +62,7 @@ TypeMgr::TypeMgr(RAIIParser *parser) : parser(parser), vals(parser), init_typefu
 	TypeSimple *templ0ptr = new TypeSimple(nullptr, 1, 0, "@0");
 	TypeImport *importty  = new TypeImport(nullptr, 0, 0, "");
 
-	TypeFunc *importfn = new TypeFunc(nullptr, 0, 0, 0, 0, false, {cstr->copy()}, importty);
+	TypeFunc *importfn = new TypeFunc(nullptr, 0, 0, 0, 0, false, {cstr}, importty);
 	importfn->setIntrinsicFunc(intrinsic_import, IPARSE);
 	globals["import"] = importfn;
 
