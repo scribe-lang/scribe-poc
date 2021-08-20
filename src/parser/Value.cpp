@@ -20,8 +20,8 @@ namespace sc
 namespace parser
 {
 Value::Value(const uint64_t &id, const Values &type) : id(id), type(type), i(0), f(0) {}
-Value::Value(const uint64_t &id, const int64_t &idata) : id(id), type(VINT), i(idata), f(0) {}
-Value::Value(const uint64_t &id, const double &fdata) : id(id), type(VFLT), i(0), f(fdata) {}
+Value::Value(const uint64_t &id, const int64_t &idata) : id(id), type(VINT), i(idata), f(idata) {}
+Value::Value(const uint64_t &id, const double &fdata) : id(id), type(VFLT), i(fdata), f(fdata) {}
 Value::Value(const uint64_t &id, const std::vector<Value *> &vdata)
 	: id(id), type(VVEC), i(0), f(0), v(vdata)
 {}

@@ -31,24 +31,24 @@ namespace parser
 let nsend = `} // namespace parser
 } // namespace sc`;
 
-let arith_decl = `INTRINSIC({opname}_{t1}_{t2});`;
-let arith_def = `INTRINSIC({opname}_{t1}_{t2})
+let arith_decl = `INTRINSIC({opname}_{t1}_{t1});`;
+let arith_def = `INTRINSIC({opname}_{t1}_{t1})
 \\{
-	base->updateValue(values, values.get(({intorflt})(args[0]->value->{v1} {op} args[1]->value->{v2})));
+	base->updateValue(values, values.get(({intorflt})(args[0]->value->{v1} {op} args[1]->value->{v1})));
 	return true;
 }`;
 
-let arith_assn_decl = `INTRINSIC({opname}_{t1}_{t2});`;
-let arith_assn_only_def = `INTRINSIC({opname}_{t1}_{t2})
+let arith_assn_decl = `INTRINSIC({opname}_{t1}_{t1});`;
+let arith_assn_only_def = `INTRINSIC({opname}_{t1}_{t1})
 \\{
-	args[0]->updateValue(values, values.get(({intorflt})args[1]->value->{v2}));
+	args[0]->updateValue(values, values.get(({intorflt})args[1]->value->{v1}));
 	base->updateValue(values, args[0]->value);
 	return true;
 }`;
-let arith_assn_def = `INTRINSIC({opname}_{t1}_{t2})
+let arith_assn_def = `INTRINSIC({opname}_{t1}_{t1})
 \\{
 	{intorflt} res = args[0]->value->{v1};
-	args[0]->updateValue(values, values.get(({intorflt})(res {op} args[1]->value->{v2})));
+	args[0]->updateValue(values, values.get(({intorflt})(res {op} args[1]->value->{v1})));
 	base->updateValue(values, args[0]->value);
 	return true;
 }`;
@@ -94,24 +94,21 @@ let arith = fn() {
 		let opname = binop[i];
 		let op = binoper[i];
 		for t1 in types.each() {
-			for t2 in types.each() {
-				if t1 == 'i1' || t2 == 'i1' { continue; }
-				let intorflt = 'int64_t';
-				let v1 = 'i';
-				let v2 = 'i';
-				if t1.front() == 'f' || t2.front() == 'f' {
-					intorflt = 'double';
-					if t1.front() == 'f' { v1 = 'f'; }
-					if t2.front() == 'f' { v2 = 'f'; }
-					if op == '%' || op == '&' || op == '|' || op == '^' || op == '<<' || op == '>>' {
-						continue;
-					}
+			if t1 == 'i1' { continue; }
+			let intorflt = 'int64_t';
+			let v1 = 'i';
+			let v2 = 'i';
+			if t1.front() == 'f' {
+				intorflt = 'double';
+				if t1.front() == 'f' { v1 = 'f'; }
+				if op == '%' || op == '&' || op == '|' || op == '^' || op == '<<' || op == '>>' {
+					continue;
 				}
-				io.fprintln(fdecl, fmt.template(arith_decl));
-				io.fprintln(fdef, fmt.template(arith_def));
 			}
-			io.fprintln(fdecl);
+			io.fprintln(fdecl, fmt.template(arith_decl));
+			io.fprintln(fdef, fmt.template(arith_def));
 		}
+		io.fprintln(fdecl);
 	}
 	io.fprintln(fdef, fmt.template(nsend));
 };
@@ -132,28 +129,24 @@ let arithassn = fn() {
 		let opname = binop[i];
 		let op = binoper[i];
 		for t1 in types.each() {
-			for t2 in types.each() {
-				if t1 == 'i1' || t2 == 'i1' { continue; }
-				let intorflt = 'int64_t';
-				let v1 = 'i';
-				let v2 = 'i';
-				if t1.front() == 'f' || t2.front() == 'f' {
-					intorflt = 'double';
-					if t1.front() == 'f' { v1 = 'f'; }
-					if t2.front() == 'f' { v2 = 'f'; }
-					if op == '%=' || op == '&=' || op == '|=' || op == '^=' || op == '<<=' || op == '>>=' {
-						continue;
-					}
-				}
-				io.fprintln(fdecl, fmt.template(arith_assn_decl));
-				if op == '=' {
-					io.fprintln(fdef, fmt.template(arith_assn_only_def));
+			if t1 == 'i1' { continue; }
+			let intorflt = 'int64_t';
+			let v1 = 'i';
+			if t1.front() == 'f' {
+				intorflt = 'double';
+				if t1.front() == 'f' { v1 = 'f'; }
+				if op == '%=' || op == '&=' || op == '|=' || op == '^=' || op == '<<=' || op == '>>=' {
 					continue;
 				}
-				io.fprintln(fdef, fmt.template(arith_assn_def));
 			}
-			io.fprintln(fdecl);
+			io.fprintln(fdecl, fmt.template(arith_assn_decl));
+			if op == '=' {
+				io.fprintln(fdef, fmt.template(arith_assn_only_def));
+				continue;
+			}
+			io.fprintln(fdef, fmt.template(arith_assn_def));
 		}
+		io.fprintln(fdecl);
 	}
 	io.fprintln(fdef, fmt.template(nsend));
 };
@@ -175,19 +168,15 @@ let logic = fn() {
 		let opname = binop[i];
 		let op = binoper[i];
 		for t1 in types.each() {
-			for t2 in types.each() {
-				let intorflt = 'int64_t';
-				let v1 = 'i';
-				let v2 = 'i';
-				if t1.front() == 'f' || t2.front() == 'f' {
-					if t1.front() == 'f' { v1 = 'f'; }
-					if t2.front() == 'f' { v2 = 'f'; }
-				}
-				io.fprintln(fdecl, fmt.template(arith_decl));
-				io.fprintln(fdef, fmt.template(arith_def));
+			let intorflt = 'int64_t';
+			let v1 = 'i';
+			if t1.front() == 'f' {
+				if t1.front() == 'f' { v1 = 'f'; }
 			}
-			io.fprintln(fdecl);
+			io.fprintln(fdecl, fmt.template(arith_decl));
+			io.fprintln(fdef, fmt.template(arith_def));
 		}
+		io.fprintln(fdecl);
 	}
 	io.fprintln(fdef, fmt.template(nsend));
 };

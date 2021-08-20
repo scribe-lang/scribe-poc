@@ -51,7 +51,7 @@ TypeMgr::TypeMgr(RAIIParser *parser) : parser(parser), vals(parser), init_typefu
 	globals["nil"]	= globals["i1"]->copy();
 	globals["bool"] = globals["i1"]->copy();
 	// cstr
-	TypeSimple *cstr = static_cast<TypeSimple *>(globals["u8"]->copy());
+	TypeSimple *cstr = static_cast<TypeSimple *>(globals["i8"]->copy());
 	cstr->ptr	 = 1;
 	cstr->info |= CONST;
 

@@ -43,6 +43,7 @@ public:
 	void writeConstString(const std::string &data);
 	void writeBefore(const char *data, ...);
 	void writeBefore(const std::string &data);
+	void insertAfter(const size_t &pos, const std::string &data);
 
 	void clear();
 	bool empty();

@@ -31,6 +31,7 @@ Stmt *StmtBlock::hiddenCopy(Stmt *par)
 	StmtBlock *res	    = new StmtBlock(mod, line, col, newstmts);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }
@@ -46,12 +47,14 @@ Stmt *StmtType::hiddenCopy(Stmt *par)
 		StmtType *res	    = new StmtType(mod, line, col, newfn);
 		res->parent	    = par;
 		res->is_specialized = is_specialized;
+		res->specialized_id = specialized_id;
 		res->is_comptime    = is_comptime;
 		return res;
 	}
 	StmtType *res	    = new StmtType(mod, line, col, ptr, info, name, templates);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }
@@ -65,6 +68,7 @@ Stmt *StmtSimple::hiddenCopy(Stmt *par)
 	StmtSimple *res	       = new StmtSimple(mod, line, col, val);
 	res->parent	       = par;
 	res->is_specialized    = is_specialized;
+	res->specialized_id    = specialized_id;
 	res->is_comptime       = is_comptime;
 	res->applied_module_id = applied_module_id;
 	return res;
@@ -87,6 +91,7 @@ Stmt *StmtFnCallInfo::hiddenCopy(Stmt *par)
 	StmtFnCallInfo *res = new StmtFnCallInfo(mod, line, col, newtemplates, newargs);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }
@@ -105,6 +110,7 @@ Stmt *StmtExpr::hiddenCopy(Stmt *par)
 	res->parent	    = par;
 	res->is_intrinsic   = is_intrinsic;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }
@@ -121,6 +127,7 @@ Stmt *StmtVar::hiddenCopy(Stmt *par)
 	StmtVar *res	    = new StmtVar(mod, line, col, name, newvtype, newval);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }
@@ -139,6 +146,7 @@ Stmt *StmtFnSig::hiddenCopy(Stmt *par)
 	StmtFnSig *res	 = new StmtFnSig(mod, line, col, templates, newargs, newret, has_variadic);
 	res->parent	 = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }
@@ -154,6 +162,7 @@ Stmt *StmtFnDef::hiddenCopy(Stmt *par)
 	StmtFnDef *res	    = new StmtFnDef(mod, line, col, newsig, newblk);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }
@@ -167,6 +176,7 @@ Stmt *StmtHeader::hiddenCopy(Stmt *par)
 	StmtHeader *res	    = new StmtHeader(mod, line, col, names, flags);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }
@@ -180,6 +190,7 @@ Stmt *StmtLib::hiddenCopy(Stmt *par)
 	StmtLib *res	    = new StmtLib(mod, line, col, flags);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }
@@ -197,6 +208,7 @@ Stmt *StmtExtern::hiddenCopy(Stmt *par)
 	StmtExtern *res	    = new StmtExtern(mod, line, col, fname, newheaders, newlibs, newsig);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }
@@ -210,6 +222,7 @@ Stmt *StmtEnum::hiddenCopy(Stmt *par)
 	StmtEnum *res	    = new StmtEnum(mod, line, col, items);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }
@@ -227,6 +240,7 @@ Stmt *StmtStruct::hiddenCopy(Stmt *par)
 	StmtStruct *res	    = new StmtStruct(mod, line, col, decl, templates, newfields);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }
@@ -244,6 +258,7 @@ Stmt *StmtVarDecl::hiddenCopy(Stmt *par)
 	StmtVarDecl *res    = new StmtVarDecl(mod, line, col, newdecls);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }
@@ -263,6 +278,7 @@ Stmt *StmtCond::hiddenCopy(Stmt *par)
 	StmtCond *res	    = new StmtCond(mod, line, col, newconds);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	res->is_inline	    = is_inline;
 	return res;
@@ -279,6 +295,7 @@ Stmt *StmtForIn::hiddenCopy(Stmt *par)
 	StmtForIn *res	    = new StmtForIn(mod, line, col, iter, newin, newblk);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }
@@ -296,6 +313,7 @@ Stmt *StmtFor::hiddenCopy(Stmt *par)
 	StmtFor *res	    = new StmtFor(mod, line, col, newinit, newcond, newincr, newblk);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	res->is_inline	    = is_inline;
 	return res;
@@ -312,6 +330,7 @@ Stmt *StmtWhile::hiddenCopy(Stmt *par)
 	StmtWhile *res	    = new StmtWhile(mod, line, col, newcond, newblk);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }
@@ -326,6 +345,7 @@ Stmt *StmtRet::hiddenCopy(Stmt *par)
 	StmtRet *res	    = new StmtRet(mod, line, col, newval);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }
@@ -339,6 +359,7 @@ Stmt *StmtContinue::hiddenCopy(Stmt *par)
 	StmtContinue *res   = new StmtContinue(mod, line, col);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }
@@ -352,6 +373,7 @@ Stmt *StmtBreak::hiddenCopy(Stmt *par)
 	StmtBreak *res	    = new StmtBreak(mod, line, col);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
+	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
 	return res;
 }

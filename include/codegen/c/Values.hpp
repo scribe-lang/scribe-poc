@@ -19,7 +19,7 @@ namespace sc
 {
 namespace codegen
 {
-std::string GetCValue(parser::Stmt *stmt, parser::Value *value);
+std::string GetCValue(parser::Stmt *stmt, parser::Value *value, parser::Type *type);
 } // namespace codegen
 } // namespace sc
 

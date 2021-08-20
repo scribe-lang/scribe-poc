@@ -192,6 +192,27 @@ struct Tok
 	}
 
 	/**
+	 * \brief Check if the token is a unary pre operator
+	 *
+	 * \return true If the type is one of possible unary pre operators, false if it isn't
+	 */
+	inline bool isUnaryPre()
+	{
+		return val == UADD || val == USUB || val == UAND || val == UMUL || val == INCX ||
+		       val == DECX;
+	}
+
+	/**
+	 * \brief Check if the token is a unary post operator
+	 *
+	 * \return true If the type is one of possible unary post operators, false if it isn't
+	 */
+	inline bool isUnaryPost()
+	{
+		return val == XINC || val == XDEC;
+	}
+
+	/**
 	 * \brief Check if the token is an assignment operator
 	 *
 	 * \return true If the type is one of possible assignment operators, false if it isn't
@@ -232,6 +253,21 @@ struct Tok
 	{
 		return TokStrs[val];
 	}
+
+	/**
+	 * \brief Get string (identifier) representation of an operator
+	 *
+	 * \return const char * of the operator
+	 */
+	const char *getOperCStr();
+
+	/**
+	 * \brief Get the non character containing representation of the unary operator
+	 *        For example: instead of '++x' or 'x++, '++' will be returned
+	 *
+	 * \return true If the type is one of possible unary post operators, false if it isn't
+	 */
+	const char *getUnaryNoCharCStr();
 
 	inline bool operator==(Tok &other)
 	{

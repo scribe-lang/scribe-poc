@@ -44,6 +44,13 @@ std::vector<std::string> IntegralTypes()
 	return basenums;
 }
 
+std::vector<std::string> PrimitiveTypes()
+{
+	static std::vector<std::string> basenums = {"i8",  "i16", "i32", "i64", "u8",
+						    "u16", "u32", "u64", "f32", "f64"};
+	return basenums;
+}
+
 Type::Type(const Types &type, Stmt *parent, const size_t &ptr, const size_t &info)
 	: id(gen_id()), type(type), parent(parent), ptr(ptr), info(info)
 {}
@@ -106,6 +113,16 @@ bool Type::booleanCompatible()
 bool Type::integerCompatible()
 {
 	for(auto &it : IntegralTypes()) {
+		if(id == name_id_map[it]) {
+			return true;
+		}
+	}
+	err::reset();
+	return false;
+}
+bool Type::primitiveCompatible()
+{
+	for(auto &it : PrimitiveTypes()) {
 		if(id == name_id_map[it]) {
 			return true;
 		}

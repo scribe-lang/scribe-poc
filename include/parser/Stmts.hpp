@@ -21,9 +21,10 @@ namespace sc
 namespace parser
 {
 struct TypeMgr;
-struct Type;
 struct TypeFunc;
 struct TypeStruct;
+struct TypeSimple;
+struct Type;
 class Module;
 
 struct Value;
@@ -76,11 +77,18 @@ struct Stmt
 	Stmt *parent;
 
 	// these members are not assigned on stmt creation
+	// Stmts with is_specialized are not explicitly typeAssigned in a block
+	// their type assignment is done in InitTemplateFn
 	bool is_specialized; // to prevent cycles (fn -> type_fn -> fn ...)
 	bool is_comptime;
+	// 0 => not specialized
+	size_t specialized_id;
 
 	Type *type;
 	Value *value;
+
+	// if a Stmt is type casted, this defines which type it is cast from
+	Type *cast_from;
 
 	Stmt(const Stmts &stmt_type, Module *mod, const size_t &line, const size_t &col);
 	virtual ~Stmt();
@@ -102,6 +110,13 @@ struct Stmt
 	bool isSpecialized();
 	void setComptime(const bool &comptime);
 	bool isComptime();
+	void setSpecializedID(const size_t &id);
+	const size_t &getSpecializedID();
+
+	// calls to->copy() as well
+	void cast(Type *to);
+	bool isCast();
+	Type *getCastFrom();
 
 	// if value is set, updates it (and all references of it),
 	// else, sets the value

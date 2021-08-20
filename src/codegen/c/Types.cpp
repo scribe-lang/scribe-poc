@@ -18,20 +18,21 @@ namespace sc
 {
 namespace codegen
 {
-static std::string ApplyTypeInfo(parser::Stmt *&stmt, parser::Type *type, std::string &t)
+static std::string ApplyTypeInfo(parser::Stmt *&stmt, parser::Type *type, const std::string &t)
 {
 	if(!type || t.empty()) return "";
 	size_t ptrcount = type->ptr;
 	std::string pre;
+	std::string typestr;
 	if(type->info & parser::STATIC) pre += "static ";
 	if(type->info & parser::CONST) pre = "const ";
 	if(type->info & parser::VOLATILE) pre += "volatile ";
-	t = pre + t;
+	typestr = pre + t;
 	if(type->info & parser::REF) ++ptrcount;
 	for(size_t i = 0; i < ptrcount; ++i) {
-		t += '*';
+		typestr += '*';
 	}
-	return t;
+	return typestr;
 }
 
 std::string GetCType(parser::Stmt *stmt, parser::Type *type)

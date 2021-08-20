@@ -11,25 +11,52 @@
 
 #include "codegen/c/Values.hpp"
 
+#include <cassert>
+
 #include "Error.hpp"
 
 namespace sc
 {
 namespace codegen
 {
-std::string GetCValue(parser::Stmt *stmt, parser::Value *value)
+static bool TypeIsLiteralStr(parser::Type *ty)
+{
+	if(ty->type != parser::TSIMPLE) return false;
+	if(ty->ptr != 1) return false;
+	if(parser::as<parser::TypeSimple>(ty)->name != "i8") return false;
+	return true;
+}
+static bool TypeIsLiteralChar(parser::Type *ty)
+{
+	if(ty->type != parser::TSIMPLE) return false;
+	if(ty->ptr != 0) return false;
+	if(parser::as<parser::TypeSimple>(ty)->name != "i8") return false;
+	return true;
+}
+std::string GetCValue(parser::Stmt *stmt, parser::Value *value, parser::Type *type)
 {
 	switch(value->type) {
 	case parser::VUNKNOWN: // fallthrough
 	case parser::VVOID: return "";
-	case parser::VINT: return std::to_string(value->i);
+	case parser::VINT: {
+		if(TypeIsLiteralChar(type)) {
+			return "'" + std::string(1, value->i) + "'";
+		}
+		return std::to_string(value->i);
+	}
 	case parser::VFLT: return std::to_string(value->f);
 	case parser::VVEC: {
-		std::string res;
-		res = "{";
-		for(auto &e : value->v) {
-			res += GetCValue(stmt, e) + ", ";
+		if(TypeIsLiteralStr(type)) {
+			return "\"" + parser::getStringFromVec(value) + "\"";
 		}
+		std::string res;
+		res		    = "{";
+		parser::Type *etype = type->copy();
+		--etype->ptr;
+		for(auto &e : value->v) {
+			res += GetCValue(stmt, e, etype) + ", ";
+		}
+		delete etype;
 		if(value->v.size() > 0) {
 			res.pop_back();
 			res.pop_back();
@@ -39,9 +66,11 @@ std::string GetCValue(parser::Stmt *stmt, parser::Value *value)
 	}
 	case parser::VSTRUCT: {
 		std::string res;
+		parser::TypeStruct *st = parser::as<parser::TypeStruct>(type);
+
 		res = "{";
 		for(auto &f : value->storder) {
-			res += GetCValue(stmt, value->st[f]) + ", ";
+			res += GetCValue(stmt, value->st[f], st->get_field(f)) + ", ";
 		}
 		if(value->st.size() > 0) {
 			res.pop_back();

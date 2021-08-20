@@ -34,29 +34,29 @@ public:
 	// dump C code to file and compile
 	bool genObjFile(const std::string &dest);
 
-	bool visit(parser::Stmt *stmt, Writer &writer);
+	bool visit(parser::Stmt *stmt, Writer &writer, const bool &semicolon);
 
-	bool visit(parser::StmtBlock *stmt, Writer &writer);
-	bool visit(parser::StmtType *stmt, Writer &writer);
-	bool visit(parser::StmtSimple *stmt, Writer &writer);
-	bool visit(parser::StmtFnCallInfo *stmt, Writer &writer);
-	bool visit(parser::StmtExpr *stmt, Writer &writer);
-	bool visit(parser::StmtVar *stmt, Writer &writer);
-	bool visit(parser::StmtFnSig *stmt, Writer &writer);
-	bool visit(parser::StmtFnDef *stmt, Writer &writer);
-	bool visit(parser::StmtHeader *stmt, Writer &writer);
-	bool visit(parser::StmtLib *stmt, Writer &writer);
-	bool visit(parser::StmtExtern *stmt, Writer &writer);
-	bool visit(parser::StmtEnum *stmt, Writer &writer);
-	bool visit(parser::StmtStruct *stmt, Writer &writer);
-	bool visit(parser::StmtVarDecl *stmt, Writer &writer);
-	bool visit(parser::StmtCond *stmt, Writer &writer);
-	bool visit(parser::StmtForIn *stmt, Writer &writer);
-	bool visit(parser::StmtFor *stmt, Writer &writer);
-	bool visit(parser::StmtWhile *stmt, Writer &writer);
-	bool visit(parser::StmtRet *stmt, Writer &writer);
-	bool visit(parser::StmtContinue *stmt, Writer &writer);
-	bool visit(parser::StmtBreak *stmt, Writer &writer);
+	bool visit(parser::StmtBlock *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtType *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtSimple *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtFnCallInfo *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtExpr *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtFnSig *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtFnDef *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtHeader *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtLib *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtExtern *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtEnum *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtStruct *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtVarDecl *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtCond *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtForIn *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtFor *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtWhile *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtRet *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtContinue *stmt, Writer &writer, const bool &semicolon);
+	bool visit(parser::StmtBreak *stmt, Writer &writer, const bool &semicolon);
 };
 } // namespace codegen
 } // namespace sc

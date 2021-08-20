@@ -151,6 +151,76 @@ std::string view_backslash(const std::string &data);
 
 Tok::Tok(const int &tok) : val((TokType)tok) {}
 
+const char *Tok::getUnaryNoCharCStr()
+{
+	switch(val) {
+	case XINC:
+	case INCX: return "++";
+	case XDEC:
+	case DECX: return "--";
+	case UADD: return "+";
+	case USUB: return "-";
+	case UAND: return "&";
+	case UMUL: return "*";
+	default: break;
+	}
+	return "";
+}
+
+const char *Tok::getOperCStr()
+{
+	switch(val) {
+	case ASSN: return "__assn__";
+	// Arithmetic
+	case ADD: return "__add__";
+	case SUB: return "__sub__";
+	case MUL: return "__mul__";
+	case DIV: return "__div__";
+	case MOD: return "__mod__";
+	case ADD_ASSN: return "__add_assn__";
+	case SUB_ASSN: return "__sub_assn__";
+	case MUL_ASSN: return "__mul_assn__";
+	case DIV_ASSN: return "__div_assn__";
+	case MOD_ASSN: return "__mod_assn__";
+	// Post/Pre Inc/Dec
+	case XINC: return "__xinc__";
+	case INCX: return "__incx__";
+	case XDEC: return "__xdec__";
+	case DECX: return "__decx__";
+	// Unary
+	case UADD: return "__uadd__";
+	case USUB: return "__usub__";
+	// Logic
+	case LAND: return "__logand__";
+	case LOR: return "__logor__";
+	case LNOT: return "__lognot__";
+	// Comparison
+	case EQ: return "__eq__";
+	case LT: return "__lt__";
+	case GT: return "__gt__";
+	case LE: return "__le__";
+	case GE: return "__ge__";
+	case NE: return "__ne__";
+	// Bitwise
+	case BAND: return "__bitand__";
+	case BOR: return "__bitor__";
+	case BNOT: return "__bitnot__";
+	case BXOR: return "__bitxor__";
+	case BAND_ASSN: return "__bitand_assn__";
+	case BOR_ASSN: return "__bitor_assn__";
+	case BNOT_ASSN: return "__bitnot_assn__";
+	case BXOR_ASSN: return "__bitxor_assn__";
+	// Others
+	case LSHIFT: return "__leftshift__";
+	case RSHIFT: return "__rightshift__";
+	case LSHIFT_ASSN: return "__leftshift_assn__";
+	case RSHIFT_ASSN: return "__rightshift_assn__";
+	case SUBS: return "__subscript__";
+	default: break;
+	}
+	return "";
+}
+
 bool Data::cmp(Data &other, TokType type)
 {
 	switch(type) {

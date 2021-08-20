@@ -75,6 +75,7 @@ struct Type
 
 	bool booleanCompatible();
 	bool integerCompatible();
+	bool primitiveCompatible();
 
 	std::string str_base();
 	virtual std::string str() = 0;

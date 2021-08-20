@@ -32,9 +32,8 @@ let decide_ret_type = fn(lhs, rhs) {
 let arith = fn() {
 	let f = fs.fopen('src/parser/PrimitiveFuncs/Arithmetic.def', 'w+');
 
-	let template_base1 = `t1 = static_cast<TypeSimple *>(types.get("{t1}"));\n`;
-	let template_base2 = `t2 = static_cast<TypeSimple *>(types.get("{t2}"));`;
-	let template_core = `fn = func(types, \\{t1->copy(CONST | REF), t2->copy(CONST | REF)}, types.get("{rest}")->copy()); fn->setIntrinsicFunc(intrinsic_{opname}_{t1}_{t2}, IVALUE); types.addFunc("{op}", fn, true);`;
+	let template_base1 = `t1 = static_cast<TypeSimple *>(types.get("{t1}"));`;
+	let template_core = `fn = func(types, \\{t1->copy(CONST | REF), t1->copy(CONST | REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_{opname}_{t1}_{t1}, IVALUE); types.addFunc("{op}", fn, true);`;
 	let binop = vec.new(.add, .sub, .mul, .div, .mod, .band, .bor, .bxor, .lshift, .rshift);
 	let binoper = vec.new('+', '-', '*', '/', '%', '&', '|', '^', '<<', '>>');
 
@@ -44,34 +43,26 @@ let arith = fn() {
 		if t1 == 'i1' { continue; }
 		let base1 = fmt.template(template_base1);
 		io.fprintln(f, base1);
-		for t2 in types.each() {
-			if t2 == 'i1' { continue; }
-			let base2 = fmt.template(template_base2);
-			io.fprintln(f, base2);
-			for let i = 0; i < binop.len(); ++i {
-				if t1 == 'i1' || t2 == 'i1' { continue; }
-				let opname = binop[i];
-				let op = binoper[i];
-				let rest = decide_ret_type(t1, t2);
-				if t1.front() == 'f' || t2.front() == 'f' {
-					if op == '%' || op == '&' || op == '|' || op == '^' || op == '<<' || op == '>>' {
-						continue;
-					}
+		for let i = 0; i < binop.len(); ++i {
+			let opname = binop[i];
+			let op = binoper[i];
+			if t1.front() == 'f' {
+				if op == '%' || op == '&' || op == '|' || op == '^' || op == '<<' || op == '>>' {
+					continue;
 				}
-				let res = fmt.template(template_core);
-				io.fprintln(f, res);
 			}
-			io.fprintln(f);
+			let res = fmt.template(template_core);
+			io.fprintln(f, res);
 		}
+		io.fprintln(f);
 	}
 };
 
 let arithassn = fn() {
 	let f = fs.fopen('src/parser/PrimitiveFuncs/ArithmeticAssn.def', 'w+');
 
-	let template_base1 = `t1 = static_cast<TypeSimple *>(types.get("{t1}"));\n`;
-	let template_base2 = `t2 = static_cast<TypeSimple *>(types.get("{t2}"));`;
-	let template_core = `fn = func(types, \\{t1->copy(REF), t2->copy(CONST | REF)}, types.get("{rest}")->copy()); fn->setIntrinsicFunc(intrinsic_{opname}_{t1}_{t2}, IVALUE); types.addFunc("{op}", fn, true);`;
+	let template_base1 = `t1 = static_cast<TypeSimple *>(types.get("{t1}"));`;
+	let template_core = `fn = func(types, \\{t1->copy(REF), t1->copy(CONST | REF)}, t1->copy()); fn->setIntrinsicFunc(intrinsic_{opname}_{t1}_{t1}, IVALUE); types.addFunc("{op}", fn, true);`;
 	let binop = vec.new(.assn, .addassn, .subassn, .mulassn, .divassn, .modassn, .bandassn, .borassn, .bxorassn, .lshiftassn, .rshiftassn);
 	let binoper = vec.new('=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=');
 
@@ -81,24 +72,18 @@ let arithassn = fn() {
 		if t1 == 'i1' { continue; }
 		let base1 = fmt.template(template_base1);
 		io.fprintln(f, base1);
-		for t2 in types.each() {
-			if t2 == 'i1' { continue; }
-			let base2 = fmt.template(template_base2);
-			io.fprintln(f, base2);
-			for let i = 0; i < binop.len(); ++i {
-				let opname = binop[i];
-				let op = binoper[i];
-				let rest = decide_ret_type(t1, t2);
-				if t1.front() == 'f' || t2.front() == 'f' {
-					if op == '%=' || op == '&=' || op == '|=' || op == '^=' || op == '<<=' || op == '>>=' {
-						continue;
-					}
+		for let i = 0; i < binop.len(); ++i {
+			let opname = binop[i];
+			let op = binoper[i];
+			if t1.front() == 'f' {
+				if op == '%=' || op == '&=' || op == '|=' || op == '^=' || op == '<<=' || op == '>>=' {
+					continue;
 				}
-				let res = fmt.template(template_core);
-				io.fprintln(f, res);
 			}
-			io.fprintln(f);
+			let res = fmt.template(template_core);
+			io.fprintln(f, res);
 		}
+		io.fprintln(f);
 	}
 };
 
@@ -106,9 +91,8 @@ let logic = fn() {
 	let f = fs.fopen('src/parser/PrimitiveFuncs/Logical.def', 'w+');
 
 	let template_base0 = `t0 = static_cast<TypeSimple *>(types.get("i1"));\n`;
-	let template_base1 = `t1 = static_cast<TypeSimple *>(types.get("{t1}"));\n`;
-	let template_base2 = `t2 = static_cast<TypeSimple *>(types.get("{t2}"));`;
-	let template_core = `fn = func(types, \\{t1->copy(CONST | REF), t2->copy(CONST | REF)}, t0->copy()); fn->setIntrinsicFunc(intrinsic_{opname}_{t1}_{t2}, IVALUE); types.addFunc("{op}", fn, true);`;
+	let template_base1 = `t1 = static_cast<TypeSimple *>(types.get("{t1}"));`;
+	let template_core = `fn = func(types, \\{t1->copy(CONST | REF), t1->copy(CONST | REF)}, t0->copy()); fn->setIntrinsicFunc(intrinsic_{opname}_{t1}_{t1}, IVALUE); types.addFunc("{op}", fn, true);`;
 	let binop = vec.new(.logand, .logor, .eq, .lt, .gt, .le, .ge, .ne);
 	let binoper = vec.new('&&', '||', '==', '<', '>', '<=', '>=', '!=');
 
@@ -119,17 +103,13 @@ let logic = fn() {
 	for t1 in types.each() {
 		let base1 = fmt.template(template_base1);
 		io.fprintln(f, base1);
-		for t2 in types.each() {
-			let base2 = fmt.template(template_base2);
-			io.fprintln(f, base2);
-			for let i = 0; i < binop.len(); ++i {
-				let opname = binop[i];
-				let op = binoper[i];
-				let res = fmt.template(template_core);
-				io.fprintln(f, res);
-			}
-			io.fprintln(f);
+		for let i = 0; i < binop.len(); ++i {
+			let opname = binop[i];
+			let op = binoper[i];
+			let res = fmt.template(template_core);
+			io.fprintln(f, res);
 		}
+		io.fprintln(f);
 	}
 };
 

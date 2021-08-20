@@ -34,99 +34,11 @@ static inline std::string GetMangledName(Stmt *stmt, const lex::Lexeme &name)
 	return GetMangledName(stmt->mod->getID(), name);
 }
 
-// TODO: replace all variadic weird type assignment code with comptime ValueAssign based
-// logic once that is built
 static bool InitTemplateFn(TypeMgr &types, Stmt *caller, Type *&calledfn,
 			   std::unordered_map<std::string, Type *> &calltemplates,
-			   const bool &has_va, const size_t &line, const size_t &col)
-{
-	if(calltemplates.empty() && !has_va) return true;
-	// TODO: handle has_va
-	assert(calledfn && "LHS has no type assigned!");
-	// if this function has no definition (template intrinsic, extern, for example)
-	// do nothing
-	if(!calledfn->parent) return true;
-	Stmt *templfnparent = calledfn->parent->getParentWithType(BLOCK);
-	TypeFunc *origsig   = as<TypeFunc>(calledfn);
-	if(!templfnparent) {
-		err::set(line, col, "function definition for specialization is not in a block!");
-		return false;
-	}
-	Stmt *fndefvar = calledfn->parent->getParentWithType(VAR);
-	if(!fndefvar) {
-		err::set(line, col, "could not find function definition's variable declaration!");
-		return false;
-	}
-	fndefvar     = fndefvar->copy();
-	StmtVar *var = as<StmtVar>(fndefvar);
-	var->setParent(templfnparent);
-	assert(var->val && var->val->stmt_type == FNDEF && var->val &&
-	       "expected function definition as variable value for template initialization");
-	StmtFnDef *fn = as<StmtFnDef>(var->val);
-	if(!fn->blk) {
-		delete fndefvar;
-		return false;
-	}
-	if(caller->mod->getPath() == fn->mod->getPath()) {
-		types.lockScopesBefore(origsig->scope);
-	} else {
-		err::pushModule(fn->mod);
-	}
-	types.pushLayer();
-	types.pushFunc(origsig);
-	// for each types add signature variables
-	for(size_t i = 0; i < fn->sig->templates.size(); ++i) {
-		const std::string &t = fn->sig->templates[i].data.s;
-		if(calltemplates.find("@" + std::to_string(i)) == calltemplates.end()) {
-			err::set(line, col, "template type '%s' not found", t.c_str());
-			delete fndefvar;
-			return false;
-		}
-		types.add(t, calltemplates.at("@" + std::to_string(i)));
-	}
-	calltemplates.clear();
-	fn->sig->templates.clear();
-	fn->sig->has_variadic = false;
-	if(origsig->args.size() > 0 && origsig->args.back()->type == TVARIADIC) {
-		std::string tname	     = fn->sig->args.back()->vtype->getname();
-		origsig->args.back()->parent = fn->sig->args.back();
-		types.addCopy(tname, origsig->args.back());
-	}
-	for(size_t i = 0; i < fn->sig->args.size(); ++i) {
-		types.addCopy(fn->sig->args[i]->name.data.s, origsig->args[i]);
-	}
-	// sig and blk must be separately assigned as variables added above will be shadowed
-	// by new layer created in fn->assignType()
-	if(!fn->sig->assignType(types)) {
-		delete fndefvar;
-		return false;
-	}
-	if(!fn->blk->assignType(types)) {
-		err::set(line, col, "failed to specialize template function definition: %s",
-			 calledfn->str().c_str());
-		delete fndefvar;
-		return false;
-	}
-	fn->sig->has_variadic = has_va;
-	fn->type	      = fn->sig->type->copy();
-	types.popFunc();
-	types.popLayer();
-	if(caller->mod->getPath() == fn->mod->getPath()) {
-		types.unlockScope();
-	} else {
-		err::popModule();
-	}
-	var->setSpecialized(true);
-
-	// lhs must point to correct type
-	delete calledfn;
-	calledfn	 = fn->type->copy();
-	calledfn->parent = var;
-
-	StmtBlock *tfnparent = as<StmtBlock>(templfnparent);
-	tfnparent->stmts.push_back(var);
-	return true;
-}
+			   const bool &has_va, const size_t &line, const size_t &col);
+static void ApplyTypeCoercion(StmtExpr *expr);
+static bool ChooseSuperiorPrimitiveType(TypeSimple *l, TypeSimple *r);
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////// StmtBlock ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -220,9 +132,9 @@ bool StmtSimple::assignType(TypeMgr &types)
 	case lex::NIL: type = types.getCopy("i1", this); break;
 	case lex::INT: type = types.getCopy("i32", this); break;
 	case lex::FLT: type = types.getCopy("f32", this); break;
-	case lex::CHAR: type = types.getCopy("u8", this); break;
+	case lex::CHAR: type = types.getCopy("i8", this); break;
 	case lex::STR:
-		type = types.getCopy("u8", this);
+		type = types.getCopy("i8", this);
 		type->info |= CONST;
 		type->ptr = 1;
 		break;
@@ -473,6 +385,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 				return false;
 			}
 			type = va->args[rhs->value->i]->copy();
+			// TODO: clean up the expression?
 			break;
 		} else if(lhs->type->ptr > 0) {
 			if(!rhs->type->integerCompatible()) {
@@ -490,7 +403,6 @@ bool StmtExpr::assignType(TypeMgr &types)
 			return false;
 		}
 		goto applyoperfn;
-		// fallthrough
 	}
 	// address of
 	case lex::UAND: {
@@ -560,6 +472,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 	case lex::LSHIFT_ASSN:
 	case lex::RSHIFT_ASSN: {
 	applyoperfn:
+		ApplyTypeCoercion(this); // basically, type promotion for primitives
 		if(lhs->type->type != TSIMPLE && lhs->type->type != TSTRUCT) {
 			err::set(line, col,
 				 "operators are only usable on primitive types or structs");
@@ -1022,6 +935,9 @@ bool StmtFor::assignType(TypeMgr &types)
 			}
 		}
 		for(auto &s : blk->stmts) delete s;
+		init->parent = blk;
+		newstmts.insert(newstmts.begin(), init);
+		init	   = nullptr;
 		blk->stmts = newstmts;
 		types.popLayer();
 		clearValue();
@@ -1103,6 +1019,149 @@ bool StmtContinue::assignType(TypeMgr &types)
 bool StmtBreak::assignType(TypeMgr &types)
 {
 	return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////// Extra Funcs ///////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+static bool InitTemplateFn(TypeMgr &types, Stmt *caller, Type *&calledfn,
+			   std::unordered_map<std::string, Type *> &calltemplates,
+			   const bool &has_va, const size_t &line, const size_t &col)
+{
+	if(calltemplates.empty() && !has_va) return true;
+	assert(calledfn && "LHS has no type assigned!");
+	// if this function has no definition (template intrinsic, extern, for example)
+	// do nothing
+	if(!calledfn->parent) return true;
+	Stmt *templfnparent = calledfn->parent->getParentWithType(BLOCK);
+	TypeFunc *origsig   = as<TypeFunc>(calledfn);
+	if(!templfnparent) {
+		err::set(line, col, "function definition for specialization is not in a block!");
+		return false;
+	}
+	Stmt *fndefvar = calledfn->parent->getParentWithType(VAR);
+	if(!fndefvar) {
+		err::set(line, col, "could not find function definition's variable declaration!");
+		return false;
+	}
+
+	// this id is used to put the correct specializations at template locations (in cleanup)
+	static size_t specialized_id = 1;
+	if(!fndefvar->getSpecializedID()) {
+		fndefvar->setSpecializedID(specialized_id++);
+	}
+
+	fndefvar     = fndefvar->copy();
+	StmtVar *var = as<StmtVar>(fndefvar);
+	var->setParent(templfnparent);
+	assert(var->val && var->val->stmt_type == FNDEF && var->val &&
+	       "expected function definition as variable value for template initialization");
+	StmtFnDef *fn = as<StmtFnDef>(var->val);
+	if(!fn->blk) {
+		delete fndefvar;
+		return false;
+	}
+	if(caller->mod->getPath() == fn->mod->getPath()) {
+		types.lockScopesBefore(origsig->scope);
+	} else {
+		err::pushModule(fn->mod);
+	}
+	types.pushLayer();
+	types.pushFunc(origsig);
+	// for each types add signature variables
+	for(size_t i = 0; i < fn->sig->templates.size(); ++i) {
+		const std::string &t = fn->sig->templates[i].data.s;
+		if(calltemplates.find("@" + std::to_string(i)) == calltemplates.end()) {
+			err::set(line, col, "template type '%s' not found", t.c_str());
+			delete fndefvar;
+			return false;
+		}
+		types.add(t, calltemplates.at("@" + std::to_string(i)));
+	}
+	calltemplates.clear();
+	fn->sig->templates.clear();
+	fn->sig->has_variadic = false;
+	if(origsig->args.size() > 0 && origsig->args.back()->type == TVARIADIC) {
+		std::string tname	     = fn->sig->args.back()->vtype->getname();
+		origsig->args.back()->parent = fn->sig->args.back();
+		types.addCopy(tname, origsig->args.back());
+	}
+	for(size_t i = 0; i < fn->sig->args.size(); ++i) {
+		types.addCopy(fn->sig->args[i]->name.data.s, origsig->args[i]);
+	}
+	// sig and blk must be separately assigned as variables added above will be shadowed
+	// by new layer created in fn->assignType()
+	if(!fn->sig->assignType(types)) {
+		delete fndefvar;
+		return false;
+	}
+	if(!fn->blk->assignType(types)) {
+		err::set(line, col, "failed to specialize template function definition: %s",
+			 calledfn->str().c_str());
+		delete fndefvar;
+		return false;
+	}
+	fn->sig->has_variadic = has_va;
+	fn->type	      = fn->sig->type->copy();
+	types.popFunc();
+	types.popLayer();
+	if(caller->mod->getPath() == fn->mod->getPath()) {
+		types.unlockScope();
+	} else {
+		err::popModule();
+	}
+	var->setSpecialized(true);
+
+	// lhs must point to correct type
+	delete calledfn;
+	calledfn	 = fn->type->copy();
+	calledfn->parent = var;
+
+	StmtBlock *tfnparent = as<StmtBlock>(templfnparent);
+	tfnparent->stmts.push_back(var);
+	return true;
+}
+static void ApplyTypeCoercion(StmtExpr *expr)
+{
+	if(!expr->lhs || !expr->rhs) return;
+	if(expr->lhs->type->ptr > 0 || expr->rhs->type->ptr > 0) return;
+	// the following check is also an assurance of lhs and rhs being TypeSimple
+	if(!expr->lhs->type->primitiveCompatible() || !expr->rhs->type->primitiveCompatible())
+		return;
+
+	if(expr->oper.tok.val == lex::SUBS) return;
+
+	StmtSimple *ls = as<StmtSimple>(expr->lhs);
+	StmtSimple *rs = as<StmtSimple>(expr->rhs);
+
+	TypeSimple *l = as<TypeSimple>(ls->type);
+	TypeSimple *r = as<TypeSimple>(rs->type);
+
+	if(l->id == r->id) return;
+
+	if(expr->oper.tok.isAssign()) {
+		rs->cast(l);
+		return;
+	}
+	// 0 => lhs
+	// 1 => rhs
+	bool superior = ChooseSuperiorPrimitiveType(l, r);
+	if(superior) {
+		rs->cast(l);
+	} else {
+		ls->cast(r);
+	}
+	return;
+}
+
+static bool ChooseSuperiorPrimitiveType(TypeSimple *l, TypeSimple *r)
+{
+	static std::unordered_map<std::string, size_t> typeprec = {
+	{"i1", 1},  {"i8", 2},	{"u8", 3},  {"i16", 4},	 {"u16", 5}, {"i32", 6},
+	{"u32", 7}, {"i64", 8}, {"u64", 9}, {"f32", 10}, {"f64", 11}};
+
+	return typeprec[l->name] > typeprec[r->name];
 }
 } // namespace parser
 } // namespace sc

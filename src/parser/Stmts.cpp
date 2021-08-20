@@ -27,11 +27,13 @@ namespace parser
 
 Stmt::Stmt(const Stmts &stmt_type, Module *mod, const size_t &line, const size_t &col)
 	: stmt_type(stmt_type), parent(nullptr), mod(mod), line(line), col(col),
-	  is_specialized(false), is_comptime(false), type(nullptr), value(nullptr)
+	  is_specialized(false), is_comptime(false), specialized_id(0), type(nullptr),
+	  value(nullptr), cast_from(nullptr)
 {}
 Stmt::~Stmt()
 {
 	if(type) delete type;
+	if(cast_from) delete cast_from;
 }
 
 Stmt *Stmt::copy()
@@ -73,6 +75,27 @@ bool Stmt::isComptime()
 {
 	return is_comptime;
 }
+void Stmt::setSpecializedID(const size_t &id)
+{
+	specialized_id = id;
+}
+const size_t &Stmt::getSpecializedID()
+{
+	return specialized_id;
+}
+void Stmt::cast(Type *to)
+{
+	cast_from = type;
+	type	  = to->copy();
+}
+bool Stmt::isCast()
+{
+	return cast_from;
+}
+Type *Stmt::getCastFrom()
+{
+	return cast_from;
+}
 void Stmt::updateValue(ValueMgr &values, Value *newvalue)
 {
 	if(!value) {
@@ -84,7 +107,8 @@ void Stmt::updateValue(ValueMgr &values, Value *newvalue)
 std::string Stmt::typeString()
 {
 	std::string res;
-	if(type) res += " :: " + type->str();
+	if(cast_from) res += " :: " + cast_from->str();
+	if(type) res += (!cast_from ? " :: " : " => ") + type->str();
 	if(value) res += " -> " + value->stringify();
 	return res;
 }
@@ -418,8 +442,9 @@ StmtFnSig::~StmtFnSig()
 void StmtFnSig::disp(const bool &has_next)
 {
 	tio::taba(has_next);
-	tio::print(has_next, "Function signature [variadic = %s; member = %s]%s\n",
-		   has_variadic ? "yes" : "no", is_member ? "yes" : "no", typeString().c_str());
+	tio::print(has_next, "Function signature [variadic = %s; member = %s; templates = %zu]%s\n",
+		   has_variadic ? "yes" : "no", is_member ? "yes" : "no", templates.size(),
+		   typeString().c_str());
 	if(!templates.empty()) {
 		tio::taba(args.size() > 0 || rettype);
 		tio::print(args.size() > 0 || rettype, "Templates:\n");

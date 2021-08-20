@@ -154,7 +154,11 @@ Module *RAIIParser::addModule(const std::string &path)
 	modulestack.push_back(path);
 	err::pushModule(mod);
 
-	if(!mod->tokenize() || !mod->parseTokens() || !mod->assignType(types)) return nullptr;
+	if(!mod->tokenize() || !mod->parseTokens() || !mod->assignType(types)) {
+		err::popModule();
+		modulestack.pop_back();
+		return nullptr;
+	}
 	mod->rearrangeParseTree();
 
 	err::popModule();

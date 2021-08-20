@@ -88,6 +88,10 @@ void Writer::writeBefore(const std::string &data)
 {
 	dest = data + dest;
 }
+void Writer::insertAfter(const size_t &pos, const std::string &data)
+{
+	dest.insert(pos, data);
+}
 
 void Writer::clear()
 {
