@@ -1,4 +1,3 @@
-let putstr = extern[puts, "<stdio.h>"] fn(data: i32);
 // let Range = struct {
 // 	current: i32;
 // 	start: i32;
@@ -45,10 +44,10 @@ let putstr = extern[puts, "<stdio.h>"] fn(data: i32);
 // let comptime x = fmt("hi");
 // let comptime y = fmt("hi");
 
+let fn2 = fn<U>(vax: ...U): i32 {
+	return vax[0] + vax[1];
+};
 let vafn = fn<T>(va: ...T): i32 {
-	let fn2 = fn<U>(vax: ...U): i32 {
-		return vax[0] + vax[1];
-	};
 	let comptime valen = @va_len();
 	let sum = 0;
 	inline if valen < 1 {

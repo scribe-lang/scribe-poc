@@ -32,7 +32,7 @@ static inline std::string GetMangledName(const std::string &name, parser::Type *
 	return name;
 }
 
-CDriver::CDriver(parser::RAIIParser &parser) : Driver(parser)
+CDriver::CDriver(parser::RAIIParser &parser) : Driver(parser), headers(default_includes)
 {
 	mod.write(preface);
 }
@@ -54,10 +54,36 @@ bool CDriver::genIR()
 	}
 	return true;
 }
-void CDriver::dumpIR(const bool &force)
+bool CDriver::dumpIR(const bool &force)
 {
-	if(!args.has("ir") && !force) return;
-	printf("%s\n", mod.getData().c_str());
+	if(!args.has("ir") && !force) return true;
+
+	std::string file = args.get(1);
+	FILE *fp	 = nullptr;
+	if(!file.empty() && !args.has("nofile")) {
+		fp = fopen((file + ".c").c_str(), "w+");
+		if(!fp) {
+			fprintf(stderr, "failed to open file '%s' for dumping IR (C code)\n",
+				file.c_str());
+			return false;
+		}
+	} else {
+		fp = stdout;
+	}
+	for(auto &h : headers) {
+		fprintf(fp, "#include %s\n", h.c_str());
+	}
+	if(headers.size() > 0) fprintf(fp, "\n");
+	for(auto &m : macros) {
+		fprintf(fp, "%s\n", m.c_str());
+	}
+	if(macros.size() > 0) fprintf(fp, "\n");
+	fprintf(fp, "%s\n", mod.getData().c_str());
+
+	if(!file.empty()) {
+		fclose(fp);
+	}
+	return true;
 }
 bool CDriver::genObjFile(const std::string &dest)
 {
@@ -162,7 +188,7 @@ bool CDriver::visit(parser::StmtSimple *stmt, Writer &writer, const bool &semico
 	case lex::NIL:	 // fallthrough
 	case lex::INT: writer.write(stmt->val.data.i); return true;
 	case lex::FLT: writer.write((double)stmt->val.data.f); return true;
-	case lex::CHAR: writer.writeConstChar(stmt->val.data.i); return true;
+	case lex::CHAR: writer.writeConstChar(stmt->val.data.s[0]); return true;
 	case lex::STR: writer.writeConstString(stmt->val.data.s); return true;
 	default: break;
 	}
@@ -208,21 +234,54 @@ bool CDriver::visit(parser::StmtExpr *stmt, Writer &writer, const bool &semicolo
 		break;
 	}
 	case lex::FNCALL: {
-		bool is_struct = stmt->lhs->type->type == parser::TSTRUCT;
-		if(!is_struct) writer.append(l);
-		writer.write(is_struct ? "{" : "(");
-		auto &args = parser::as<parser::StmtFnCallInfo>(stmt->rhs)->args;
-		for(size_t i = 0; i < args.size(); ++i) {
-			auto &a = args[i];
-			Writer tmp(writer);
-			if(!visit(a, tmp, false)) {
-				err::set(a, "failed to generate C code for fncall arg");
-				return false;
+		bool is_func = stmt->lhs->type->type == parser::TFUNC;
+		if(is_func) {
+			writer.append(l);
+			parser::TypeFunc *tfn = parser::as<parser::TypeFunc>(stmt->lhs->type);
+			writer.write("(");
+			auto &args = parser::as<parser::StmtFnCallInfo>(stmt->rhs)->args;
+			for(size_t i = 0, j = 0; i < args.size() && j < tfn->args.size(); ++i, ++j)
+			{
+				auto &a	 = args[i];
+				auto &ta = tfn->args[j];
+				if(ta->type == parser::TVARIADIC) --j;
+				Writer tmp(writer);
+				if(!visit(a, tmp, false)) {
+					err::set(a, "failed to generate C code for fncall arg");
+					return false;
+				}
+				if(ta->info & parser::REF) {
+					writer.write("&(");
+					writer.append(tmp);
+					writer.write(")");
+				} else {
+					writer.append(tmp);
+				}
+				if(i < args.size() - 1) writer.write(", ");
 			}
-			writer.append(tmp);
-			if(i < args.size() - 1) writer.write(", ");
+			writer.write(")");
+		} else {
+			writer.write("{");
+			parser::TypeStruct *tst = parser::as<parser::TypeStruct>(stmt->lhs->type);
+			auto &args = parser::as<parser::StmtFnCallInfo>(stmt->rhs)->args;
+			for(size_t i = 0; i < args.size(); ++i) {
+				auto &a = args[i];
+				Writer tmp(writer);
+				if(!visit(a, tmp, false)) {
+					err::set(a, "failed to generate C code for fncall arg");
+					return false;
+				}
+				if(tst->fields[tst->field_order[i]]->info & parser::REF) {
+					writer.write("&(");
+					writer.append(tmp);
+					writer.write(")");
+				} else {
+					writer.append(tmp);
+				}
+				if(i < args.size() - 1) writer.write(", ");
+			}
+			writer.write("}");
 		}
-		writer.write(is_struct ? "}" : ")");
 		break;
 	}
 	case lex::UAND: {
@@ -265,10 +324,22 @@ bool CDriver::visit(parser::StmtExpr *stmt, Writer &writer, const bool &semicolo
 		std::string fnname = stmt->oper.tok.getOperCStr();
 		writer.write(fnname);
 		writer.write("(");
-		writer.append(l);
+		if(stmt->lhs->type->info & parser::REF) {
+			writer.write("&(");
+			writer.append(l);
+			writer.write(")");
+		} else {
+			writer.append(l);
+		}
 		if(stmt->rhs) {
 			writer.write(", ");
-			writer.append(r);
+			if(stmt->rhs->type->info & parser::REF) {
+				writer.write("&(");
+				writer.append(r);
+				writer.write(")");
+			} else {
+				writer.append(r);
+			}
 		}
 		writer.write(")");
 		break;
@@ -294,7 +365,30 @@ bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon
 		if(semicolon) writer.write(";");
 		return true;
 	}
+	if(stmt->val && stmt->val->stmt_type == parser::EXTERN) {
+		parser::StmtExtern *ext = parser::as<parser::StmtExtern>(stmt->val);
+		size_t args		= ext->sig->args.size();
+		std::string macro	= "#define " + varname + "(";
+		std::string argstr;
+		for(size_t i = 0; i < args; ++i) {
+			argstr += 'a' + i;
+			argstr += ", ";
+		}
+		if(args) {
+			argstr.pop_back();
+			argstr.pop_back();
+		}
+		macro += argstr + ") ";
+		macro += ext->fname.data.s + "(" + argstr + ")";
+		macros.push_back(macro);
+		visit(stmt->val, writer, false);
+		return true;
+	}
 	if(stmt->val && stmt->val->stmt_type == parser::FNDEF) {
+		if(stmt->getParentWithType(parser::FNDEF)) {
+			err::set(stmt, "C does not allow function inside a function");
+			return false;
+		}
 		Writer tmp(writer);
 		if(!visit(stmt->val, tmp, false)) {
 			err::set(stmt->name, "failed to generate IR for function def");
@@ -338,10 +432,17 @@ bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon
 	} else {
 		type = GetCType(stmt, stmt->type);
 	}
+	if(type.empty()) return false;
 	writer.write("%s %s", type.c_str(), varname.c_str());
 	if(!tmp.empty()) {
 		writer.write(" = ");
-		writer.append(tmp);
+		if(stmt->type->info & parser::REF) {
+			writer.write("&(");
+			writer.append(tmp);
+			writer.write(")");
+		} else {
+			writer.append(tmp);
+		}
 	}
 	if(semicolon) writer.write(";");
 	return true;
@@ -379,15 +480,31 @@ bool CDriver::visit(parser::StmtFnDef *stmt, Writer &writer, const bool &semicol
 }
 bool CDriver::visit(parser::StmtHeader *stmt, Writer &writer, const bool &semicolon)
 {
-	return false;
+	if(!stmt->names.data.s.empty()) {
+		std::vector<std::string> headersf = StringDelim(stmt->names.data.s, ",");
+		for(auto &h : headersf) {
+			if(is_one_of(headerflags, h)) continue;
+			headerflags.push_back(h);
+		}
+	}
+	if(!stmt->flags.data.s.empty()) {
+		headerflags.push_back(stmt->flags.data.s);
+	}
+	return true;
 }
 bool CDriver::visit(parser::StmtLib *stmt, Writer &writer, const bool &semicolon)
 {
-	return false;
+	if(!stmt->flags.data.s.empty()) {
+		libflags.push_back(stmt->flags.data.s);
+	}
+	return true;
 }
 bool CDriver::visit(parser::StmtExtern *stmt, Writer &writer, const bool &semicolon)
 {
-	return false;
+	if(stmt->headers) visit(stmt->headers, writer, false);
+	if(stmt->libs) visit(stmt->libs, writer, false);
+	// nothing to do of signature
+	return true;
 }
 bool CDriver::visit(parser::StmtEnum *stmt, Writer &writer, const bool &semicolon)
 {

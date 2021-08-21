@@ -31,6 +31,7 @@ int main(int argc, char **argv)
 	args.add("parse").set_short("p").set_long("parse").set_help("shows AST");
 	args.add("semantic").set_short("s").set_long("semantic").set_help("shows Semantic Tree");
 	args.add("ir").set_short("i").set_long("ir").set_help("shows codegen IR");
+	args.add("nofile").set_short("n").set_long("nofile").set_help("disables output to a file");
 
 	args.parse();
 

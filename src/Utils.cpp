@@ -14,4 +14,25 @@
 #include "Utils.hpp"
 
 namespace sc
-{} // namespace sc
+{
+std::vector<std::string> StringDelim(const std::string &str, const std::string &delim)
+{
+	std::vector<std::string> res;
+
+	size_t start = 0;
+	size_t end   = str.find(delim);
+	while(end != std::string::npos) {
+		res.push_back(str.substr(start, end - start));
+		start = end + delim.length();
+		end   = str.find(delim, start);
+	}
+	res.push_back(str.substr(start, end));
+
+	for(auto &s : res) {
+		while(!s.empty() && s.front() == ' ') s.erase(s.begin());
+		while(!s.empty() && s.back() == ' ') s.pop_back();
+	}
+
+	return res;
+}
+} // namespace sc

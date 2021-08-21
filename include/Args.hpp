@@ -90,7 +90,7 @@ public:
 	}
 	std::string val(const std::string &argname)
 	{
-		return opts[argname];
+		return has(argname) ? opts[argname] : "";
 	}
 	inline std::string get(const size_t &idx)
 	{

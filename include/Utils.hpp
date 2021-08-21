@@ -51,6 +51,9 @@ template<typename T> inline bool is_one_of(const std::vector<T> &vec, const T &e
 	}
 	return false;
 }
+
+// Also trims the spaces for each split
+std::vector<std::string> StringDelim(const std::string &str, const std::string &delim);
 } // namespace sc
 
 #endif // UTILS_HPP

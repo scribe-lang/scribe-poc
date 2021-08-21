@@ -50,6 +50,7 @@ public:
 	bool empty();
 
 	const std::string &getData();
+	const size_t &getIndent();
 };
 } // namespace codegen
 } // namespace sc

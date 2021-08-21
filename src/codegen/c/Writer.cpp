@@ -101,7 +101,6 @@ void Writer::reset(Writer &other)
 void Writer::clear()
 {
 	dest.clear();
-	indent = 0;
 }
 bool Writer::empty()
 {
@@ -111,6 +110,11 @@ bool Writer::empty()
 const std::string &Writer::getData()
 {
 	return dest;
+}
+
+const size_t &Writer::getIndent()
+{
+	return indent;
 }
 } // namespace codegen
 } // namespace sc

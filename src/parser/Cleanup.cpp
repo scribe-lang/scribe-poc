@@ -238,6 +238,7 @@ static void eraseTemplates(std::vector<Stmt *> &stmts)
 			++i;
 		}
 		delete base;
+		--i;
 		continue;
 	}
 }

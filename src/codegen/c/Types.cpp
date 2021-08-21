@@ -82,7 +82,7 @@ std::string GetCType(parser::Stmt *stmt, parser::Type *type)
 	default: break;
 	}
 	err::set(stmt, "invalid scribe type encountered '%s'", type->str().c_str());
-	return nullptr;
+	return "";
 }
 } // namespace codegen
 } // namespace sc

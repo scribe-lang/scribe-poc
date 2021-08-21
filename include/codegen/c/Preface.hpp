@@ -13,17 +13,16 @@
 #define CODEGEN_C_PREFACE_HPP
 
 #include <string>
+#include <vector>
 
 namespace sc
 {
 namespace codegen
 {
-static const char *preface = "#include <stdio.h>\n"
-			     "#include <inttypes.h>\n"
-			     "#include <stdlib.h>\n"
-			     "#include <stdbool.h>\n"
-			     "\n"
-			     "typedef bool i1;\n"
+static const std::vector<std::string> default_includes = {"<stdio.h>", "<inttypes.h>", "<stdlib.h>",
+							  "<stdbool.h>"};
+
+static const char *preface = "typedef bool i1;\n"
 			     "typedef char i8;\n"
 			     "typedef int16_t i16;\n"
 			     "typedef int32_t i32;\n"

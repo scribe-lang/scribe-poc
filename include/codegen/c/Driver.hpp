@@ -21,6 +21,10 @@ namespace codegen
 {
 class CDriver : public Driver
 {
+	std::vector<std::string> headerflags;
+	std::vector<std::string> libflags;
+	std::vector<std::string> headers;
+	std::vector<std::string> macros;
 	Writer mod;
 
 public:
@@ -29,8 +33,8 @@ public:
 
 	// generate C code
 	bool genIR();
-	// dump C code to output
-	void dumpIR(const bool &force);
+	// dump C code to output or optionally file
+	bool dumpIR(const bool &force);
 	// dump C code to file and compile
 	bool genObjFile(const std::string &dest);
 

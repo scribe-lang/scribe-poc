@@ -30,7 +30,7 @@ public:
 	Driver(parser::RAIIParser &parser);
 	virtual ~Driver();
 	virtual bool genIR()				 = 0;
-	virtual void dumpIR(const bool &force)		 = 0;
+	virtual bool dumpIR(const bool &force)		 = 0;
 	virtual bool genObjFile(const std::string &dest) = 0;
 };
 } // namespace codegen
