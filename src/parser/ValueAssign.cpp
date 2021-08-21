@@ -11,7 +11,6 @@
 	furnished to do so.
 */
 
-#include <cassert>
 #include <cinttypes>
 
 #include "Error.hpp"

@@ -93,6 +93,11 @@ void Writer::insertAfter(const size_t &pos, const std::string &data)
 	dest.insert(pos, data);
 }
 
+void Writer::reset(Writer &other)
+{
+	dest.clear();
+	indent = other.indent;
+}
 void Writer::clear()
 {
 	dest.clear();

@@ -13,8 +13,7 @@
 
 #include "parser/Cleanup.hpp"
 
-#include <cassert>
-
+#include "Error.hpp"
 #include "parser/Type.hpp"
 
 namespace sc
@@ -67,7 +66,12 @@ void cleanup(parser::StmtBlock *stmt, parser::Stmt **source)
 }
 void cleanup(parser::StmtType *stmt, parser::Stmt **source) {}
 void cleanup(parser::StmtSimple *stmt, parser::Stmt **source) {}
-void cleanup(parser::StmtFnCallInfo *stmt, parser::Stmt **source) {}
+void cleanup(parser::StmtFnCallInfo *stmt, parser::Stmt **source)
+{
+	for(size_t i = 0; i < stmt->args.size(); ++i) {
+		cleanup(stmt->args[i], &stmt->args[i]);
+	}
+}
 void cleanup(parser::StmtExpr *stmt, parser::Stmt **source)
 {
 	if(stmt->lhs) cleanup(stmt->lhs, &stmt->lhs);
@@ -85,9 +89,9 @@ void cleanup(parser::StmtExpr *stmt, parser::Stmt **source)
 		assert(stmt->lhs->stmt_type == SIMPLE &&
 		       "variadic LHS must be a simple for cleanup");
 		StmtSimple *ls = as<StmtSimple>(stmt->lhs);
-		ls->val.data.s += "__" + std::to_string(stmt->rhs->value->i);
+		ls->val.data.s += "__" + std::to_string(stmt->getVariadicIndex());
 		TypeVariadic *tv = as<TypeVariadic>(ls->type);
-		ls->type	 = tv->args[stmt->rhs->value->i]->copy();
+		ls->type	 = tv->args[stmt->getVariadicIndex()]->copy();
 		ls->parent	 = stmt->parent;
 		*source		 = stmt->lhs;
 		stmt->lhs	 = nullptr;

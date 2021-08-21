@@ -11,7 +11,6 @@
 	furnished to do so.
 */
 
-#include <cassert>
 #include <cinttypes>
 
 #include "Error.hpp"
@@ -374,8 +373,8 @@ bool StmtExpr::assignType(TypeMgr &types)
 					 va->args.size(), rhs->value->i);
 				return false;
 			}
+			setVariadicIndex(rhs->value->i);
 			type = va->args[rhs->value->i]->copy();
-			// TODO: clean up the expression?
 			break;
 		} else if(lhs->type->ptr > 0) {
 			if(!rhs->type->integerCompatible()) {
@@ -796,6 +795,7 @@ bool StmtCond::assignType(TypeMgr &types)
 			found = true;
 			++it;
 		}
+		setParent(parent);
 		return true;
 	}
 	for(auto &c : conds) {
@@ -918,6 +918,7 @@ bool StmtFor::assignType(TypeMgr &types)
 		blk->stmts = newstmts;
 		types.popLayer();
 		clearValue();
+		setParent(parent);
 		return true;
 	}
 	if(!blk->assignType(types)) {

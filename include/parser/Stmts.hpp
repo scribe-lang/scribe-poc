@@ -90,6 +90,10 @@ struct Stmt
 	// if a Stmt is type casted, this defines which type it is cast from
 	Type *cast_from;
 
+	// these must NEVER be erased (excluding copy)
+	// since the values are deleted by clearValue(), this will be an exception
+	size_t variadic_index;
+
 	Stmt(const Stmts &stmt_type, Module *mod, const size_t &line, const size_t &col);
 	virtual ~Stmt();
 
@@ -112,6 +116,8 @@ struct Stmt
 	bool isComptime();
 	void setSpecializedID(const size_t &id);
 	const size_t &getSpecializedID();
+	void setVariadicIndex(const size_t &va_idx);
+	const size_t &getVariadicIndex();
 
 	// calls to->copy() as well
 	void cast(Type *to);

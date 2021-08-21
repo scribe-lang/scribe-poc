@@ -82,6 +82,7 @@ void StmtExpr::clearValue()
 
 void StmtVar::clearValue()
 {
+	if(isComptime()) return;
 	this->value = nullptr;
 	if(val) val->clearValue();
 	if(vtype) vtype->clearValue();

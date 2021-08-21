@@ -81,7 +81,7 @@ bool CDriver::visit(parser::Stmt *stmt, Writer &writer, const bool &semicolon)
 	}
 
 	bool res = false;
-	Writer tmp;
+	Writer tmp(writer);
 	switch(stmt->stmt_type) {
 	case BLOCK: res = visit(as<StmtBlock>(stmt), tmp, semicolon); break;
 	case TYPE: res = visit(as<StmtType>(stmt), tmp, semicolon); break;
@@ -127,7 +127,7 @@ bool CDriver::visit(parser::StmtBlock *stmt, Writer &writer, const bool &semicol
 	}
 	for(size_t i = 0; i < stmt->stmts.size(); ++i) {
 		auto &s = stmt->stmts[i];
-		Writer tmp;
+		Writer tmp(writer);
 		if(!visit(s, tmp, AcceptsSemicolon(s))) {
 			err::set(s, "failed to generate IR for statement");
 			return false;
@@ -214,7 +214,7 @@ bool CDriver::visit(parser::StmtExpr *stmt, Writer &writer, const bool &semicolo
 		auto &args = parser::as<parser::StmtFnCallInfo>(stmt->rhs)->args;
 		for(size_t i = 0; i < args.size(); ++i) {
 			auto &a = args[i];
-			Writer tmp;
+			Writer tmp(writer);
 			if(!visit(a, tmp, false)) {
 				err::set(a, "failed to generate C code for fncall arg");
 				return false;
@@ -270,6 +270,7 @@ bool CDriver::visit(parser::StmtExpr *stmt, Writer &writer, const bool &semicolo
 			writer.write(", ");
 			writer.append(r);
 		}
+		writer.write(")");
 		break;
 	}
 	}
@@ -326,7 +327,7 @@ bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon
 		return true;
 	}
 
-	Writer tmp;
+	Writer tmp(writer);
 	if(stmt->val && !visit(stmt->val, tmp, false)) {
 		err::set(stmt, "failed to get C value from scribe declaration value");
 		return false;
@@ -351,7 +352,7 @@ bool CDriver::visit(parser::StmtFnSig *stmt, Writer &writer, const bool &semicol
 	writer.write("(");
 	for(size_t i = 0; i < stmt->args.size(); ++i) {
 		auto &a = stmt->args[i];
-		Writer tmp;
+		Writer tmp(writer);
 		if(!visit(a, tmp, false)) {
 			err::set(stmt, "failed to generate C code for function arg");
 			return false;
@@ -399,7 +400,7 @@ bool CDriver::visit(parser::StmtStruct *stmt, Writer &writer, const bool &semico
 	writer.newLine();
 	for(size_t i = 0; i < stmt->fields.size(); ++i) {
 		auto &f = stmt->fields[i];
-		Writer tmp;
+		Writer tmp(writer);
 		if(!visit(f, tmp, true)) {
 			err::set(stmt, "failed to generate C code for struct field");
 			return false;
@@ -415,7 +416,7 @@ bool CDriver::visit(parser::StmtStruct *stmt, Writer &writer, const bool &semico
 bool CDriver::visit(parser::StmtVarDecl *stmt, Writer &writer, const bool &semicolon)
 {
 	for(auto &d : stmt->decls) {
-		Writer tmp;
+		Writer tmp(writer);
 		if(!visit(d, tmp, semicolon)) {
 			err::set(stmt, "failed to generate C code for var decl");
 			return false;
@@ -438,7 +439,7 @@ bool CDriver::visit(parser::StmtCond *stmt, Writer &writer, const bool &semicolo
 		if(i > 0) writer.write(" else ");
 		if(c.cond) {
 			writer.write("if(");
-			Writer tmp;
+			Writer tmp(writer);
 			if(!visit(c.cond, tmp, false)) {
 				err::set(c.cond, "failed to generate C code for conditional");
 				return false;
@@ -461,7 +462,7 @@ bool CDriver::visit(parser::StmtFor *stmt, Writer &writer, const bool &semicolon
 {
 	if(stmt->isInline()) {
 		if(stmt->blk->stmts.empty()) return true;
-		Writer tmp;
+		Writer tmp(writer);
 		if(!visit(stmt->blk, tmp, false)) {
 			err::set(stmt, "failed to generate C code for inline for-loop block");
 			return false;
@@ -471,7 +472,7 @@ bool CDriver::visit(parser::StmtFor *stmt, Writer &writer, const bool &semicolon
 	}
 	writer.write("for(");
 	if(stmt->init) {
-		Writer tmp;
+		Writer tmp(writer);
 		if(!visit(stmt->init, tmp, false)) {
 			err::set(stmt, "failed to generate C code for for-loop init");
 			return false;
@@ -480,7 +481,7 @@ bool CDriver::visit(parser::StmtFor *stmt, Writer &writer, const bool &semicolon
 	}
 	writer.write(";");
 	if(stmt->cond) {
-		Writer tmp;
+		Writer tmp(writer);
 		if(!visit(stmt->cond, tmp, false)) {
 			err::set(stmt, "failed to generate C code for for-loop condition");
 			return false;
@@ -489,7 +490,7 @@ bool CDriver::visit(parser::StmtFor *stmt, Writer &writer, const bool &semicolon
 	}
 	writer.write(";");
 	if(stmt->incr) {
-		Writer tmp;
+		Writer tmp(writer);
 		if(!visit(stmt->incr, tmp, false)) {
 			err::set(stmt, "failed to generate C code for for-loop incr");
 			return false;
@@ -497,7 +498,7 @@ bool CDriver::visit(parser::StmtFor *stmt, Writer &writer, const bool &semicolon
 		writer.append(tmp);
 	}
 	writer.write(") ");
-	Writer tmp;
+	Writer tmp(writer);
 	if(!visit(stmt->blk, tmp, false)) {
 		err::set(stmt, "failed to generate C code for for-loop block");
 		return false;
@@ -509,14 +510,14 @@ bool CDriver::visit(parser::StmtWhile *stmt, Writer &writer, const bool &semicol
 {
 	writer.clear();
 	writer.write("while(");
-	Writer tmp;
+	Writer tmp(writer);
 	if(!visit(stmt->cond, tmp, false)) {
 		err::set(stmt, "failed to generate C code for while-loop condition");
 		return false;
 	}
 	writer.append(tmp);
 	writer.write(") ");
-	tmp.clear();
+	tmp.reset(writer);
 	if(!visit(stmt->blk, tmp, false)) {
 		err::set(stmt, "failed to generate C code for while block");
 		return false;
@@ -530,7 +531,7 @@ bool CDriver::visit(parser::StmtRet *stmt, Writer &writer, const bool &semicolon
 		writer.write("return");
 		return true;
 	}
-	Writer tmp;
+	Writer tmp(writer);
 	if(!visit(stmt->val, tmp, false)) {
 		err::set(stmt, "failed to generate C code for return value");
 		return false;

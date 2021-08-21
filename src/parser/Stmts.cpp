@@ -83,6 +83,14 @@ const size_t &Stmt::getSpecializedID()
 {
 	return specialized_id;
 }
+void Stmt::setVariadicIndex(const size_t &va_idx)
+{
+	variadic_index = va_idx;
+}
+const size_t &Stmt::getVariadicIndex()
+{
+	return variadic_index;
+}
 void Stmt::cast(Type *to)
 {
 	cast_from = type;

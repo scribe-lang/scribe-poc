@@ -45,6 +45,7 @@ public:
 	void writeBefore(const std::string &data);
 	void insertAfter(const size_t &pos, const std::string &data);
 
+	void reset(Writer &other);
 	void clear();
 	bool empty();
 

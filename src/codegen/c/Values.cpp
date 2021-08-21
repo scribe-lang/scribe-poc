@@ -11,8 +11,6 @@
 
 #include "codegen/c/Values.hpp"
 
-#include <cassert>
-
 #include "Error.hpp"
 
 namespace sc

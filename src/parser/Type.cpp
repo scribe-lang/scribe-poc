@@ -13,8 +13,6 @@
 
 #include "parser/Type.hpp"
 
-#include <cassert>
-
 #include "Error.hpp"
 #include "parser/Stmts.hpp"
 

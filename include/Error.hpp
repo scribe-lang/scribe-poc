@@ -14,6 +14,7 @@
 #ifndef ERROR_HPP
 #define ERROR_HPP
 
+#include <cassert>
 #include <cstdarg>
 #include <string>
 
