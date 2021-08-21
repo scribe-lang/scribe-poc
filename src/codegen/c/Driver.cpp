@@ -15,6 +15,7 @@
 #include "codegen/c/Types.hpp"
 #include "codegen/c/Values.hpp"
 #include "Error.hpp"
+#include "Utils.hpp"
 
 namespace sc
 {
@@ -24,6 +25,7 @@ namespace codegen
 static std::unordered_map<std::string, std::string> typenames;
 
 static bool AcceptsSemicolon(parser::Stmt *stmt);
+bool TrySetMainFunction(parser::StmtVar *var, const std::string &varname, Writer &writer);
 
 static inline std::string GetMangledName(const std::string &name, parser::Type *type)
 {
@@ -64,6 +66,18 @@ bool CDriver::genObjFile(const std::string &dest)
 bool CDriver::visit(parser::Stmt *stmt, Writer &writer, const bool &semicolon)
 {
 	using namespace parser;
+
+	// C does not permit modification of variables outside a function
+	// therefore, make everything except VAR be unplaceable outside a function
+	if(stmt->stmt_type != parser::VAR && stmt->stmt_type != parser::BLOCK &&
+	   !stmt->getParentWithType(parser::FNDEF))
+	{
+		err::set(stmt->line, stmt->col,
+			 "failed to generate C code - C does not allow anything except "
+			 "declarations/definitions outside a function; found: %s",
+			 stmt->stmtTypeString().c_str());
+		return false;
+	}
 
 	bool res = false;
 	Writer tmp;
@@ -287,6 +301,14 @@ bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon
 		}
 		parser::StmtFnDef *fn = parser::as<parser::StmtFnDef>(stmt->val);
 		std::string ret	      = GetCType(fn->sig->rettype, fn->sig->rettype->type);
+
+		// set as entry point (main function) if signature matches
+		static bool maindone = false;
+		if(!maindone && TrySetMainFunction(stmt, varname, writer)) {
+			maindone = true;
+			varname	 = "main";
+		}
+
 		tmp.insertAfter(ret.size(), " " + varname);
 		writer.append(tmp);
 		// no semicolon after fndef
@@ -566,6 +588,32 @@ static bool AcceptsSemicolon(parser::Stmt *stmt)
 	case parser::RET: return true;
 	case parser::CONTINUE: return true;
 	case parser::BREAK: return true;
+	}
+	return false;
+}
+
+bool TrySetMainFunction(parser::StmtVar *var, const std::string &varname, Writer &writer)
+{
+	parser::StmtFnDef *fn = parser::as<parser::StmtFnDef>(var->val);
+	if(!startswith(var->name.data.s, "main_0")) return false;
+	parser::Type *retbase = fn->sig->rettype->type;
+	if(!retbase || retbase->type != parser::TSIMPLE) return false;
+	parser::TypeSimple *ret = parser::as<parser::TypeSimple>(retbase);
+	if(ret->name != "i32" || ret->ptr > 0) return false;
+	// false => 0 args
+	// true => 2 args
+	bool zero_or_two = false;
+	if(fn->sig->args.empty()) { // int main()
+		return true;
+	} else if(fn->sig->args.size() == 2) { // int main(int argc, char **argv)
+		parser::Type *a1base = fn->sig->args[0]->type;
+		parser::Type *a2base = fn->sig->args[1]->type;
+		if(a1base->type != parser::TSIMPLE || a2base->type != parser::TSIMPLE) return false;
+		parser::TypeSimple *a1 = parser::as<parser::TypeSimple>(a1base);
+		parser::TypeSimple *a2 = parser::as<parser::TypeSimple>(a2base);
+		if(a1->name != "i32" || a1->ptr != 0) return false;
+		if(a2->name != "i8" || a2->ptr != 2) return false;
+		return true;
 	}
 	return false;
 }
