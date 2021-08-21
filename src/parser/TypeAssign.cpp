@@ -36,7 +36,7 @@ static inline std::string GetMangledName(Stmt *stmt, const lex::Lexeme &name)
 
 static bool InitTemplateFn(TypeMgr &types, Stmt *caller, Type *&calledfn,
 			   std::unordered_map<std::string, Type *> &calltemplates,
-			   const bool &has_va, const size_t &line, const size_t &col);
+			   const bool &has_va);
 static void ApplyTypeCoercion(StmtExpr *expr);
 static bool ChooseSuperiorPrimitiveType(TypeSimple *l, TypeSimple *r);
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -51,8 +51,7 @@ bool StmtBlock::assignType(TypeMgr &types)
 		if(!s) break;
 		if(s->isSpecialized()) continue;
 		if(!s->assignType(types)) {
-			err::set(s->line, s->col,
-				 "failed to perform type analysis on this statement");
+			err::set(s, "failed to perform type analysis on this statement");
 			return false;
 		}
 	}
@@ -78,7 +77,7 @@ bool StmtType::assignType(TypeMgr &types)
 	}
 	if(func) {
 		if(!fn->assignType(types)) {
-			err::set(line, col, "failed to determine type from the function type");
+			err::set(this, "failed to determine type from the function type");
 			return false;
 		}
 		type = fn->type->copy();
@@ -172,13 +171,13 @@ bool StmtFnCallInfo::assignType(TypeMgr &types)
 	types.pushLayer();
 	for(auto &t : templates) {
 		if(!t->assignType(types)) {
-			err::set(t->line, t->col, "failed to determine type of template");
+			err::set(t, "failed to determine type of template");
 			return false;
 		}
 	}
 	for(auto &a : args) {
 		if(!a->assignType(types)) {
-			err::set(a->line, a->col, "failed to determine type of argument");
+			err::set(a, "failed to determine type of argument");
 			return false;
 		}
 	}
@@ -193,7 +192,7 @@ bool StmtFnCallInfo::assignType(TypeMgr &types)
 bool StmtExpr::assignType(TypeMgr &types)
 {
 	if(lhs && !lhs->assignType(types)) {
-		err::set(lhs->line, lhs->col, "failed to determine type of LHS");
+		err::set(lhs, "failed to determine type of LHS");
 		return false;
 	}
 	if(oper.tok.val == lex::EMPTY) {
@@ -202,7 +201,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 	}
 	if(oper.tok.val != lex::DOT && oper.tok.val != lex::ARROW && rhs && !rhs->assignType(types))
 	{
-		err::set(rhs->line, rhs->col, "failed to determine type of RHS");
+		err::set(rhs, "failed to determine type of RHS");
 		return false;
 	}
 	static std::vector<std::string> importids;
@@ -211,14 +210,13 @@ bool StmtExpr::assignType(TypeMgr &types)
 	switch(oper.tok.val) {
 	case lex::ARROW:
 		if(lhs->type->ptr == 0) {
-			err::set(line, col, "arrow operator only works for pointer types");
+			err::set(this, "arrow operator only works for pointer types");
 			return false;
 		}
 	case lex::DOT: {
 		assert(rhs->stmt_type == SIMPLE && "RHS for dot/arrow MUST be a simple type");
 		if(lhs->type->type != TSTRUCT && lhs->type->type != TIMPORT) {
-			err::set(line, col,
-				 "LHS must be a structure to use the dot operator, found: %s",
+			err::set(this, "LHS must be a structure to use the dot operator, found: %s",
 				 lhs->type->str().c_str());
 			return false;
 		}
@@ -228,8 +226,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 			rsim->val.data.s = GetMangledName(importids.back(), rsim->val);
 			rsim->setAppliedModuleID(true);
 			if(!rhs->assignType(types)) {
-				err::set(rhs->line, rhs->col,
-					 "failed to determine type of RHS in import");
+				err::set(rhs, "failed to determine type of RHS in import");
 				return false;
 			}
 			type	     = rhs->type->copy();
@@ -243,9 +240,8 @@ bool StmtExpr::assignType(TypeMgr &types)
 		}
 		TypeStruct *lst = as<TypeStruct>(lhs->type);
 		if(lst->is_def) {
-			err::set(line, col,
-				 "cannot use dot operator on a struct"
-				 " definition; instantiate it first");
+			err::set(this, "cannot use dot operator on a struct"
+				       " definition; instantiate it first");
 			return false;
 		}
 		std::string mod_id = importids.empty() ? mod->getID() : importids.back();
@@ -255,7 +251,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 		Type *res = ptr == 0 ? lst->get_field(rsim->val.data.s) : nullptr;
 		if(!res) {
 			if(!(res = types.getFuncMapCopy(rsim->val.data.s, this))) {
-				err::set(line, col,
+				err::set(this,
 					 "no function or struct field"
 					 " (in '%s') named '%s' exists",
 					 lst->str().c_str(), rsim->val.data.s.c_str());
@@ -287,7 +283,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 		bool has_va = false;
 		if(lhs->type->type != TFUNC && lhs->type->type != TSTRUCT &&
 		   lhs->type->type != TFUNCMAP) {
-			err::set(lhs->line, lhs->col,
+			err::set(lhs,
 				 "function call can be performed "
 				 "only on a function or struct type, attempted on: %s",
 				 lhs->type->str().c_str());
@@ -296,9 +292,8 @@ bool StmtExpr::assignType(TypeMgr &types)
 		if(lhs->type->type == TFUNCMAP) {
 			TypeFuncMap *fmap = as<TypeFuncMap>(lhs->type);
 			if(!(type = fmap->decide_func(finfo, calltemplates))) {
-				err::set(line, col,
-					 "failed to decide the function "
-					 "to execute, need more info");
+				err::set(this, "failed to decide the function "
+					       "to execute, need more info");
 				return false;
 			}
 			if(fmap->getSelf() && fmap->getSelf()->parent->isComptime()) {
@@ -312,8 +307,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 			TypeFunc *oldfn = as<TypeFunc>(lhs->type);
 			TypeFunc *fn	= nullptr;
 			if(!(fn = oldfn->specialize_compatible_call(finfo, calltemplates))) {
-				err::set(line, col,
-					 "function '%s' incompatible with call arguments",
+				err::set(this, "function '%s' incompatible with call arguments",
 					 oldfn->str().c_str());
 				return false;
 			}
@@ -322,17 +316,15 @@ bool StmtExpr::assignType(TypeMgr &types)
 			if(type) delete type;
 			type = fn->rettype->copy();
 			if(fn->getIntrinsicFunc() && !isIntrinsic()) {
-				err::set(line, col,
-					 "this is an intrinsic function - "
-					 "requires '@' before function name to call");
+				err::set(this, "this is an intrinsic function - "
+					       "requires '@' before function name to call");
 				return false;
 			}
 			ValueMgr &vals = types.getParser()->getValueMgr();
 			if(fn->getIntrinsicFuncType() == IPARSE &&
 			   !fn->callIntrinsicFunc(types, vals, this, finfo)) {
-				err::set(line, col,
-					 "failed to call parse intrinsic "
-					 "function during type assignment");
+				err::set(this, "failed to call parse intrinsic "
+					       "function during type assignment");
 				return false;
 			} else if(fn->getIntrinsicFuncType() == IVALUE) {
 				this->setIntrinsicFunc(fn->getIntrinsicFunc());
@@ -341,15 +333,14 @@ bool StmtExpr::assignType(TypeMgr &types)
 		} else if(lhs->type->type == TSTRUCT) {
 			TypeStruct *st = as<TypeStruct>(lhs->type);
 			if(!st->is_def) {
-				err::set(line, col,
+				err::set(this,
 					 "only structure definitions can be called (instantiated)");
 				return false;
 			}
 			// call the <struct>() function
 			// maybe <struct>.init() in future if required
 			if(!(type = st->specialize_compatible_call(finfo, calltemplates))) {
-				err::set(line, col,
-					 "failed to instantiate struct with given arguments");
+				err::set(this, "failed to instantiate struct with given arguments");
 				return false;
 			}
 			delete lhs->type;
@@ -358,27 +349,26 @@ bool StmtExpr::assignType(TypeMgr &types)
 			break; // no need to clone the struct
 		}
 		// apply stmt template specialization
-		if(!InitTemplateFn(types, this, lhs->type, calltemplates, has_va, line, col))
-			return false;
+		if(!InitTemplateFn(types, this, lhs->type, calltemplates, has_va)) return false;
 		for(auto &t : calltemplates) delete t.second;
 		break;
 	}
 	case lex::SUBS: {
 		if(lhs->type->type == TVARIADIC) {
 			if(!rhs->type->integerCompatible()) {
-				err::set(line, col,
+				err::set(this,
 					 "variadics can only take one of the "
 					 "primitive numeric types (as index), found: %s",
 					 rhs->type->str().c_str());
 				return false;
 			}
 			if(!rhs->assignValue(types, types.getParser()->getValueMgr())) {
-				err::set(line, col, "index for a variadic must be comptime");
+				err::set(this, "index for a variadic must be comptime");
 				return false;
 			}
 			TypeVariadic *va = as<TypeVariadic>(lhs->type);
 			if(va->args.size() <= rhs->value->i) {
-				err::set(line, col,
+				err::set(this,
 					 "variadic index out of bounds"
 					 " (va: %zu, index: %" PRId64 ")",
 					 va->args.size(), rhs->value->i);
@@ -389,7 +379,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 			break;
 		} else if(lhs->type->ptr > 0) {
 			if(!rhs->type->integerCompatible()) {
-				err::set(line, col,
+				err::set(this,
 					 "pointer subscript can only take one of the "
 					 "primitive numeric types (as index), found: %s",
 					 rhs->type->str().c_str());
@@ -398,7 +388,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 			type = lhs->type->copy();
 			--type->ptr;
 		} else {
-			err::set(line, col, "unimplemented subscript for type: %s",
+			err::set(this, "unimplemented subscript for type: %s",
 				 lhs->type->str().c_str());
 			return false;
 		}
@@ -413,7 +403,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 	// dereference
 	case lex::UMUL: {
 		if(lhs->type->ptr == 0) {
-			err::set(line, col, "cannot dereference non pointer type: %s",
+			err::set(this, "cannot dereference non pointer type: %s",
 				 lhs->type->str().c_str());
 			return false;
 		}
@@ -474,13 +464,12 @@ bool StmtExpr::assignType(TypeMgr &types)
 	applyoperfn:
 		ApplyTypeCoercion(this); // basically, type promotion for primitives
 		if(lhs->type->type != TSIMPLE && lhs->type->type != TSTRUCT) {
-			err::set(line, col,
-				 "operators are only usable on primitive types or structs");
+			err::set(this, "operators are only usable on primitive types or structs");
 			return false;
 		}
 		TypeFuncMap *fn = types.getFuncMap(oper.tok.str(), this);
 		if(!fn) {
-			err::set(line, col, "function '%s' does not exist", oper.tok.str().c_str());
+			err::set(this, "function '%s' does not exist", oper.tok.str().c_str());
 			return false;
 		}
 		StmtFnCallInfo *fci = new StmtFnCallInfo(mod, line, col, {}, {lhs});
@@ -489,7 +478,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 		TypeFunc *decidedfn = fn->decide_func(fci, calltemplates);
 		err::reset();
 		if(!decidedfn) {
-			err::set(line, col, "function '%s' does not exist for type: %s",
+			err::set(this, "function '%s' does not exist for type: %s",
 				 oper.tok.str().c_str(), lhs->type->str().c_str());
 			fci->args.clear();
 			delete fci;
@@ -503,17 +492,15 @@ bool StmtExpr::assignType(TypeMgr &types)
 		   !decidedfn->callIntrinsicFunc(types, vals, this, fci))
 		{
 			erred = true;
-			err::set(line, col,
-				 "failed to call parse intrinsic "
-				 "function during type assignment");
+			err::set(this, "failed to call parse intrinsic "
+				       "function during type assignment");
 			goto fail;
 		} else if(decidedfn->getIntrinsicFuncType() == IVALUE) {
 			this->setIntrinsicFunc(decidedfn->getIntrinsicFunc());
 		}
-		if(!InitTemplateFn(types, this, (Type *&)decidedfn, calltemplates, false, line,
-				   col)) {
+		if(!InitTemplateFn(types, this, (Type *&)decidedfn, calltemplates, false)) {
 			erred = true;
-			err::set(line, col, "failed to intialize template function");
+			err::set(this, "failed to intialize template function");
 			goto fail;
 		}
 		for(auto &t : calltemplates) delete t.second;
@@ -561,13 +548,13 @@ bool StmtVar::assignType(TypeMgr &types)
 	}
 	if(val && val->type->type == TSIMPLE) {
 		if(as<TypeSimple>(val->type)->name == "void") {
-			err::set(line, col,
+			err::set(this,
 				 "expression returns void, which cannot be assigned to a var");
 			return false;
 		}
 	}
-	if(vtype && val && !vtype->type->compatible(val->type, line, col)) {
-		err::set(line, col, "incompatible given type and value of the variable decl");
+	if(vtype && val && !vtype->type->compatible(val->type, val)) {
+		err::set(this, "incompatible given type and value of the variable decl");
 		return false;
 	}
 	if(val) {
@@ -608,12 +595,12 @@ bool StmtFnSig::assignType(TypeMgr &types)
 			continue;
 		}
 		if(!p->assignType(types)) {
-			err::set(p->line, p->col, "failed to assign type of this function param");
+			err::set(p, "failed to assign type of this function param");
 			return false;
 		}
 	}
 	if(!rettype->assignType(types)) {
-		err::set(rettype->line, rettype->col, "failed to assign function return type");
+		err::set(rettype, "failed to assign function return type");
 		return false;
 	}
 	std::vector<Type *> newargs;
@@ -635,13 +622,13 @@ bool StmtFnDef::assignType(TypeMgr &types)
 {
 	types.pushLayer();
 	if(!sig->assignType(types)) {
-		err::set(sig->line, sig->col, "failed to assign type to function signature");
+		err::set(sig, "failed to assign type to function signature");
 		return false;
 	}
 	if(sig->templates.empty() && !sig->has_variadic && blk) {
 		types.pushFunc(as<TypeFunc>(sig->type));
 		if(!blk->assignType(types)) {
-			err::set(blk->line, blk->col, "failed to assign type in function block");
+			err::set(blk, "failed to assign type in function block");
 			return false;
 		}
 		types.popFunc();
@@ -678,15 +665,15 @@ bool StmtExtern::assignType(TypeMgr &types)
 {
 	types.pushLayer();
 	if(!sig->assignType(types)) {
-		err::set(sig->line, sig->col, "failed to assign type to function signature");
+		err::set(sig, "failed to assign type to function signature");
 		return false;
 	}
 	if(headers && !headers->assignType(types)) {
-		err::set(headers->line, headers->col, "failed to assign header type");
+		err::set(headers, "failed to assign header type");
 		return false;
 	}
 	if(libs && !libs->assignType(types)) {
-		err::set(libs->line, libs->col, "failed to assign lib type");
+		err::set(libs, "failed to assign lib type");
 		return false;
 	}
 	type	     = sig->type->copy();
@@ -775,25 +762,23 @@ bool StmtCond::assignType(TypeMgr &types)
 			}
 			if(!it->cond) {
 				if(!it->blk->assignType(types)) {
-					err::set(line, col,
-						 "failed to assign inline-else block type");
+					err::set(this, "failed to assign inline-else block type");
 					return false;
 				}
 				it->blk->setValueUnique(types.getParser()->getValueMgr());
 				break;
 			}
 			if(!it->cond->assignType(types)) {
-				err::set(it->cond->line, it->cond->col,
-					 "failed to assign inline condition type");
+				err::set(it->cond, "failed to assign inline condition type");
 				return false;
 			}
 			if(!it->cond->isComptime()) {
-				err::set(it->cond->line, it->cond->col,
+				err::set(it->cond,
 					 "inline conditional's condition must be comptime");
 				return false;
 			}
 			if(!it->cond->assignValue(types, types.getParser()->getValueMgr())) {
-				err::set(it->cond->line, it->cond->col,
+				err::set(it->cond,
 					 "failed to determine value of inline conditional");
 				return false;
 			}
@@ -804,7 +789,7 @@ bool StmtCond::assignType(TypeMgr &types)
 				continue;
 			}
 			if(!it->blk->assignType(types)) {
-				err::set(line, col, "failed to assign inline-if block type");
+				err::set(this, "failed to assign inline-if block type");
 				return false;
 			}
 			it->blk->setValueUnique(types.getParser()->getValueMgr());
@@ -815,17 +800,15 @@ bool StmtCond::assignType(TypeMgr &types)
 	}
 	for(auto &c : conds) {
 		if(c.cond && !c.cond->assignType(types)) {
-			err::set(c.cond->line, c.cond->col,
-				 "failed to determine type of condition");
+			err::set(c.cond, "failed to determine type of condition");
 			return false;
 		}
 		if(c.cond && !c.cond->type->booleanCompatible()) {
-			err::set(c.cond->line, c.cond->col,
-				 "conditional does not return a numeric primitive/boolean");
+			err::set(c.cond, "conditional does not return a numeric primitive/boolean");
 			return false;
 		}
 		if(!c.blk->assignType(types)) {
-			err::set(c.blk->line, c.blk->col, "failed to determine type of block");
+			err::set(c.blk, "failed to determine type of block");
 			return false;
 		}
 	}
@@ -840,7 +823,7 @@ bool StmtForIn::assignType(TypeMgr &types)
 {
 	types.pushLayer();
 	if(!in->assignType(types)) {
-		err::set(in->line, in->col, "failed to determine type of 'in' expression");
+		err::set(in, "failed to determine type of 'in' expression");
 		return false;
 	}
 	if(!types.addCopy(iter.data.s, in->type)) {
@@ -848,7 +831,7 @@ bool StmtForIn::assignType(TypeMgr &types)
 		return false;
 	}
 	if(!blk->assignType(types)) {
-		err::set(blk->line, blk->col, "failed to determine type of block");
+		err::set(blk, "failed to determine type of block");
 		return false;
 	}
 	types.popLayer();
@@ -863,42 +846,38 @@ bool StmtFor::assignType(TypeMgr &types)
 {
 	types.pushLayer();
 	if(init && !init->assignType(types)) {
-		err::set(init->line, init->col, "failed to determine type of 'init' statement");
+		err::set(init, "failed to determine type of 'init' statement");
 		return false;
 	}
 	if(cond && !cond->assignType(types)) {
-		err::set(cond->line, cond->col,
-			 "failed to determine type of 'condition' expression");
+		err::set(cond, "failed to determine type of 'condition' expression");
 		return false;
 	}
 	if(incr && !incr->assignType(types)) {
-		err::set(incr->line, incr->col,
-			 "failed to determine type of 'increment' expression");
+		err::set(incr, "failed to determine type of 'increment' expression");
 		return false;
 	}
 	if(is_inline) {
 		if(init && !init->assignValue(types, types.getParser()->getValueMgr())) {
-			err::set(line, col, "failed to assign init value");
+			err::set(this, "failed to assign init value");
 			return false;
 		}
 		if(!blk || blk->stmts.empty()) {
-			err::set(line, col, "no/empty block for inline-for");
+			err::set(this, "no/empty block for inline-for");
 			return false;
 		}
 		if(!cond) {
-			err::set(line, col, "inline-for must have a comptime condition");
+			err::set(this, "inline-for must have a comptime condition");
 			return false;
 		}
 		if((!cond->isComptime())) {
-			err::set(line, col,
-				 "inline-for must have a condition "
-				 "that can be computed at comptime");
+			err::set(this, "inline-for must have a condition "
+				       "that can be computed at comptime");
 			return false;
 		}
 		if(incr && !incr->isComptime()) {
-			err::set(line, col,
-				 "inline-for must have an increment statement "
-				 "that can be computed at comptime");
+			err::set(this, "inline-for must have an increment statement "
+				       "that can be computed at comptime");
 			return false;
 		}
 		std::vector<Stmt *> newstmts;
@@ -906,7 +885,7 @@ bool StmtFor::assignType(TypeMgr &types)
 		      cond->value->i != 0) {
 			StmtBlock *newblk = as<StmtBlock>(blk->copy());
 			if(!newblk->assignType(types)) {
-				err::set(line, col, "failed to determine block type");
+				err::set(this, "failed to determine block type");
 				delete newblk;
 				for(auto &n : newstmts) delete n;
 				return false;
@@ -919,17 +898,15 @@ bool StmtFor::assignType(TypeMgr &types)
 			Stmt *newincr	= incr->copy();
 			newincr->parent = blk;
 			if(!newincr->assignType(types)) {
-				err::set(line, col,
-					 "failed to assign type"
-					 " of for-increment statement");
+				err::set(this, "failed to assign type"
+					       " of for-increment statement");
 				for(auto &n : newstmts) delete n;
 				return false;
 			}
 			newstmts.push_back(newincr);
 			if(!newincr->assignValue(types, types.getParser()->getValueMgr())) {
-				err::set(line, col,
-					 "failed to determine value"
-					 " of for-increment statement");
+				err::set(this, "failed to determine value"
+					       " of for-increment statement");
 				for(auto &n : newstmts) delete n;
 				return false;
 			}
@@ -944,7 +921,7 @@ bool StmtFor::assignType(TypeMgr &types)
 		return true;
 	}
 	if(!blk->assignType(types)) {
-		err::set(blk->line, blk->col, "failed to determine type of block");
+		err::set(blk, "failed to determine type of block");
 		return false;
 	}
 	types.popLayer();
@@ -958,12 +935,11 @@ bool StmtFor::assignType(TypeMgr &types)
 bool StmtWhile::assignType(TypeMgr &types)
 {
 	if(cond && !cond->assignType(types)) {
-		err::set(cond->line, cond->col,
-			 "failed to determine type of 'condition' expression");
+		err::set(cond, "failed to determine type of 'condition' expression");
 		return false;
 	}
 	if(!blk->assignType(types)) {
-		err::set(blk->line, blk->col, "failed to determine type of block");
+		err::set(blk, "failed to determine type of block");
 		return false;
 	}
 	return true;
@@ -976,17 +952,16 @@ bool StmtWhile::assignType(TypeMgr &types)
 bool StmtRet::assignType(TypeMgr &types)
 {
 	if(val && !val->assignType(types)) {
-		err::set(val->line, val->col, "failed to determine type of the return argument");
+		err::set(val, "failed to determine type of the return argument");
 		return false;
 	}
 	Type *valtype = val ? val->type->copy() : types.getCopy("void", val);
 	if(!types.hasFunc()) {
-		err::set(line, col, "return statements can be in functions only");
+		err::set(this, "return statements can be in functions only");
 		return false;
 	}
-	if(!types.getFunc()->rettype->compatible(valtype, val ? val->line : line,
-						 val ? val->col : col)) {
-		err::set(val ? val->line : line, val ? val->col : col,
+	if(!types.getFunc()->rettype->compatible(valtype, val ? val : this)) {
+		err::set(val ? val : this,
 			 "function return type and deduced return type are"
 			 " incompatible (function return type: %s, deduced: %s)",
 			 types.getFunc()->rettype->str().c_str(), valtype->str().c_str());
@@ -1027,7 +1002,7 @@ bool StmtBreak::assignType(TypeMgr &types)
 
 static bool InitTemplateFn(TypeMgr &types, Stmt *caller, Type *&calledfn,
 			   std::unordered_map<std::string, Type *> &calltemplates,
-			   const bool &has_va, const size_t &line, const size_t &col)
+			   const bool &has_va)
 {
 	if(calltemplates.empty() && !has_va) return true;
 	assert(calledfn && "LHS has no type assigned!");
@@ -1037,12 +1012,12 @@ static bool InitTemplateFn(TypeMgr &types, Stmt *caller, Type *&calledfn,
 	Stmt *templfnparent = calledfn->parent->getParentWithType(BLOCK);
 	TypeFunc *origsig   = as<TypeFunc>(calledfn);
 	if(!templfnparent) {
-		err::set(line, col, "function definition for specialization is not in a block!");
+		err::set(caller, "function definition for specialization is not in a block!");
 		return false;
 	}
 	Stmt *fndefvar = calledfn->parent->getParentWithType(VAR);
 	if(!fndefvar) {
-		err::set(line, col, "could not find function definition's variable declaration!");
+		err::set(caller, "could not find function definition's variable declaration!");
 		return false;
 	}
 
@@ -1073,7 +1048,7 @@ static bool InitTemplateFn(TypeMgr &types, Stmt *caller, Type *&calledfn,
 	for(size_t i = 0; i < fn->sig->templates.size(); ++i) {
 		const std::string &t = fn->sig->templates[i].data.s;
 		if(calltemplates.find("@" + std::to_string(i)) == calltemplates.end()) {
-			err::set(line, col, "template type '%s' not found", t.c_str());
+			err::set(caller, "template type '%s' not found", t.c_str());
 			delete fndefvar;
 			return false;
 		}
@@ -1097,7 +1072,7 @@ static bool InitTemplateFn(TypeMgr &types, Stmt *caller, Type *&calledfn,
 		return false;
 	}
 	if(!fn->blk->assignType(types)) {
-		err::set(line, col, "failed to specialize template function definition: %s",
+		err::set(caller, "failed to specialize template function definition: %s",
 			 calledfn->str().c_str());
 		delete fndefvar;
 		return false;

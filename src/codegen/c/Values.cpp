@@ -81,8 +81,7 @@ std::string GetCValue(parser::Stmt *stmt, parser::Value *value, parser::Type *ty
 	}
 	default: break;
 	}
-	err::set(stmt->line, stmt->col, "invalid scribe value encountered '%s'",
-		 value->stringify().c_str());
+	err::set(stmt, "invalid scribe value encountered '%s'", value->stringify().c_str());
 	return nullptr;
 }
 } // namespace codegen

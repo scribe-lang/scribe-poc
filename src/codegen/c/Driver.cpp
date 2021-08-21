@@ -45,8 +45,9 @@ bool CDriver::genIR()
 		err::pushModule(pmod);
 		parser::Stmt *&ptree = pmod->getParseTree();
 		if(!visit(ptree, mod, false)) {
-			err::set(ptree->line, ptree->col, "failed to transpile to C");
+			err::set(ptree, "failed to transpile to C");
 			err::show(stderr);
+			err::popModule();
 			return false;
 		}
 		err::popModule();
@@ -70,9 +71,9 @@ bool CDriver::visit(parser::Stmt *stmt, Writer &writer, const bool &semicolon)
 	// C does not permit modification of variables outside a function
 	// therefore, make everything except VAR be unplaceable outside a function
 	if(stmt->stmt_type != parser::VAR && stmt->stmt_type != parser::BLOCK &&
-	   !stmt->getParentWithType(parser::FNDEF))
+	   !stmt->getParentWithType(parser::FNDEF) && !stmt->getParentWithType(parser::VAR))
 	{
-		err::set(stmt->line, stmt->col,
+		err::set(stmt,
 			 "failed to generate C code - C does not allow anything except "
 			 "declarations/definitions outside a function; found: %s",
 			 stmt->stmtTypeString().c_str());
@@ -103,7 +104,7 @@ bool CDriver::visit(parser::Stmt *stmt, Writer &writer, const bool &semicolon)
 	case RET: res = visit(as<StmtRet>(stmt), tmp, semicolon); break;
 	case CONTINUE: res = visit(as<StmtContinue>(stmt), tmp, semicolon); break;
 	case BREAK: res = visit(as<StmtBreak>(stmt), tmp, semicolon); break;
-	default: err::set(stmt->line, stmt->col, "invalid statement for C codegen"); return false;
+	default: err::set(stmt, "invalid statement for C codegen"); return false;
 	}
 	if(stmt->isCast()) {
 		writer.write("(");
@@ -128,7 +129,7 @@ bool CDriver::visit(parser::StmtBlock *stmt, Writer &writer, const bool &semicol
 		auto &s = stmt->stmts[i];
 		Writer tmp;
 		if(!visit(s, tmp, AcceptsSemicolon(s))) {
-			err::set(s->line, s->col, "failed to generate IR for statement");
+			err::set(s, "failed to generate IR for statement");
 			return false;
 		}
 		writer.append(tmp);
@@ -189,12 +190,12 @@ bool CDriver::visit(parser::StmtExpr *stmt, Writer &writer, const bool &semicolo
 	const lex::TokType &oper = stmt->oper.tok.val;
 	Writer l;
 	if(!visit(stmt->lhs, l, false)) {
-		err::set(stmt->lhs->line, stmt->lhs->col, "failed to generate C code for LHS");
+		err::set(stmt->lhs, "failed to generate C code for LHS");
 		return false;
 	}
 	Writer r;
 	if(stmt->rhs && oper != lex::DOT && oper != lex::FNCALL && !visit(stmt->rhs, r, false)) {
-		err::set(stmt->rhs->line, stmt->rhs->col, "failed to generate C code for RHS");
+		err::set(stmt->rhs, "failed to generate C code for RHS");
 		return false;
 	}
 
@@ -215,8 +216,7 @@ bool CDriver::visit(parser::StmtExpr *stmt, Writer &writer, const bool &semicolo
 			auto &a = args[i];
 			Writer tmp;
 			if(!visit(a, tmp, false)) {
-				err::set(a->line, a->col,
-					 "failed to generate C code for fncall arg");
+				err::set(a, "failed to generate C code for fncall arg");
 				return false;
 			}
 			writer.append(tmp);
@@ -328,8 +328,7 @@ bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon
 
 	Writer tmp;
 	if(stmt->val && !visit(stmt->val, tmp, false)) {
-		err::set(stmt->line, stmt->col,
-			 "failed to get C value from scribe declaration value");
+		err::set(stmt, "failed to get C value from scribe declaration value");
 		return false;
 	}
 	std::string type;
@@ -354,8 +353,7 @@ bool CDriver::visit(parser::StmtFnSig *stmt, Writer &writer, const bool &semicol
 		auto &a = stmt->args[i];
 		Writer tmp;
 		if(!visit(a, tmp, false)) {
-			err::set(stmt->line, stmt->col,
-				 "failed to generate C code for function arg");
+			err::set(stmt, "failed to generate C code for function arg");
 			return false;
 		}
 		writer.append(tmp);
@@ -367,13 +365,13 @@ bool CDriver::visit(parser::StmtFnSig *stmt, Writer &writer, const bool &semicol
 bool CDriver::visit(parser::StmtFnDef *stmt, Writer &writer, const bool &semicolon)
 {
 	if(!visit(stmt->sig, writer, false)) {
-		err::set(stmt->line, stmt->col, "failed to generate C code for function");
+		err::set(stmt, "failed to generate C code for function");
 		return false;
 	}
 	if(!stmt->blk) return true;
 	writer.write(" ");
 	if(!visit(stmt->blk, writer, false)) {
-		err::set(stmt->line, stmt->col, "failed to generate C code for function block");
+		err::set(stmt, "failed to generate C code for function block");
 		return false;
 	}
 	return true;
@@ -403,8 +401,7 @@ bool CDriver::visit(parser::StmtStruct *stmt, Writer &writer, const bool &semico
 		auto &f = stmt->fields[i];
 		Writer tmp;
 		if(!visit(f, tmp, true)) {
-			err::set(stmt->line, stmt->col,
-				 "failed to generate C code for struct field");
+			err::set(stmt, "failed to generate C code for struct field");
 			return false;
 		}
 		writer.append(tmp);
@@ -420,7 +417,7 @@ bool CDriver::visit(parser::StmtVarDecl *stmt, Writer &writer, const bool &semic
 	for(auto &d : stmt->decls) {
 		Writer tmp;
 		if(!visit(d, tmp, semicolon)) {
-			err::set(stmt->line, stmt->col, "failed to generate C code for var decl");
+			err::set(stmt, "failed to generate C code for var decl");
 			return false;
 		}
 	}
@@ -431,8 +428,7 @@ bool CDriver::visit(parser::StmtCond *stmt, Writer &writer, const bool &semicolo
 	if(stmt->isInline()) {
 		if(stmt->conds.empty()) return true;
 		if(!visit(stmt->conds.back().blk, writer, false)) {
-			err::set(stmt->line, stmt->col,
-				 "failed to generate C code for inline conditional block");
+			err::set(stmt, "failed to generate C code for inline conditional block");
 			return false;
 		}
 		return true;
@@ -444,16 +440,14 @@ bool CDriver::visit(parser::StmtCond *stmt, Writer &writer, const bool &semicolo
 			writer.write("if(");
 			Writer tmp;
 			if(!visit(c.cond, tmp, false)) {
-				err::set(c.cond->line, c.cond->col,
-					 "failed to generate C code for conditional");
+				err::set(c.cond, "failed to generate C code for conditional");
 				return false;
 			}
 			writer.append(tmp);
 			writer.write(") ");
 		}
 		if(!visit(c.blk, writer, false)) {
-			err::set(stmt->line, stmt->col,
-				 "failed to generate C code for conditional block");
+			err::set(stmt, "failed to generate C code for conditional block");
 			return false;
 		}
 	}
@@ -469,8 +463,7 @@ bool CDriver::visit(parser::StmtFor *stmt, Writer &writer, const bool &semicolon
 		if(stmt->blk->stmts.empty()) return true;
 		Writer tmp;
 		if(!visit(stmt->blk, tmp, false)) {
-			err::set(stmt->line, stmt->col,
-				 "failed to generate C code for inline for-loop block");
+			err::set(stmt, "failed to generate C code for inline for-loop block");
 			return false;
 		}
 		writer.append(tmp);
@@ -480,8 +473,7 @@ bool CDriver::visit(parser::StmtFor *stmt, Writer &writer, const bool &semicolon
 	if(stmt->init) {
 		Writer tmp;
 		if(!visit(stmt->init, tmp, false)) {
-			err::set(stmt->line, stmt->col,
-				 "failed to generate C code for for-loop init");
+			err::set(stmt, "failed to generate C code for for-loop init");
 			return false;
 		}
 		writer.append(tmp);
@@ -490,8 +482,7 @@ bool CDriver::visit(parser::StmtFor *stmt, Writer &writer, const bool &semicolon
 	if(stmt->cond) {
 		Writer tmp;
 		if(!visit(stmt->cond, tmp, false)) {
-			err::set(stmt->line, stmt->col,
-				 "failed to generate C code for for-loop condition");
+			err::set(stmt, "failed to generate C code for for-loop condition");
 			return false;
 		}
 		writer.append(tmp);
@@ -500,8 +491,7 @@ bool CDriver::visit(parser::StmtFor *stmt, Writer &writer, const bool &semicolon
 	if(stmt->incr) {
 		Writer tmp;
 		if(!visit(stmt->incr, tmp, false)) {
-			err::set(stmt->line, stmt->col,
-				 "failed to generate C code for for-loop incr");
+			err::set(stmt, "failed to generate C code for for-loop incr");
 			return false;
 		}
 		writer.append(tmp);
@@ -509,7 +499,7 @@ bool CDriver::visit(parser::StmtFor *stmt, Writer &writer, const bool &semicolon
 	writer.write(") ");
 	Writer tmp;
 	if(!visit(stmt->blk, tmp, false)) {
-		err::set(stmt->line, stmt->col, "failed to generate C code for for-loop block");
+		err::set(stmt, "failed to generate C code for for-loop block");
 		return false;
 	}
 	writer.append(tmp);
@@ -521,15 +511,14 @@ bool CDriver::visit(parser::StmtWhile *stmt, Writer &writer, const bool &semicol
 	writer.write("while(");
 	Writer tmp;
 	if(!visit(stmt->cond, tmp, false)) {
-		err::set(stmt->line, stmt->col,
-			 "failed to generate C code for while-loop condition");
+		err::set(stmt, "failed to generate C code for while-loop condition");
 		return false;
 	}
 	writer.append(tmp);
 	writer.write(") ");
 	tmp.clear();
 	if(!visit(stmt->blk, tmp, false)) {
-		err::set(stmt->line, stmt->col, "failed to generate C code for while block");
+		err::set(stmt, "failed to generate C code for while block");
 		return false;
 	}
 	writer.append(tmp);
@@ -543,7 +532,7 @@ bool CDriver::visit(parser::StmtRet *stmt, Writer &writer, const bool &semicolon
 	}
 	Writer tmp;
 	if(!visit(stmt->val, tmp, false)) {
-		err::set(stmt->line, stmt->col, "failed to generate C code for return value");
+		err::set(stmt, "failed to generate C code for return value");
 		return false;
 	}
 	writer.write("return ");

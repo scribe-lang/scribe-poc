@@ -26,22 +26,18 @@ namespace err
 {
 void pushModule(parser::Module *mod);
 void popModule();
-void set(const size_t &line, const size_t &col, const char *e, ...);
+void set(parser::Stmt *stmt, const char *e, ...);
 void set(const lex::Lexeme &tok, const char *e, ...);
 void set(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e, ...);
-void set(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e,
-	 va_list args);
-// TODO: implement
-void set(parser::Stmt *stmt, const char *e, va_list args);
+void set(parser::Module *mod, const size_t &line, const size_t &col_beg, const size_t &col_end,
+	 const char *e, va_list args);
 
 // equivalent to set(), but for warnings
-void setw(const size_t &line, const size_t &col, const char *e, ...);
+void setw(parser::Stmt *stmt, const char *e, ...);
 void setw(const lex::Lexeme &tok, const char *e, ...);
 void setw(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e, ...);
-void setw(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e,
-	  va_list args);
-// TODO: implement
-void setw(parser::Stmt *stmt, const char *e, va_list args);
+void setw(parser::Module *mod, const size_t &line, const size_t &col_beg, const size_t &col_end,
+	  const char *e, va_list args);
 bool present();
 void show(FILE *f);
 void reset();

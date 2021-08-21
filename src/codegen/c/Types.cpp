@@ -52,7 +52,7 @@ std::string GetCType(parser::Stmt *stmt, parser::Type *type)
 		return ApplyTypeInfo(stmt, type, res);
 	}
 	case parser::TENUM: {
-		err::set(stmt->line, stmt->col, "enum LLVM type is not implemented yet");
+		err::set(stmt, "enum LLVM type is not implemented yet");
 		return nullptr;
 	}
 	case parser::TFUNC: {
@@ -61,7 +61,7 @@ std::string GetCType(parser::Stmt *stmt, parser::Type *type)
 		// for(auto &a : tf->args) {
 		// 	llvm::Type *t = GetLLType(c, stmt, a);
 		// 	if(!t) {
-		// 		err::set(stmt->line, stmt->col,
+		// 		err::set(stmt,
 		// 			 "failed to get LLVM type for scribe"
 		// 			 " func arg of type '%s'",
 		// 			 a->str().c_str());
@@ -71,7 +71,7 @@ std::string GetCType(parser::Stmt *stmt, parser::Type *type)
 		// }
 		// llvm::Type *rettype = GetLLType(c, stmt, tf->rettype);
 		// if(!rettype) {
-		// 	err::set(stmt->line, stmt->col,
+		// 	err::set(stmt,
 		// 		 "failed to get LLVM type for scribe func return-type of type '%s'",
 		// 		 tf->rettype->str().c_str());
 		// 	return nullptr;
@@ -81,8 +81,7 @@ std::string GetCType(parser::Stmt *stmt, parser::Type *type)
 	}
 	default: break;
 	}
-	err::set(stmt->line, stmt->col, "invalid scribe type encountered '%s'",
-		 type->str().c_str());
+	err::set(stmt, "invalid scribe type encountered '%s'", type->str().c_str());
 	return nullptr;
 }
 } // namespace codegen

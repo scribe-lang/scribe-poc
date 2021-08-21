@@ -107,9 +107,8 @@ bool StmtFnCallInfo::assignValue(TypeMgr &types, ValueMgr &vals)
 {
 	for(auto &a : args) {
 		if(!a->assignValue(types, vals)) {
-			err::set(a->line, a->col,
-				 "failed to determine value"
-				 " for comptime function call");
+			err::set(a, "failed to determine value"
+				    " for comptime function call");
 			return false;
 		}
 	}
@@ -123,7 +122,7 @@ bool StmtFnCallInfo::assignValue(TypeMgr &types, ValueMgr &vals)
 bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 {
 	if(lhs && !lhs->assignValue(types, vals)) {
-		err::set(lhs->line, lhs->col, "failed to determine value of LHS");
+		err::set(lhs, "failed to determine value of LHS");
 		return false;
 	}
 	if(oper.tok.val == lex::EMPTY) {
@@ -140,13 +139,13 @@ bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 		return true;
 	}
 	if(rhs && !rhs->assignValue(types, vals)) {
-		err::set(rhs->line, rhs->col, "failed to determine value of RHS");
+		err::set(rhs, "failed to determine value of RHS");
 		return false;
 	}
 	if(oper.tok.val == lex::SUBS) {
 		if(lhs->type->type == TVARIADIC) {
 			if(rhs->value->i >= lhs->value->v.size()) {
-				err::set(line, col,
+				err::set(this,
 					 "variadic length is less than"
 					 " the subscript value (va: %zu, subscript: %" PRId64 "",
 					 lhs->value->v.size(), rhs->value->i);
@@ -161,7 +160,7 @@ bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 		       "parent must be a variable declaration");
 		StmtFnCallInfo *finfo = as<StmtFnCallInfo>(rhs);
 		if(!finfo->assignValue(types, vals)) {
-			err::set(line, col, "failed to determine values for function call args");
+			err::set(this, "failed to determine values for function call args");
 			return false;
 		}
 		StmtVar *lvar = as<StmtVar>(lhs->type->parent);
@@ -189,7 +188,7 @@ bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 				sig->args[args_end]->value = vals.get(vvec);
 			}
 			if(!def->assignValue(types, vals)) {
-				err::set(line, col, "failed to determine value for function call");
+				err::set(this, "failed to determine value for function call");
 				return false;
 			}
 			value = def->value;
@@ -207,15 +206,15 @@ bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 			value = vals.get(fields, fieldsorder);
 			return true;
 		}
-		err::set(line, col, "failed to comptime call non intrinsic function");
+		err::set(this, "failed to comptime call non intrinsic function");
 		return false;
 	}
 	if(lhs && lhs->type->type != TFUNC && !lhs->value) {
-		err::set(line, col, "LHS has no value for function call");
+		err::set(this, "LHS has no value for function call");
 		return false;
 	}
 	if(rhs && rhs->stmt_type != FNCALLINFO && !rhs->value) {
-		err::set(line, col, "RHS has no value for function call");
+		err::set(this, "RHS has no value for function call");
 		return false;
 	}
 	std::vector<Stmt *> args;
@@ -280,12 +279,12 @@ bool StmtFnDef::assignValue(TypeMgr &types, ValueMgr &vals)
 {
 	assert(blk && "no block for function definition");
 	if(!blk->assignValue(types, vals)) {
-		err::set(line, col, "failed to assign value for function block");
+		err::set(this, "failed to assign value for function block");
 		return false;
 	}
 	value = blk->value;
 	if(!value) {
-		err::set(line, col, "failed to assign value for function definition");
+		err::set(this, "failed to assign value for function definition");
 		return false;
 	}
 	return true;
@@ -360,7 +359,7 @@ bool StmtCond::assignValue(TypeMgr &types, ValueMgr &vals)
 	if(is_inline) {
 		if(conds.empty()) return true;
 		if(!conds[0].blk->assignValue(types, vals)) {
-			err::set(line, col, "failed to assign value for inline-conditional");
+			err::set(this, "failed to assign value for inline-conditional");
 			return false;
 		}
 		return true;
@@ -368,18 +367,18 @@ bool StmtCond::assignValue(TypeMgr &types, ValueMgr &vals)
 	for(auto &c : conds) {
 		if(!c.cond) {
 			if(!c.blk->assignValue(types, vals)) {
-				err::set(line, col, "failed to determine else-block value");
+				err::set(this, "failed to determine else-block value");
 				return false;
 			}
 			break;
 		}
 		if(!c.cond->assignValue(types, vals)) {
-			err::set(line, col, "failed to determine conditional value");
+			err::set(this, "failed to determine conditional value");
 			return false;
 		}
 		if(c.cond->value->i == 0) continue;
 		if(!c.blk->assignValue(types, vals)) {
-			err::set(line, col, "failed to determine condition-block value");
+			err::set(this, "failed to determine condition-block value");
 			return false;
 		}
 		break;
@@ -405,30 +404,30 @@ bool StmtFor::assignValue(TypeMgr &types, ValueMgr &vals)
 	assert(blk && "no block for for-loop");
 	if(is_inline) {
 		if(init && !init->assignValue(types, vals)) {
-			err::set(line, col, "failed to assign value for for-loop init");
+			err::set(this, "failed to assign value for for-loop init");
 			return false;
 		}
 		if(!blk->assignValue(types, vals)) {
-			err::set(line, col, "failed to assign value for for-loop block");
+			err::set(this, "failed to assign value for for-loop block");
 			return false;
 		}
 		clearValue();
 		return true;
 	}
 	if(init && !init->assignValue(types, vals)) {
-		err::set(line, col, "failed to assign value for for-init statement");
+		err::set(this, "failed to assign value for for-init statement");
 		return false;
 	}
 	while(!cond || (cond->assignValue(types, vals) && cond->value->i != 0)) {
 		if(!blk->assignValue(types, vals)) {
-			err::set(line, col, "failed to assign value for for-loop block");
+			err::set(this, "failed to assign value for for-loop block");
 			return false;
 		}
 		continue_stmt = false;
 		if(break_stmt) break;
 		if(incr) incr->clearValue();
 		if(incr && !incr->assignValue(types, vals)) {
-			err::set(line, col, "failed to determine incr value for for-loop");
+			err::set(this, "failed to determine incr value for for-loop");
 			return false;
 		}
 		cond->clearValue();
@@ -446,7 +445,7 @@ bool StmtWhile::assignValue(TypeMgr &types, ValueMgr &vals)
 	assert(blk && "no block for while-loop");
 	while(!cond || (cond->assignValue(types, vals) && cond->value->i != 0)) {
 		if(!blk->assignValue(types, vals)) {
-			err::set(line, col, "failed to assign value for for-loop block");
+			err::set(this, "failed to assign value for for-loop block");
 			return false;
 		}
 		continue_stmt = false;
@@ -463,13 +462,13 @@ bool StmtWhile::assignValue(TypeMgr &types, ValueMgr &vals)
 bool StmtRet::assignValue(TypeMgr &types, ValueMgr &vals)
 {
 	if(val && !val->assignValue(types, vals)) {
-		err::set(line, col, "failed to determine value of return argument");
+		err::set(this, "failed to determine value of return argument");
 		return false;
 	}
 	value	       = val ? val->value : vals.get(VVOID);
 	StmtFnDef *def = as<StmtFnDef>(getParentWithType(FNDEF));
 	if(!def) {
-		err::set(line, col, "Could not find parent function definition of return");
+		err::set(this, "Could not find parent function definition of return");
 		return false;
 	}
 	def->blk->value = value;

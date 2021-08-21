@@ -59,7 +59,7 @@ bool Module::assignType(TypeMgr &types)
 {
 	if(!types.initTypeFuncsCalled()) types.initTypeFuncs();
 	if(!ptree->assignType(types)) {
-		err::set(ptree->line, ptree->col, "failed to assign types while parsing");
+		err::set(ptree, "failed to assign types while parsing");
 		err::show(stderr);
 		return false;
 	}

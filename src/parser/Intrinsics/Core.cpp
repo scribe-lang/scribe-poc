@@ -22,25 +22,22 @@ namespace parser
 {
 INTRINSIC(import)
 {
-	size_t &line = base->line;
-	size_t &col  = base->col;
-
 	Stmt *topparentbase = base->getTopLevelParent();
 
 	if(!topparentbase || topparentbase->stmt_type != BLOCK) {
-		err::set(line, col, "import not in any code block (internal error)");
+		err::set(base, "import not in any code block (internal error)");
 		return false;
 	}
 
 	StmtBlock *topparent = as<StmtBlock>(topparentbase);
 
 	if(!args[0]->assignValue(types, values) || args[0]->value->type != VVEC) {
-		err::set(line, col, "import must be a compile time computable string");
+		err::set(base, "import must be a compile time computable string");
 		return false;
 	}
 	std::string modname = values.getStringFromVec(args[0]->value);
 	if(modname.empty()) {
-		err::set(line, col, "no module provided");
+		err::set(base, "no module provided");
 		return false;
 	}
 	std::string file = modname + ".sc";
@@ -59,7 +56,7 @@ INTRINSIC(import)
 		goto gen_import;
 	}
 	if(!parser->parse(file)) {
-		err::set(line, col, "failed to parse source: %s", file.c_str());
+		err::set(base, "failed to parse source: %s", file.c_str());
 		return false;
 	}
 	mod = parser->getModule(file);
@@ -96,8 +93,7 @@ INTRINSIC(va_len)
 {
 	StmtFnDef *fn = static_cast<StmtFnDef *>(base->getParentWithType(FNDEF));
 	if(!fn) {
-		err::set(base->line, base->col,
-			 "the function enclosing this intrinsic is not a variadic function");
+		err::set(base, "the function enclosing this intrinsic is not a variadic function");
 		return false;
 	}
 	TypeVariadic *va = nullptr;
@@ -105,8 +101,7 @@ INTRINSIC(va_len)
 		if(a->type == TVARIADIC) va = static_cast<TypeVariadic *>(a);
 	}
 	if(!va) {
-		err::set(base->line, base->col,
-			 "the enclosing function for va_len() must be a variadic");
+		err::set(base, "the enclosing function for va_len() must be a variadic");
 		return false;
 	}
 	base->value = values.get((int64_t)va->args.size());
@@ -121,8 +116,7 @@ INTRINSIC(comptime_strlen)
 {
 	Value *mod = args[0]->value;
 	if(!mod || !mod->has_data() || mod->type != VVEC) {
-		err::set(base->line, base->col,
-			 "comptime_strlen's argument must be a comptime string");
+		err::set(base, "comptime_strlen's argument must be a comptime string");
 		return false;
 	}
 	base->value = values.get((int64_t)mod->v.size());
@@ -133,18 +127,17 @@ INTRINSIC(subscr)
 	Value *lhs = args[0]->value;
 	Value *rhs = args[1]->value;
 	if(!lhs || !lhs->has_data()) {
-		err::set(base->line, base->col,
+		err::set(base,
 			 "comptime pointer subscript is only applicable on comptime pointer data");
 		return false;
 	}
 	if(!rhs || !rhs->has_data()) {
-		err::set(base->line, base->col,
-			 "comptime pointer subscript must be a comptime integer value");
+		err::set(base, "comptime pointer subscript must be a comptime integer value");
 		return false;
 	}
 	if(lhs->v.size() <= rhs->i) {
-		err::set(base->line, base->col, "attempted to index '%zu', total count is '%zu'",
-			 (size_t)rhs->i, lhs->v.size());
+		err::set(base, "attempted to index '%zu', total count is '%zu'", (size_t)rhs->i,
+			 lhs->v.size());
 		return false;
 	}
 	if(args[0]->type->info & REF) {

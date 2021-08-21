@@ -66,12 +66,11 @@ struct Type
 	virtual Type *copy(const size_t &append_info = 0, const size_t &ptr = 0)	   = 0;
 	virtual Type *specialize(const std::unordered_map<std::string, Type *> &templates) = 0;
 	// ignore_id is for templates
-	bool compatible_base(Type *rhs, const bool &is_templ, const size_t &line,
-			     const size_t &col);
-	virtual bool compatible(Type *rhs, const size_t &line, const size_t &col) = 0;
+	bool compatible_base(Type *rhs, const bool &is_templ, Stmt *loc);
+	virtual bool compatible(Type *rhs, Stmt *loc) = 0;
 	virtual bool assignTemplateActuals(Type *actual,
 					   std::unordered_map<std::string, Type *> &templates,
-					   const size_t &line, const size_t &col) = 0;
+					   Stmt *loc) = 0;
 
 	bool booleanCompatible();
 	bool integerCompatible();
@@ -99,9 +98,9 @@ struct TypeSimple : public Type
 
 	Type *copy(const size_t &append_info = 0, const size_t &ptr = 0);
 	Type *specialize(const std::unordered_map<std::string, Type *> &templates);
-	bool compatible(Type *rhs, const size_t &line, const size_t &col);
+	bool compatible(Type *rhs, Stmt *loc);
 	bool assignTemplateActuals(Type *actual, std::unordered_map<std::string, Type *> &templates,
-				   const size_t &line, const size_t &col);
+				   Stmt *loc);
 
 	std::string str();
 	std::string mangled_name();
@@ -119,9 +118,9 @@ struct TypeImport : public Type
 
 	Type *copy(const size_t &append_info = 0, const size_t &ptr = 0);
 	Type *specialize(const std::unordered_map<std::string, Type *> &templates);
-	bool compatible(Type *rhs, const size_t &line, const size_t &col);
+	bool compatible(Type *rhs, Stmt *loc);
 	bool assignTemplateActuals(Type *actual, std::unordered_map<std::string, Type *> &templates,
-				   const size_t &line, const size_t &col);
+				   Stmt *loc);
 
 	std::string str();
 	std::string mangled_name();
@@ -151,13 +150,13 @@ struct TypeStruct : public Type
 
 	Type *copy(const size_t &append_info = 0, const size_t &ptr = 0);
 	Type *specialize(const std::unordered_map<std::string, Type *> &templates);
-	bool compatible(Type *rhs, const size_t &line, const size_t &col);
+	bool compatible(Type *rhs, Stmt *loc);
 	// checks if instantiation is viable with callinfo, returns specialized instance of struct
 	// if true; nullptr if false
 	TypeStruct *specialize_compatible_call(StmtFnCallInfo *callinfo,
 					       std::unordered_map<std::string, Type *> &templates);
 	bool assignTemplateActuals(Type *actual, std::unordered_map<std::string, Type *> &templates,
-				   const size_t &line, const size_t &col);
+				   Stmt *loc);
 
 	std::string str();
 	std::string mangled_name();
@@ -228,12 +227,12 @@ struct TypeFunc : public Type
 
 	Type *copy(const size_t &append_info = 0, const size_t &ptr = 0);
 	Type *specialize(const std::unordered_map<std::string, Type *> &templates);
-	bool compatible(Type *rhs, const size_t &line, const size_t &col);
+	bool compatible(Type *rhs, Stmt *loc);
 	// checks for compatibility and specializes the signature (for templates)
 	TypeFunc *specialize_compatible_call(StmtFnCallInfo *callinfo,
 					     std::unordered_map<std::string, Type *> &templates);
 	bool assignTemplateActuals(Type *actual, std::unordered_map<std::string, Type *> &templates,
-				   const size_t &line, const size_t &col);
+				   Stmt *loc);
 
 	std::string str();
 	std::string mangled_name();
@@ -252,9 +251,9 @@ struct TypeFuncMap : public Type
 
 	Type *copy(const size_t &append_info = 0, const size_t &ptr = 0);
 	Type *specialize(const std::unordered_map<std::string, Type *> &templates);
-	bool compatible(Type *rhs, const size_t &line, const size_t &col);
+	bool compatible(Type *rhs, Stmt *loc);
 	bool assignTemplateActuals(Type *actual, std::unordered_map<std::string, Type *> &templates,
-				   const size_t &line, const size_t &col);
+				   Stmt *loc);
 
 	void setSelf(Type *s);
 	Type *&getSelf();
@@ -280,9 +279,9 @@ struct TypeVariadic : public Type
 
 	Type *copy(const size_t &append_info = 0, const size_t &ptr = 0);
 	Type *specialize(const std::unordered_map<std::string, Type *> &templates);
-	bool compatible(Type *rhs, const size_t &line, const size_t &col);
+	bool compatible(Type *rhs, Stmt *loc);
 	bool assignTemplateActuals(Type *actual, std::unordered_map<std::string, Type *> &templates,
-				   const size_t &line, const size_t &col);
+				   Stmt *loc);
 
 	void setIndexed(const bool &indexed);
 	bool isIndexed();

@@ -35,31 +35,31 @@ void popModule()
 {
 	currmod.pop_back();
 }
-void set(const size_t &line, const size_t &col, const char *e, ...)
+void set(parser::Stmt *stmt, const char *e, ...)
 {
 	va_list args;
 	va_start(args, e);
-	set(line, col, col, e, args);
+	set(stmt->mod, stmt->line, stmt->col, stmt->col, e, args);
 	va_end(args);
 }
 void set(const lex::Lexeme &tok, const char *e, ...)
 {
 	va_list args;
 	va_start(args, e);
-	set(tok.line, tok.col_beg, tok.col_end, e, args);
+	set(nullptr, tok.line, tok.col_beg, tok.col_end, e, args);
 	va_end(args);
 }
 void set(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e, ...)
 {
 	va_list args;
 	va_start(args, e);
-	set(line, col_beg, col_end, e, args);
+	set(nullptr, line, col_beg, col_end, e, args);
 	va_end(args);
 }
-void set(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e,
-	 va_list args)
+void set(parser::Module *mod, const size_t &line, const size_t &col_beg, const size_t &col_end,
+	 const char *e, va_list args)
 {
-	_mod.insert(_mod.begin(), currmod.back());
+	_mod.insert(_mod.begin(), mod == nullptr ? currmod.back() : mod);
 	_line.insert(_line.begin(), line);
 	_col_beg.insert(_col_beg.begin(), col_beg);
 	_col_end.insert(_col_end.begin(), col_end);
@@ -72,31 +72,31 @@ void set(const size_t &line, const size_t &col_beg, const size_t &col_end, const
 }
 
 // equivalent to set(), but for warnings
-void setw(const size_t &line, const size_t &col, const char *e, ...)
+void setw(parser::Stmt *stmt, const char *e, ...)
 {
 	va_list args;
 	va_start(args, e);
-	setw(line, col, col, e, args);
+	setw(stmt->mod, stmt->line, stmt->col, stmt->col, e, args);
 	va_end(args);
 }
 void setw(const lex::Lexeme &tok, const char *e, ...)
 {
 	va_list args;
 	va_start(args, e);
-	setw(tok.line, tok.col_beg, tok.col_end, e, args);
+	setw(nullptr, tok.line, tok.col_beg, tok.col_end, e, args);
 	va_end(args);
 }
 void setw(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e, ...)
 {
 	va_list args;
 	va_start(args, e);
-	setw(line, col_beg, col_end, e, args);
+	setw(nullptr, line, col_beg, col_end, e, args);
 	va_end(args);
 }
-void setw(const size_t &line, const size_t &col_beg, const size_t &col_end, const char *e,
-	  va_list args)
+void setw(parser::Module *mod, const size_t &line, const size_t &col_beg, const size_t &col_end,
+	  const char *e, va_list args)
 {
-	_mod.insert(_mod.begin(), currmod.back());
+	_mod.insert(_mod.begin(), mod == nullptr ? currmod.back() : mod);
 	_line.insert(_line.begin(), line);
 	_col_beg.insert(_col_beg.begin(), col_beg);
 	_col_end.insert(_col_end.begin(), col_end);

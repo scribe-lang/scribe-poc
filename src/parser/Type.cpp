@@ -59,7 +59,7 @@ Type::Type(const int64_t &id, const Types &type, Stmt *parent, const size_t &ptr
 	: id(id), type(type), parent(parent), ptr(ptr), info(info)
 {}
 Type::~Type() {}
-bool Type::compatible_base(Type *rhs, const bool &is_templ, const size_t &line, const size_t &col)
+bool Type::compatible_base(Type *rhs, const bool &is_templ, Stmt *loc)
 {
 	const size_t &rptr  = rhs->ptr;
 	const size_t &rinfo = rhs->info;
@@ -68,33 +68,31 @@ bool Type::compatible_base(Type *rhs, const bool &is_templ, const size_t &line, 
 		num_to_ptr = integerCompatible();
 	}
 	if(!is_templ && !num_to_ptr && id != rhs->id) {
-		err::set(line, col, "different type ids (LHS: %s, RHS: %s), not compatible",
+		err::set(loc, "different type ids (LHS: %s, RHS: %s), not compatible",
 			 str().c_str(), rhs->str().c_str());
 		return false;
 	}
 	// something with REF?
 	if(ptr == 0 && rptr > 0) {
-		err::set(line, col, "cannot use a pointer type (RHS: %s) for non pointer (LHS: %s)",
+		err::set(loc, "cannot use a pointer type (RHS: %s) for non pointer (LHS: %s)",
 			 rhs->str().c_str(), str().c_str());
 		return false;
 	}
 	if(rptr == 0 && !num_to_ptr && ptr > 0) {
-		err::set(line, col,
-			 "non pointer type (RHS) cannot be assigned to pointer type (LHS)");
+		err::set(loc, "non pointer type (RHS) cannot be assigned to pointer type (LHS)");
 		return false;
 	}
 	if(rptr != ptr) {
-		err::setw(line, col, "inequal pointer assignment here, continuing...");
+		err::setw(loc, "inequal pointer assignment here, continuing...");
 		err::show(stderr);
 	}
 	if(rinfo & CONST && !(info & CONST)) {
-		err::set(line, col, "losing constness here, cannot continue (LHS: %s, RHS: %s)",
+		err::set(loc, "losing constness here, cannot continue (LHS: %s, RHS: %s)",
 			 str().c_str(), rhs->str().c_str());
 		return false;
 	}
 	if(rhs->info & VARIADIC && !(info & VARIADIC)) {
-		err::set(line, col,
-			 "cannot assign variadic type to non variadic (LHS: %s, RHS: %s)",
+		err::set(loc, "cannot assign variadic type to non variadic (LHS: %s, RHS: %s)",
 			 str().c_str(), rhs->str().c_str());
 		return false;
 	}
@@ -170,21 +168,21 @@ Type *TypeSimple::specialize(const std::unordered_map<std::string, Type *> &temp
 	res->info |= info;
 	return res;
 }
-bool TypeSimple::compatible(Type *rhs, const size_t &line, const size_t &col)
+bool TypeSimple::compatible(Type *rhs, Stmt *loc)
 {
-	if(!compatible_base(rhs, name[0] == '@' || name == "any", line, col)) return false;
+	if(!compatible_base(rhs, name[0] == '@' || name == "any", loc)) return false;
 	TypeSimple *r = static_cast<TypeSimple *>(rhs);
 	return true;
 }
 bool TypeSimple::assignTemplateActuals(Type *actual,
 				       std::unordered_map<std::string, Type *> &templates,
-				       const size_t &line, const size_t &col)
+				       Stmt *loc)
 {
 	if(name[0] != '@') return true;
 	auto res = templates.find(name);
 	if(res != templates.end()) {
-		if(!res->second->compatible(actual, line, col)) {
-			err::set(line, col,
+		if(!res->second->compatible(actual, loc)) {
+			err::set(loc,
 				 "In templated argument, mismatch"
 				 " between template %s and actual %s",
 				 res->second->str().c_str(), actual->str().c_str());
@@ -192,9 +190,9 @@ bool TypeSimple::assignTemplateActuals(Type *actual,
 		}
 		return true;
 	}
-	if(!compatible(actual, line, col)) {
-		err::set(line, col, "incompatible actual '%s' to template '%s'",
-			 actual->str().c_str(), str().c_str());
+	if(!compatible(actual, loc)) {
+		err::set(loc, "incompatible actual '%s' to template '%s'", actual->str().c_str(),
+			 str().c_str());
 		return false;
 	}
 	Type *t		= actual->copy();
@@ -235,13 +233,13 @@ Type *TypeImport::specialize(const std::unordered_map<std::string, Type *> &temp
 {
 	return copy();
 }
-bool TypeImport::compatible(Type *rhs, const size_t &line, const size_t &col)
+bool TypeImport::compatible(Type *rhs, Stmt *loc)
 {
 	return true;
 }
 bool TypeImport::assignTemplateActuals(Type *actual,
 				       std::unordered_map<std::string, Type *> &templates,
-				       const size_t &line, const size_t &col)
+				       Stmt *loc)
 {
 	return true;
 }
@@ -289,31 +287,30 @@ Type *TypeStruct::specialize(const std::unordered_map<std::string, Type *> &temp
 	}
 	return new TypeStruct(id, parent, ptr, info, is_def, templ, field_order, newfields);
 }
-bool TypeStruct::compatible(Type *rhs, const size_t &line, const size_t &col)
+bool TypeStruct::compatible(Type *rhs, Stmt *loc)
 {
-	if(!compatible_base(rhs, false, line, col)) return false;
+	if(!compatible_base(rhs, false, loc)) return false;
 	TypeStruct *r = static_cast<TypeStruct *>(rhs);
 	if(is_decl_only && !templ) return true;
 	if(templ != r->templ) {
-		err::set(line, col, "type mismatch (LHS templates: %zu, RHS templates: %zu", templ,
+		err::set(loc, "type mismatch (LHS templates: %zu, RHS templates: %zu", templ,
 			 r->templ);
 		return false;
 	}
 	if(fields.size() != r->fields.size()) {
-		err::set(line, col, "type mismatch (LHS fields: %zu, RHS fields: %zu",
-			 fields.size(), r->fields.size());
+		err::set(loc, "type mismatch (LHS fields: %zu, RHS fields: %zu", fields.size(),
+			 r->fields.size());
 		return false;
 	}
 	for(size_t i = 0; i < fields.size(); ++i) {
 		if(field_order[i] != r->field_order[i]) {
-			err::set(line, col, "incompatible fields (LHS: %s, RHS: %s)",
+			err::set(loc, "incompatible fields (LHS: %s, RHS: %s)",
 				 field_order[i].c_str(), r->field_order[i].c_str());
 			return false;
 		}
 		const std::string &f = field_order[i];
-		if(!fields[f]->compatible(r->fields[f], line, col)) {
-			err::set(line, col,
-				 "incompatible field types (LHS: %s, RHS: %s) in %s and %s",
+		if(!fields[f]->compatible(r->fields[f], loc)) {
+			err::set(loc, "incompatible field types (LHS: %s, RHS: %s) in %s and %s",
 				 fields[f]->str().c_str(), r->fields[f]->str().c_str(),
 				 str().c_str(), r->str().c_str());
 			return false;
@@ -333,8 +330,7 @@ TypeStruct::specialize_compatible_call(StmtFnCallInfo *callinfo,
 	}
 	for(size_t i = 0; i < this->field_order.size(); ++i) {
 		Type *&field = this->fields[field_order[i]];
-		if(!field->assignTemplateActuals(callinfo->args[i]->type, templates, callinfo->line,
-						 callinfo->col))
+		if(!field->assignTemplateActuals(callinfo->args[i]->type, templates, callinfo))
 			return nullptr;
 	}
 	bool is_field_compatible = true;
@@ -345,7 +341,7 @@ TypeStruct::specialize_compatible_call(StmtFnCallInfo *callinfo,
 	for(size_t i = 0; i < specializedfields.size(); ++i) {
 		Type *ffield = specializedfields[field_order[i]];
 		Stmt *fciarg = callinfo->args[i];
-		if(!ffield->compatible(fciarg->type, fciarg->line, fciarg->col)) {
+		if(!ffield->compatible(fciarg->type, fciarg)) {
 			is_field_compatible = false;
 			break;
 		}
@@ -362,13 +358,12 @@ TypeStruct::specialize_compatible_call(StmtFnCallInfo *callinfo,
 }
 bool TypeStruct::assignTemplateActuals(Type *actual,
 				       std::unordered_map<std::string, Type *> &templates,
-				       const size_t &line, const size_t &col)
+				       Stmt *loc)
 {
-	if(!compatible(actual, line, col)) return false;
+	if(!compatible(actual, loc)) return false;
 	TypeStruct *ast = as<TypeStruct>(actual);
 	for(auto &f : field_order) {
-		if(!fields[f]->assignTemplateActuals(ast->fields[f], templates, line, col))
-			return false;
+		if(!fields[f]->assignTemplateActuals(ast->fields[f], templates, loc)) return false;
 	}
 	return true;
 }
@@ -494,29 +489,29 @@ Type *TypeFunc::specialize(const std::unordered_map<std::string, Type *> &templa
 	return new TypeFunc(id, parent, ptr, info, scope, templ, has_va, newargs, newret, intrin_fn,
 			    intrin_fn_type);
 }
-bool TypeFunc::compatible(Type *rhs, const size_t &line, const size_t &col)
+bool TypeFunc::compatible(Type *rhs, Stmt *loc)
 {
-	if(!compatible_base(rhs, false, line, col)) return false;
+	if(!compatible_base(rhs, false, loc)) return false;
 	TypeFunc *r = static_cast<TypeFunc *>(rhs);
 	if(templ != r->templ) {
-		err::set(line, col, "type mismatch (LHS templates: %zu, RHS templates: %zu", templ,
+		err::set(loc, "type mismatch (LHS templates: %zu, RHS templates: %zu", templ,
 			 r->templ);
 		return false;
 	}
 	if(args.size() != r->args.size()) {
-		err::set(line, col, "type mismatch (LHS args: %zu, RHS args: %zu", args.size(),
+		err::set(loc, "type mismatch (LHS args: %zu, RHS args: %zu", args.size(),
 			 r->args.size());
 		return false;
 	}
 	for(size_t i = 0; i < args.size(); ++i) {
-		if(!args[i]->compatible(r->args[i], line, col)) {
-			err::set(line, col, "incompatible field types (LHS: %s, RHS: %s)",
+		if(!args[i]->compatible(r->args[i], loc)) {
+			err::set(loc, "incompatible field types (LHS: %s, RHS: %s)",
 				 args[i]->str().c_str(), r->args[i]->str().c_str());
 			return false;
 		}
 	}
-	if(!rettype->compatible(r->rettype, line, col)) {
-		err::set(line, col, "incompatible return types (LHS: %s, RHS: %s)",
+	if(!rettype->compatible(r->rettype, loc)) {
+		err::set(loc, "incompatible return types (LHS: %s, RHS: %s)",
 			 rettype->str().c_str(), r->rettype->str().c_str());
 		return false;
 	}
@@ -537,7 +532,7 @@ TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
 	}
 	for(size_t i = 0; i < this->args.size() && i < callinfo->args.size(); ++i) {
 		if(!this->args[i]->assignTemplateActuals(callinfo->args[i]->type, templates,
-							 callinfo->line, callinfo->col))
+							 callinfo))
 			return nullptr;
 	}
 	bool is_arg_compatible = true;
@@ -555,7 +550,7 @@ TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
 			--i;
 		}
 		Stmt *fciarg = callinfo->args[j];
-		if(!farg->compatible(fciarg->type, fciarg->line, fciarg->col)) {
+		if(!farg->compatible(fciarg->type, fciarg)) {
 			is_arg_compatible = false;
 			break;
 		}
@@ -587,14 +582,12 @@ TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
 	return res;
 }
 bool TypeFunc::assignTemplateActuals(Type *actual,
-				     std::unordered_map<std::string, Type *> &templates,
-				     const size_t &line, const size_t &col)
+				     std::unordered_map<std::string, Type *> &templates, Stmt *loc)
 {
-	if(!compatible(actual, line, col)) return false;
+	if(!compatible(actual, loc)) return false;
 	TypeFunc *afn = as<TypeFunc>(actual);
 	for(size_t i = 0; i < args.size(); ++i) {
-		if(!args[i]->assignTemplateActuals(afn->args[i], templates, line, col))
-			return false;
+		if(!args[i]->assignTemplateActuals(afn->args[i], templates, loc)) return false;
 	}
 	return true;
 }
@@ -642,13 +635,13 @@ Type *TypeFuncMap::specialize(const std::unordered_map<std::string, Type *> &tem
 {
 	return copy();
 }
-bool TypeFuncMap::compatible(Type *rhs, const size_t &line, const size_t &col)
+bool TypeFuncMap::compatible(Type *rhs, Stmt *loc)
 {
 	return false;
 }
 bool TypeFuncMap::assignTemplateActuals(Type *actual,
 					std::unordered_map<std::string, Type *> &templates,
-					const size_t &line, const size_t &col)
+					Stmt *loc)
 {
 	return false;
 }
@@ -729,18 +722,18 @@ Type *TypeVariadic::specialize(const std::unordered_map<std::string, Type *> &te
 	for(auto &a : args) newargs.push_back(a->specialize(templates));
 	return new TypeVariadic(id, parent, ptr, info, newargs);
 }
-bool TypeVariadic::compatible(Type *rhs, const size_t &line, const size_t &col)
+bool TypeVariadic::compatible(Type *rhs, Stmt *loc)
 {
-	if(!compatible_base(rhs, false, line, col)) return false;
+	if(!compatible_base(rhs, false, loc)) return false;
 	TypeVariadic *r = static_cast<TypeVariadic *>(rhs);
 	if(args.size() != r->args.size()) {
-		err::set(line, col, "type mismatch (LHS args: %zu, RHS args: %zu", args.size(),
+		err::set(loc, "type mismatch (LHS args: %zu, RHS args: %zu", args.size(),
 			 r->args.size());
 		return false;
 	}
 	for(size_t i = 0; i < args.size(); ++i) {
-		if(!args[i]->compatible(r->args[i], line, col)) {
-			err::set(line, col, "incompatible field types (LHS: %s, RHS: %s)",
+		if(!args[i]->compatible(r->args[i], loc)) {
+			err::set(loc, "incompatible field types (LHS: %s, RHS: %s)",
 				 args[i]->str().c_str(), r->args[i]->str().c_str());
 			return false;
 		}
@@ -749,13 +742,12 @@ bool TypeVariadic::compatible(Type *rhs, const size_t &line, const size_t &col)
 }
 bool TypeVariadic::assignTemplateActuals(Type *actual,
 					 std::unordered_map<std::string, Type *> &templates,
-					 const size_t &line, const size_t &col)
+					 Stmt *loc)
 {
-	if(!compatible(actual, line, col)) return false;
+	if(!compatible(actual, loc)) return false;
 	TypeVariadic *ava = as<TypeVariadic>(actual);
 	for(size_t i = 0; i < args.size(); ++i) {
-		if(!args[i]->assignTemplateActuals(ava->args[i], templates, line, col))
-			return false;
+		if(!args[i]->assignTemplateActuals(ava->args[i], templates, loc)) return false;
 	}
 	return true;
 }
