@@ -98,14 +98,15 @@ struct Stmt
 	virtual ~Stmt();
 
 	// NEVER use hiddenCopy(); instead use copy()
-	Stmt *copy();
-	virtual Stmt *hiddenCopy(Stmt *par)			 = 0;
-	virtual void disp(const bool &has_next)			 = 0;
-	virtual void setParent(Stmt *parent)			 = 0;
-	virtual bool assignType(TypeMgr &types)			 = 0;
-	virtual bool assignValue(TypeMgr &types, ValueMgr &vals) = 0;
-	virtual void clearValue()				 = 0;
-	virtual void setValueUnique(ValueMgr &vals)		 = 0;
+	Stmt *copy(const bool &with_value = false);
+	virtual Stmt *hiddenCopy(const bool &with_value, Stmt *par) = 0;
+	virtual void disp(const bool &has_next)			    = 0;
+	virtual void setParent(Stmt *parent)			    = 0;
+	virtual bool assignType(TypeMgr &types)			    = 0;
+	virtual bool assignValue(TypeMgr &types, ValueMgr &vals)    = 0;
+	virtual void clearValue()				    = 0;
+	virtual void setValueUnique(ValueMgr &vals)		    = 0;
+	virtual void mergeValues(Stmt *stmt)			    = 0;
 
 	Stmt *getParentWithType(const Stmts &typ, Stmt **childofparent = nullptr);
 	Stmt *getTopLevelParent();
@@ -161,13 +162,14 @@ struct StmtType : public Stmt
 	StmtType(Module *mod, const size_t &line, const size_t &col, Stmt *fn);
 	~StmtType();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 
 	std::string getname();
 };
@@ -179,13 +181,14 @@ struct StmtBlock : public Stmt
 		  const std::vector<Stmt *> &stmts);
 	~StmtBlock();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 
 struct StmtSimple : public Stmt
@@ -199,13 +202,14 @@ struct StmtSimple : public Stmt
 	void setAppliedModuleID(const bool &applied);
 	bool isAppliedModuleID();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 
 struct StmtFnCallInfo : public Stmt
@@ -216,13 +220,14 @@ struct StmtFnCallInfo : public Stmt
 		       const std::vector<StmtType *> &templates, const std::vector<Stmt *> &args);
 	~StmtFnCallInfo();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 
 struct StmtExpr : public Stmt
@@ -242,13 +247,14 @@ struct StmtExpr : public Stmt
 		 const lex::Lexeme &oper, Stmt *rhs);
 	~StmtExpr();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 
 	void setIntrinsicFunc(intrinsic_fn_t intrin);
 	bool hasIntrinsicFunc();
@@ -274,13 +280,14 @@ struct StmtVar : public Stmt
 		StmtType *vtype, Stmt *val);
 	~StmtVar();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 
 struct StmtFnSig : public Stmt
@@ -296,13 +303,14 @@ struct StmtFnSig : public Stmt
 		  StmtType *rettype, const bool &has_variadic);
 	~StmtFnSig();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 
 	void setMember(const bool &is_mem);
 	bool isMember();
@@ -316,13 +324,14 @@ struct StmtFnDef : public Stmt
 		  StmtBlock *blk);
 	~StmtFnDef();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 
 struct StmtHeader : public Stmt
@@ -333,13 +342,14 @@ struct StmtHeader : public Stmt
 	StmtHeader(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &names,
 		   const lex::Lexeme &flags);
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 
 struct StmtLib : public Stmt
@@ -348,13 +358,14 @@ struct StmtLib : public Stmt
 	lex::Lexeme flags;
 	StmtLib(Module *mod, const size_t &line, const size_t &col, const lex::Lexeme &flags);
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 
 struct StmtExtern : public Stmt
@@ -368,13 +379,14 @@ struct StmtExtern : public Stmt
 		   StmtHeader *headers, StmtLib *libs, StmtFnSig *sig);
 	~StmtExtern();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 
 struct StmtEnum : public Stmt
@@ -385,13 +397,14 @@ struct StmtEnum : public Stmt
 		 const std::vector<lex::Lexeme> &items);
 	~StmtEnum();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 
 // both declaration and definition
@@ -405,13 +418,14 @@ struct StmtStruct : public Stmt
 		   const std::vector<lex::Lexeme> &templates, const std::vector<StmtVar *> &fields);
 	~StmtStruct();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 
 struct StmtVarDecl : public Stmt
@@ -422,13 +436,14 @@ struct StmtVarDecl : public Stmt
 		    const std::vector<StmtVar *> &decls);
 	~StmtVarDecl();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 
 struct cond_t
@@ -448,13 +463,14 @@ struct StmtCond : public Stmt
 	void setInline(const bool &_inline);
 	bool isInline();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 
 struct StmtForIn : public Stmt
@@ -466,13 +482,14 @@ struct StmtForIn : public Stmt
 		  Stmt *in, StmtBlock *blk);
 	~StmtForIn();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 
 struct StmtFor : public Stmt
@@ -490,13 +507,14 @@ struct StmtFor : public Stmt
 	void setInline(const bool &_inline);
 	bool isInline();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 
 struct StmtWhile : public Stmt
@@ -506,13 +524,14 @@ struct StmtWhile : public Stmt
 	StmtWhile(Module *mod, const size_t &line, const size_t &col, Stmt *cond, StmtBlock *blk);
 	~StmtWhile();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 
 struct StmtRet : public Stmt
@@ -521,37 +540,40 @@ struct StmtRet : public Stmt
 	StmtRet(Module *mod, const size_t &line, const size_t &col, Stmt *val);
 	~StmtRet();
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 struct StmtContinue : public Stmt
 {
 	StmtContinue(Module *mod, const size_t &line, const size_t &col);
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 struct StmtBreak : public Stmt
 {
 	StmtBreak(Module *mod, const size_t &line, const size_t &col);
 
-	Stmt *hiddenCopy(Stmt *par);
+	Stmt *hiddenCopy(const bool &with_value, Stmt *par);
 	void disp(const bool &has_next);
 	void setParent(Stmt *parent);
 	bool assignType(TypeMgr &types);
 	bool assignValue(TypeMgr &types, ValueMgr &vals);
 	void clearValue();
 	void setValueUnique(ValueMgr &vals);
+	void mergeValues(Stmt *stmt);
 };
 } // namespace parser
 } // namespace sc

@@ -21,18 +21,19 @@ namespace parser
 //////////////////////////////////////////// StmtBlock ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtBlock::hiddenCopy(Stmt *par)
+Stmt *StmtBlock::hiddenCopy(const bool &with_value, Stmt *par)
 {
 	std::vector<Stmt *> newstmts;
 	for(auto &s : stmts) {
 		if(!s) break;
-		newstmts.push_back(s->hiddenCopy(this));
+		newstmts.push_back(s->hiddenCopy(with_value, this));
 	}
 	StmtBlock *res	    = new StmtBlock(mod, line, col, newstmts);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -40,15 +41,16 @@ Stmt *StmtBlock::hiddenCopy(Stmt *par)
 //////////////////////////////////////////// StmtType /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtType::hiddenCopy(Stmt *par)
+Stmt *StmtType::hiddenCopy(const bool &with_value, Stmt *par)
 {
 	if(fn) {
-		Stmt *newfn	    = fn->hiddenCopy(this);
+		Stmt *newfn	    = fn->hiddenCopy(with_value, this);
 		StmtType *res	    = new StmtType(mod, line, col, newfn);
 		res->parent	    = par;
 		res->is_specialized = is_specialized;
 		res->specialized_id = specialized_id;
 		res->is_comptime    = is_comptime;
+		if(with_value) res->value = value;
 		return res;
 	}
 	StmtType *res	    = new StmtType(mod, line, col, ptr, info, name, templates);
@@ -56,6 +58,7 @@ Stmt *StmtType::hiddenCopy(Stmt *par)
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -63,7 +66,7 @@ Stmt *StmtType::hiddenCopy(Stmt *par)
 ////////////////////////////////////////// StmtSimple /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtSimple::hiddenCopy(Stmt *par)
+Stmt *StmtSimple::hiddenCopy(const bool &with_value, Stmt *par)
 {
 	StmtSimple *res	       = new StmtSimple(mod, line, col, val);
 	res->parent	       = par;
@@ -71,6 +74,7 @@ Stmt *StmtSimple::hiddenCopy(Stmt *par)
 	res->specialized_id    = specialized_id;
 	res->is_comptime       = is_comptime;
 	res->applied_module_id = applied_module_id;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -78,21 +82,22 @@ Stmt *StmtSimple::hiddenCopy(Stmt *par)
 //////////////////////////////////////// StmtFnCallInfo ///////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtFnCallInfo::hiddenCopy(Stmt *par)
+Stmt *StmtFnCallInfo::hiddenCopy(const bool &with_value, Stmt *par)
 {
 	std::vector<StmtType *> newtemplates;
 	std::vector<Stmt *> newargs;
 	for(auto &t : templates) {
-		newtemplates.push_back(static_cast<StmtType *>(t->hiddenCopy(this)));
+		newtemplates.push_back(static_cast<StmtType *>(t->hiddenCopy(with_value, this)));
 	}
 	for(auto &a : args) {
-		newargs.push_back(a->hiddenCopy(this));
+		newargs.push_back(a->hiddenCopy(with_value, this));
 	}
 	StmtFnCallInfo *res = new StmtFnCallInfo(mod, line, col, newtemplates, newargs);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -100,18 +105,19 @@ Stmt *StmtFnCallInfo::hiddenCopy(Stmt *par)
 //////////////////////////////////////////// StmtExpr /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtExpr::hiddenCopy(Stmt *par)
+Stmt *StmtExpr::hiddenCopy(const bool &with_value, Stmt *par)
 {
-	Stmt *newlhs  = lhs ? lhs->hiddenCopy(this) : nullptr;
-	Stmt *newrhs  = rhs ? rhs->hiddenCopy(this) : nullptr;
+	Stmt *newlhs  = lhs ? lhs->hiddenCopy(with_value, this) : nullptr;
+	Stmt *newrhs  = rhs ? rhs->hiddenCopy(with_value, this) : nullptr;
 	StmtExpr *res = new StmtExpr(mod, line, col, newlhs, oper, newrhs);
-	if(or_blk) res->or_blk = static_cast<StmtBlock *>(or_blk->hiddenCopy(this));
+	if(or_blk) res->or_blk = static_cast<StmtBlock *>(or_blk->hiddenCopy(with_value, this));
 	res->or_blk_var	    = or_blk_var;
 	res->parent	    = par;
 	res->is_intrinsic   = is_intrinsic;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -119,16 +125,17 @@ Stmt *StmtExpr::hiddenCopy(Stmt *par)
 //////////////////////////////////////////// StmtVar //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtVar::hiddenCopy(Stmt *par)
+Stmt *StmtVar::hiddenCopy(const bool &with_value, Stmt *par)
 {
-	StmtType *newvtype = vtype ? static_cast<StmtType *>(vtype->hiddenCopy(this)) : nullptr;
-	Stmt *newval	   = val ? val->hiddenCopy(this) : nullptr;
+	StmtType *newvtype = vtype ? as<StmtType>(vtype->hiddenCopy(with_value, this)) : nullptr;
+	Stmt *newval	   = val ? val->hiddenCopy(with_value, this) : nullptr;
 
 	StmtVar *res	    = new StmtVar(mod, line, col, name, newvtype, newval);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -136,18 +143,20 @@ Stmt *StmtVar::hiddenCopy(Stmt *par)
 //////////////////////////////////////////// StmtFnSig ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtFnSig::hiddenCopy(Stmt *par)
+Stmt *StmtFnSig::hiddenCopy(const bool &with_value, Stmt *par)
 {
 	std::vector<StmtVar *> newargs;
 	for(auto &p : args) {
-		newargs.push_back(static_cast<StmtVar *>(p->hiddenCopy(this)));
+		newargs.push_back(static_cast<StmtVar *>(p->hiddenCopy(with_value, this)));
 	}
-	StmtType *newret = rettype ? static_cast<StmtType *>(rettype->hiddenCopy(this)) : nullptr;
-	StmtFnSig *res	 = new StmtFnSig(mod, line, col, templates, newargs, newret, has_variadic);
-	res->parent	 = par;
+	StmtType *newret =
+	rettype ? static_cast<StmtType *>(rettype->hiddenCopy(with_value, this)) : nullptr;
+	StmtFnSig *res = new StmtFnSig(mod, line, col, templates, newargs, newret, has_variadic);
+	res->parent    = par;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -155,15 +164,17 @@ Stmt *StmtFnSig::hiddenCopy(Stmt *par)
 //////////////////////////////////////////// StmtFnDef ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtFnDef::hiddenCopy(Stmt *par)
+Stmt *StmtFnDef::hiddenCopy(const bool &with_value, Stmt *par)
 {
-	StmtFnSig *newsig   = static_cast<StmtFnSig *>(sig->hiddenCopy(this));
-	StmtBlock *newblk   = blk ? static_cast<StmtBlock *>(blk->hiddenCopy(this)) : nullptr;
+	StmtFnSig *newsig = static_cast<StmtFnSig *>(sig->hiddenCopy(with_value, this));
+	StmtBlock *newblk =
+	blk ? static_cast<StmtBlock *>(blk->hiddenCopy(with_value, this)) : nullptr;
 	StmtFnDef *res	    = new StmtFnDef(mod, line, col, newsig, newblk);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -171,13 +182,14 @@ Stmt *StmtFnDef::hiddenCopy(Stmt *par)
 ////////////////////////////////////////// StmtHeader /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtHeader::hiddenCopy(Stmt *par)
+Stmt *StmtHeader::hiddenCopy(const bool &with_value, Stmt *par)
 {
 	StmtHeader *res	    = new StmtHeader(mod, line, col, names, flags);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -185,13 +197,14 @@ Stmt *StmtHeader::hiddenCopy(Stmt *par)
 /////////////////////////////////////////// StmtLib ///////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtLib::hiddenCopy(Stmt *par)
+Stmt *StmtLib::hiddenCopy(const bool &with_value, Stmt *par)
 {
 	StmtLib *res	    = new StmtLib(mod, line, col, flags);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -199,17 +212,19 @@ Stmt *StmtLib::hiddenCopy(Stmt *par)
 ////////////////////////////////////////// StmtExtern /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtExtern::hiddenCopy(Stmt *par)
+Stmt *StmtExtern::hiddenCopy(const bool &with_value, Stmt *par)
 {
 	StmtHeader *newheaders =
-	headers ? static_cast<StmtHeader *>(headers->hiddenCopy(this)) : nullptr;
-	StmtLib *newlibs    = libs ? static_cast<StmtLib *>(libs->hiddenCopy(this)) : nullptr;
-	StmtFnSig *newsig   = static_cast<StmtFnSig *>(sig->hiddenCopy(this));
+	headers ? static_cast<StmtHeader *>(headers->hiddenCopy(with_value, this)) : nullptr;
+	StmtLib *newlibs =
+	libs ? static_cast<StmtLib *>(libs->hiddenCopy(with_value, this)) : nullptr;
+	StmtFnSig *newsig   = static_cast<StmtFnSig *>(sig->hiddenCopy(with_value, this));
 	StmtExtern *res	    = new StmtExtern(mod, line, col, fname, newheaders, newlibs, newsig);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -217,13 +232,14 @@ Stmt *StmtExtern::hiddenCopy(Stmt *par)
 /////////////////////////////////////////// StmtEnum //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtEnum::hiddenCopy(Stmt *par)
+Stmt *StmtEnum::hiddenCopy(const bool &with_value, Stmt *par)
 {
 	StmtEnum *res	    = new StmtEnum(mod, line, col, items);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -231,17 +247,18 @@ Stmt *StmtEnum::hiddenCopy(Stmt *par)
 ////////////////////////////////////////// StmtStruct /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtStruct::hiddenCopy(Stmt *par)
+Stmt *StmtStruct::hiddenCopy(const bool &with_value, Stmt *par)
 {
 	std::vector<StmtVar *> newfields;
 	for(auto &f : fields) {
-		newfields.push_back(static_cast<StmtVar *>(f->hiddenCopy(this)));
+		newfields.push_back(static_cast<StmtVar *>(f->hiddenCopy(with_value, this)));
 	}
 	StmtStruct *res	    = new StmtStruct(mod, line, col, decl, templates, newfields);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -249,17 +266,18 @@ Stmt *StmtStruct::hiddenCopy(Stmt *par)
 ///////////////////////////////////////// StmtVarDecl /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtVarDecl::hiddenCopy(Stmt *par)
+Stmt *StmtVarDecl::hiddenCopy(const bool &with_value, Stmt *par)
 {
 	std::vector<StmtVar *> newdecls;
 	for(auto &d : decls) {
-		newdecls.push_back(static_cast<StmtVar *>(d->hiddenCopy(this)));
+		newdecls.push_back(static_cast<StmtVar *>(d->hiddenCopy(with_value, this)));
 	}
 	StmtVarDecl *res    = new StmtVarDecl(mod, line, col, newdecls);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -267,12 +285,12 @@ Stmt *StmtVarDecl::hiddenCopy(Stmt *par)
 //////////////////////////////////////////// StmtCond /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtCond::hiddenCopy(Stmt *par)
+Stmt *StmtCond::hiddenCopy(const bool &with_value, Stmt *par)
 {
 	std::vector<cond_t> newconds;
 	for(auto &c : conds) {
-		cond_t nc{c.cond ? c.cond->hiddenCopy(this) : nullptr,
-			  static_cast<StmtBlock *>(c.blk->hiddenCopy(this))};
+		cond_t nc{c.cond ? c.cond->hiddenCopy(with_value, this) : nullptr,
+			  static_cast<StmtBlock *>(c.blk->hiddenCopy(with_value, this))};
 		newconds.push_back(nc);
 	}
 	StmtCond *res	    = new StmtCond(mod, line, col, newconds);
@@ -280,7 +298,8 @@ Stmt *StmtCond::hiddenCopy(Stmt *par)
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
-	res->is_inline	    = is_inline;
+	if(with_value) res->value = value;
+	res->is_inline = is_inline;
 	return res;
 }
 
@@ -288,15 +307,16 @@ Stmt *StmtCond::hiddenCopy(Stmt *par)
 ////////////////////////////////////////// StmtForIn //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtForIn::hiddenCopy(Stmt *par)
+Stmt *StmtForIn::hiddenCopy(const bool &with_value, Stmt *par)
 {
-	Stmt *newin	    = in->hiddenCopy(this);
-	StmtBlock *newblk   = static_cast<StmtBlock *>(blk->hiddenCopy(this));
+	Stmt *newin	    = in->hiddenCopy(with_value, this);
+	StmtBlock *newblk   = static_cast<StmtBlock *>(blk->hiddenCopy(with_value, this));
 	StmtForIn *res	    = new StmtForIn(mod, line, col, iter, newin, newblk);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -304,18 +324,19 @@ Stmt *StmtForIn::hiddenCopy(Stmt *par)
 //////////////////////////////////////////// StmtFor //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtFor::hiddenCopy(Stmt *par)
+Stmt *StmtFor::hiddenCopy(const bool &with_value, Stmt *par)
 {
-	Stmt *newinit	    = init ? init->hiddenCopy(this) : nullptr;
-	Stmt *newcond	    = cond ? cond->hiddenCopy(this) : nullptr;
-	Stmt *newincr	    = incr ? incr->hiddenCopy(this) : nullptr;
-	StmtBlock *newblk   = static_cast<StmtBlock *>(blk->hiddenCopy(this));
+	Stmt *newinit	    = init ? init->hiddenCopy(with_value, this) : nullptr;
+	Stmt *newcond	    = cond ? cond->hiddenCopy(with_value, this) : nullptr;
+	Stmt *newincr	    = incr ? incr->hiddenCopy(with_value, this) : nullptr;
+	StmtBlock *newblk   = static_cast<StmtBlock *>(blk->hiddenCopy(with_value, this));
 	StmtFor *res	    = new StmtFor(mod, line, col, newinit, newcond, newincr, newblk);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
-	res->is_inline	    = is_inline;
+	if(with_value) res->value = value;
+	res->is_inline = is_inline;
 	return res;
 }
 
@@ -323,15 +344,16 @@ Stmt *StmtFor::hiddenCopy(Stmt *par)
 //////////////////////////////////////////// StmtWhile ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtWhile::hiddenCopy(Stmt *par)
+Stmt *StmtWhile::hiddenCopy(const bool &with_value, Stmt *par)
 {
-	Stmt *newcond	    = cond ? cond->hiddenCopy(this) : nullptr;
-	StmtBlock *newblk   = static_cast<StmtBlock *>(blk->hiddenCopy(this));
+	Stmt *newcond	    = cond ? cond->hiddenCopy(with_value, this) : nullptr;
+	StmtBlock *newblk   = static_cast<StmtBlock *>(blk->hiddenCopy(with_value, this));
 	StmtWhile *res	    = new StmtWhile(mod, line, col, newcond, newblk);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -339,14 +361,15 @@ Stmt *StmtWhile::hiddenCopy(Stmt *par)
 //////////////////////////////////////////// StmtRet //////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtRet::hiddenCopy(Stmt *par)
+Stmt *StmtRet::hiddenCopy(const bool &with_value, Stmt *par)
 {
-	Stmt *newval	    = val ? val->hiddenCopy(this) : nullptr;
+	Stmt *newval	    = val ? val->hiddenCopy(with_value, this) : nullptr;
 	StmtRet *res	    = new StmtRet(mod, line, col, newval);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -354,13 +377,14 @@ Stmt *StmtRet::hiddenCopy(Stmt *par)
 ///////////////////////////////////////// StmtContinue ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtContinue::hiddenCopy(Stmt *par)
+Stmt *StmtContinue::hiddenCopy(const bool &with_value, Stmt *par)
 {
 	StmtContinue *res   = new StmtContinue(mod, line, col);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 
@@ -368,13 +392,14 @@ Stmt *StmtContinue::hiddenCopy(Stmt *par)
 //////////////////////////////////////////// StmtBreak ////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-Stmt *StmtBreak::hiddenCopy(Stmt *par)
+Stmt *StmtBreak::hiddenCopy(const bool &with_value, Stmt *par)
 {
 	StmtBreak *res	    = new StmtBreak(mod, line, col);
 	res->parent	    = par;
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	if(with_value) res->value = value;
 	return res;
 }
 } // namespace parser

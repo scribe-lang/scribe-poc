@@ -17,6 +17,7 @@
 #include "Parser.hpp"
 #include "parser/Stmts.hpp"
 #include "parser/TypeMgr.hpp"
+#include "Utils.hpp"
 
 #define CHECK_VALUE(x) (x && x->type && x->type->val && x->type->val->type != VUNKNOWN)
 
@@ -863,6 +864,14 @@ bool StmtFor::assignType(TypeMgr &types)
 			err::set(this, "failed to assign init value");
 			return false;
 		}
+		// init2 exists because init will be possibly changed after inline unfolding which
+		// would render it useless
+		Stmt *init2 = init ? init->copy(true) : nullptr;
+		Pointer<Stmt> init2ptr(init2);
+		init2->setValueUnique(types.getParser()->getValueMgr());
+		if(init2) {
+			init2->setParent(blk);
+		}
 		if(!blk || blk->stmts.empty()) {
 			err::set(this, "no/empty block for inline-for");
 			return false;
@@ -913,9 +922,11 @@ bool StmtFor::assignType(TypeMgr &types)
 			}
 		}
 		for(auto &s : blk->stmts) delete s;
-		init->parent = blk;
-		newstmts.insert(newstmts.begin(), init);
-		init	   = nullptr;
+		if(init) {
+			init->mergeValues(init2);
+			newstmts.insert(newstmts.begin(), init);
+			init = nullptr;
+		}
 		blk->stmts = newstmts;
 		types.popLayer();
 		clearValue();
@@ -1088,6 +1099,7 @@ static bool InitTemplateFn(TypeMgr &types, Stmt *caller, Type *&calledfn,
 	} else {
 		err::popModule();
 	}
+	var->type = fn->type->copy();
 	var->setSpecialized(true);
 
 	// lhs must point to correct type

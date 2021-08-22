@@ -64,7 +64,7 @@ bool Type::compatible_base(Type *rhs, const bool &is_templ, const bool &is_any, 
 	const size_t &rinfo = rhs->info;
 	bool num_to_ptr	    = false;
 	if(ptr > 0 && rptr == 0) {
-		num_to_ptr = integerCompatible();
+		num_to_ptr = integerCompatible() && rhs->integerCompatible();
 	}
 	if(!is_templ && !num_to_ptr && id != rhs->id) {
 		err::set(loc, "different type ids (LHS: %s, RHS: %s), not compatible",
@@ -82,7 +82,8 @@ bool Type::compatible_base(Type *rhs, const bool &is_templ, const bool &is_any, 
 		return false;
 	}
 	if(rptr != ptr) {
-		err::setw(loc, "inequal pointer assignment here, continuing...");
+		err::setw(loc, "inequal pointer assignment here (LHS: %s, RHS: %s), continuing...",
+			  str().c_str(), rhs->str().c_str());
 		err::show(stderr);
 	}
 	if(rinfo & CONST && !(info & CONST)) {
@@ -676,7 +677,10 @@ TypeFunc *TypeFuncMap::decide_func(StmtFnCallInfo *callinfo,
 		err::reset();
 		// printf("option: %s -> %s\n", fn.first.c_str(), fn.second->str().c_str());
 		TypeFunc *f = fn.second;
-		if(!(f = f->specialize_compatible_call(callinfo, templates))) continue;
+		if(!(f = f->specialize_compatible_call(callinfo, templates))) {
+			// printf("failed: %s -> %s\n", fn.first.c_str(), fn.second->str().c_str());
+			continue;
+		}
 		// printf("matched: %s -> %s\n", fn.first.c_str(), f->str().c_str());
 		err::reset();
 		if(self) {

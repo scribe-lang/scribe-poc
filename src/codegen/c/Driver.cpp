@@ -21,15 +21,12 @@ namespace sc
 {
 namespace codegen
 {
-// maps <type>.<id> to typename
-static std::unordered_map<std::string, std::string> typenames;
-
 static bool AcceptsSemicolon(parser::Stmt *stmt);
 bool TrySetMainFunction(parser::StmtVar *var, const std::string &varname, Writer &writer);
 
 static inline std::string GetMangledName(const std::string &name, parser::Type *type)
 {
-	return name;
+	return name + std::to_string(type->id);
 }
 
 CDriver::CDriver(parser::RAIIParser &parser) : Driver(parser), headers(default_includes)
@@ -78,6 +75,10 @@ bool CDriver::dumpIR(const bool &force)
 		fprintf(fp, "%s\n", m.c_str());
 	}
 	if(macros.size() > 0) fprintf(fp, "\n");
+	for(auto &d : decls) {
+		fprintf(fp, "%s\n", d.c_str());
+	}
+	if(decls.size() > 0) fprintf(fp, "\n");
 	fprintf(fp, "%s\n", mod.getData().c_str());
 
 	if(!file.empty()) {
@@ -271,7 +272,6 @@ bool CDriver::visit(parser::StmtExpr *stmt, Writer &writer, const bool &semicolo
 					err::set(a, "failed to generate C code for fncall arg");
 					return false;
 				}
-				stmt->parent->disp(false);
 				if(tst->fields[tst->field_order[i]]->info & parser::REF) {
 					writer.write("&(");
 					writer.append(tmp);
@@ -357,7 +357,7 @@ bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon
 	if(stmt->value) {
 		std::string type;
 		if(stmt->type->type == parser::TSTRUCT) {
-			type = typenames["struct." + std::to_string(stmt->type->id)];
+			type = "struct_" + std::to_string(stmt->type->id);
 		} else {
 			type = GetCType(stmt, stmt->type);
 		}
@@ -392,7 +392,7 @@ bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon
 		}
 		Writer tmp(writer);
 		if(!visit(stmt->val, tmp, false)) {
-			err::set(stmt->name, "failed to generate IR for function def");
+			err::set(stmt, "failed to generate IR for function def");
 			return false;
 		}
 		parser::StmtFnDef *fn = parser::as<parser::StmtFnDef>(stmt->val);
@@ -411,14 +411,15 @@ bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon
 		return true;
 	}
 	if(stmt->val && stmt->val->stmt_type == parser::STRUCTDEF) {
-		writer.write("typedef struct ", varname.c_str());
-		if(!visit(stmt->val, writer, false)) {
+		Writer tmp;
+		tmp.write("typedef struct ");
+		if(!visit(stmt->val, tmp, false)) {
 			err::set(stmt->name, "failed to generate IR for struct def");
 			return false;
 		}
-		writer.write(" %s", varname.c_str());
-		typenames["struct." + std::to_string(stmt->val->type->id)] = varname;
-		if(semicolon) writer.write(";");
+		tmp.write(" %s;", ("struct_" + std::to_string(stmt->val->type->id)).c_str());
+		tmp.write(" // structure: %s", stmt->name.data.s.c_str());
+		decls.push_back(tmp.getData());
 		return true;
 	}
 
@@ -429,11 +430,14 @@ bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon
 	}
 	std::string type;
 	if(stmt->type->type == parser::TSTRUCT) {
-		type = typenames["struct." + std::to_string(stmt->type->id)];
+		type = "struct_" + std::to_string(stmt->type->id);
 	} else {
 		type = GetCType(stmt, stmt->type);
 	}
-	if(type.empty()) return false;
+	if(type.empty()) {
+		err::set(stmt, "no type found for the variable");
+		return false;
+	}
 	writer.write("%s %s", type.c_str(), varname.c_str());
 	if(!tmp.empty()) {
 		writer.write(" = ");

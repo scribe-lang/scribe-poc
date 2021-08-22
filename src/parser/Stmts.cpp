@@ -36,9 +36,9 @@ Stmt::~Stmt()
 	if(cast_from) delete cast_from;
 }
 
-Stmt *Stmt::copy()
+Stmt *Stmt::copy(const bool &with_value)
 {
-	Stmt *cp = hiddenCopy(this);
+	Stmt *cp = hiddenCopy(with_value, this);
 	if(!cp) return nullptr;
 	return cp;
 }
