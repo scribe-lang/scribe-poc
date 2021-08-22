@@ -231,7 +231,8 @@ bool CDriver::visit(parser::StmtExpr *stmt, Writer &writer, const bool &semicolo
 	case lex::DOT: {
 		const std::string &field = parser::as<parser::StmtSimple>(stmt->rhs)->val.data.s;
 		writer.append(l);
-		writer.write((oper == lex::DOT ? "." : "->") + field);
+		writer.write((oper == lex::DOT ? "." : "->") +
+			     GetMangledName(field, stmt->rhs->type));
 		break;
 	}
 	case lex::FNCALL: {

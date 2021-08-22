@@ -156,6 +156,7 @@ Stmt *StmtFnSig::hiddenCopy(const bool &with_value, Stmt *par)
 	res->is_specialized = is_specialized;
 	res->specialized_id = specialized_id;
 	res->is_comptime    = is_comptime;
+	res->is_member	    = is_member;
 	if(with_value) res->value = value;
 	return res;
 }

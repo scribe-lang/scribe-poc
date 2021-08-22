@@ -91,8 +91,8 @@ bool StmtType::assignType(TypeMgr &types)
 		type->info &= ~VARIADIC;
 		return res;
 	}
-	res = types.get(name.front().data.s);
-	if(res == nullptr) {
+	res = types.get(GetMangledName(this, name.front()));
+	if(res == nullptr && !(res = types.get(name.front().data.s))) {
 		err::set(name.front(), "variable '%s' does not exist", name.front().data.s.c_str());
 		return false;
 	}
@@ -102,8 +102,8 @@ bool StmtType::assignType(TypeMgr &types)
 				 res->str().c_str());
 			return false;
 		}
-		res = ((TypeStruct *)res)->get_field(name[i].data.s);
-		if(!res) {
+		res = ((TypeStruct *)res)->get_field(GetMangledName(this, name[i]));
+		if(!res && !(res = types.get(name[i].data.s))) {
 			err::set(name[i], "variable '%s' does not exist", name[i].data.s.c_str());
 			return false;
 		}
@@ -244,9 +244,9 @@ bool StmtExpr::assignType(TypeMgr &types)
 				       " definition; instantiate it first");
 			return false;
 		}
-		std::string mod_id = importids.empty() ? mod->getID() : importids.back();
-		rsim->val.data.s   = GetMangledName(mod_id, rsim->val);
-		size_t ptr	   = lst->ptr;
+		// std::string mod_id = importids.empty() ? mod->getID() : importids.back();
+		// rsim->val.data.s   = GetMangledName(mod_id, rsim->val);
+		size_t ptr = lst->ptr;
 		if(oper.tok.val == lex::ARROW) --ptr;
 		Type *res = ptr == 0 ? lst->get_field(rsim->val.data.s) : nullptr;
 		if(!res) {
@@ -299,6 +299,16 @@ bool StmtExpr::assignType(TypeMgr &types)
 			}
 			if(fmap->getSelf() && fmap->getSelf()->parent->isComptime()) {
 				setComptime(true);
+			}
+			if(fmap->getSelf()) {
+				StmtExpr *tmpl	  = as<StmtExpr>(lhs);
+				tmpl->lhs->parent = rhs;
+				finfo->args.push_back(tmpl->lhs);
+				tmpl->lhs	  = nullptr;
+				tmpl->rhs->parent = this;
+				lhs		  = tmpl->rhs;
+				tmpl->rhs	  = nullptr;
+				delete tmpl;
 			}
 			delete lhs->type;
 			lhs->type = fn;
@@ -530,7 +540,11 @@ bool StmtExpr::assignType(TypeMgr &types)
 
 bool StmtVar::assignType(TypeMgr &types)
 {
+	if(val && val->stmt_type == FNDEF && as<StmtFnDef>(val)->sig->isMember()) {
+		goto post_mangling;
+	}
 	name.data.s = GetMangledName(this, name);
+post_mangling:
 	if(isComptime() && !val && parent->stmt_type != FNSIG) {
 		err::set(name, "'comptime' variables must have a value");
 		return false;
@@ -574,7 +588,9 @@ bool StmtVar::assignType(TypeMgr &types)
 	if((!val || val->stmt_type != STRUCTDEF) && type->type == TSTRUCT) {
 		as<TypeStruct>(type)->is_def = false;
 	}
-	if(val && val->stmt_type == FNDEF) return types.addFuncCopy(name.data.s, type);
+	if(val && (val->stmt_type == FNDEF || val->stmt_type == EXTERN)) {
+		return types.addFuncCopy(name.data.s, type);
+	}
 	return types.addCopy(name.data.s, type);
 }
 
@@ -715,10 +731,12 @@ bool StmtStruct::assignType(TypeMgr &types)
 	}
 	std::vector<std::string> field_type_orders;
 	for(auto &f : fields) {
+		std::string membername = f->name.data.s;
 		if(!f->assignType(types)) {
 			err::set(f->name, "unable to assign type of struct field");
 			return false;
 		}
+		f->name.data.s = membername;
 		field_type_orders.push_back(f->name.data.s);
 	}
 	std::unordered_map<std::string, Type *> field_types;
