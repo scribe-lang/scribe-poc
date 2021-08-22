@@ -290,7 +290,8 @@ bool StmtExpr::assignType(TypeMgr &types)
 		}
 		if(lhs->type->type == TFUNCMAP) {
 			TypeFuncMap *fmap = as<TypeFuncMap>(lhs->type);
-			if(!(type = fmap->decide_func(finfo, calltemplates))) {
+			TypeFunc *fn	  = nullptr;
+			if(!(fn = fmap->decide_func(finfo, calltemplates))) {
 				err::set(this, "failed to decide the function "
 					       "to execute, need more info");
 				return false;
@@ -299,9 +300,9 @@ bool StmtExpr::assignType(TypeMgr &types)
 				setComptime(true);
 			}
 			delete lhs->type;
-			lhs->type = type;
-			has_va	  = as<TypeFunc>(type)->has_va;
-			type	  = as<TypeFunc>(lhs->type)->rettype->copy();
+			lhs->type = fn;
+			has_va	  = fn->has_va;
+			type	  = fn->rettype->copy();
 		} else if(lhs->type->type == TFUNC) {
 			TypeFunc *oldfn = as<TypeFunc>(lhs->type);
 			TypeFunc *fn	= nullptr;
@@ -533,7 +534,7 @@ bool StmtVar::assignType(TypeMgr &types)
 		err::set(name, "'comptime' variables must have a value");
 		return false;
 	}
-	if(types.exists(name.data.s, true, false)) {
+	if((!val || val->stmt_type != FNDEF) && types.exists(name.data.s, true, false)) {
 		err::set(name, "variable '%s' already exists in scope", name.data.s.c_str());
 		return false;
 	}

@@ -13,6 +13,8 @@
 
 #include <cstring>
 
+#include "Utils.hpp"
+
 namespace sc
 {
 namespace codegen
@@ -67,11 +69,11 @@ void Writer::write(const double &data)
 }
 void Writer::writeConstChar(const int64_t data)
 {
-	dest += "'" + std::string(1, data) + "'";
+	dest += "'" + GetRawString(std::string(1, data)) + "'";
 }
 void Writer::writeConstString(const std::string &data)
 {
-	dest += "\"" + data + "\"";
+	dest += "\"" + GetRawString(data) + "\"";
 }
 
 void Writer::writeBefore(const char *data, ...)

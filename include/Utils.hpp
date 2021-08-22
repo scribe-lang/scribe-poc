@@ -54,6 +54,9 @@ template<typename T> inline bool is_one_of(const std::vector<T> &vec, const T &e
 
 // Also trims the spaces for each split
 std::vector<std::string> StringDelim(const std::string &str, const std::string &delim);
+
+// Convert special characters in string (\n, \t, ...) to raw (\\n, \\t, ...)
+std::string GetRawString(const std::string &data);
 } // namespace sc
 
 #endif // UTILS_HPP

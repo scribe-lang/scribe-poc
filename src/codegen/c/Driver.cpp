@@ -271,6 +271,7 @@ bool CDriver::visit(parser::StmtExpr *stmt, Writer &writer, const bool &semicolo
 					err::set(a, "failed to generate C code for fncall arg");
 					return false;
 				}
+				stmt->parent->disp(false);
 				if(tst->fields[tst->field_order[i]]->info & parser::REF) {
 					writer.write("&(");
 					writer.append(tmp);
@@ -598,6 +599,7 @@ bool CDriver::visit(parser::StmtFor *stmt, Writer &writer, const bool &semicolon
 	}
 	writer.write(";");
 	if(stmt->cond) {
+		writer.write(" ");
 		Writer tmp(writer);
 		if(!visit(stmt->cond, tmp, false)) {
 			err::set(stmt, "failed to generate C code for for-loop condition");
@@ -607,6 +609,7 @@ bool CDriver::visit(parser::StmtFor *stmt, Writer &writer, const bool &semicolon
 	}
 	writer.write(";");
 	if(stmt->incr) {
+		writer.write(" ");
 		Writer tmp(writer);
 		if(!visit(stmt->incr, tmp, false)) {
 			err::set(stmt, "failed to generate C code for for-loop incr");

@@ -80,6 +80,10 @@ void cleanup(parser::StmtExpr *stmt, parser::Stmt **source)
 	if(stmt->oper.tok.val == lex::EMPTY) {
 		stmt->lhs->parent = stmt->parent;
 		*source		  = stmt->lhs;
+		Type *tmp	  = stmt->lhs->type;
+		stmt->lhs->type	  = stmt->type;
+		stmt->lhs->value  = stmt->value;
+		stmt->type	  = tmp;
 		stmt->lhs	  = nullptr;
 		delete stmt;
 		return;
@@ -227,6 +231,7 @@ static void eraseTemplates(std::vector<Stmt *> &stmts)
 		stmts.erase(stmts.begin() + i);
 		if(!spec_id) {
 			delete base;
+			--i;
 			continue;
 		}
 		for(size_t j = i + 1; j < stmts.size(); ++j) {
@@ -265,7 +270,10 @@ static bool isTemplateFunctionVariable(Stmt *var)
 	if(var->stmt_type != VAR) return false;
 	StmtVar *v = as<StmtVar>(var);
 	if(!v->val || v->val->stmt_type != FNDEF) return false;
-	return !as<StmtFnDef>(v->val)->sig->templates.empty();
+	StmtFnSig *sig = as<StmtFnDef>(v->val)->sig;
+	if(!sig->templates.empty()) return true;
+	if(sig->args.size() > 0 && (sig->args.back()->type->info & VARIADIC)) return true;
+	return false;
 }
 } // namespace parser
 } // namespace sc

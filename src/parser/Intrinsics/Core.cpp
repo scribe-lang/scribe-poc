@@ -11,6 +11,8 @@
 	furnished to do so.
 */
 
+#include "Config.hpp"
+#include "Env.hpp"
 #include "Error.hpp"
 #include "FS.hpp"
 #include "Parser.hpp"
@@ -20,6 +22,8 @@ namespace sc
 {
 namespace parser
 {
+static bool IsValidSource(std::string &modname);
+
 INTRINSIC(import)
 {
 	Stmt *topparentbase = base->getTopLevelParent();
@@ -40,26 +44,24 @@ INTRINSIC(import)
 		err::set(base, "no module provided");
 		return false;
 	}
-	std::string file = modname + ".sc";
 
-	if(!fs::exists(file)) {
-		fprintf(stderr, "Error: file %s does not exist\n", file.c_str());
+	if(!IsValidSource(modname)) {
+		fprintf(stderr, "Error: file %s does not exist\n", modname.c_str());
 		return false;
 	}
-	file = fs::absPath(file);
 
 	RAIIParser *parser = types.getParser();
 	Module *mod	   = nullptr;
 	StmtBlock *blk	   = nullptr;
-	if(parser->hasModule(file)) {
-		mod = parser->getModule(file);
+	if(parser->hasModule(modname)) {
+		mod = parser->getModule(modname);
 		goto gen_import;
 	}
-	if(!parser->parse(file)) {
-		err::set(base, "failed to parse source: %s", file.c_str());
+	if(!parser->parse(modname)) {
+		err::set(base, "failed to parse source: %s", modname.c_str());
 		return false;
 	}
-	mod = parser->getModule(file);
+	mod = parser->getModule(modname);
 	blk = as<StmtBlock>(mod->getParseTree());
 	for(auto &s : blk->stmts) {
 		if(!s) continue;
@@ -146,6 +148,28 @@ INTRINSIC(subscr)
 		base->value = values.get(lhs->v[rhs->i]);
 	}
 	return true;
+}
+
+static bool IsValidSource(std::string &modname)
+{
+	static std::string import_dir = INSTALL_DIR "/include/scribe";
+	if(modname.front() != '~' && modname.front() != '/' && modname.front() != '.') {
+		if(fs::exists(import_dir + "/" + modname + ".sc")) {
+			modname = fs::absPath(import_dir + "/" + modname + ".sc");
+			return true;
+		}
+	} else {
+		if(modname.front() == '~') {
+			modname.erase(modname.begin());
+			std::string home = fs::home();
+			modname.insert(modname.begin(), home.begin(), home.end());
+		}
+		if(fs::exists(modname + ".sc")) {
+			modname = fs::absPath(modname + ".sc");
+			return true;
+		}
+	}
+	return false;
 }
 } // namespace parser
 } // namespace sc

@@ -57,8 +57,9 @@ Type::Type(const int64_t &id, const Types &type, Stmt *parent, const size_t &ptr
 	: id(id), type(type), parent(parent), ptr(ptr), info(info)
 {}
 Type::~Type() {}
-bool Type::compatible_base(Type *rhs, const bool &is_templ, Stmt *loc)
+bool Type::compatible_base(Type *rhs, const bool &is_templ, const bool &is_any, Stmt *loc)
 {
+	if(is_any) return true;
 	const size_t &rptr  = rhs->ptr;
 	const size_t &rinfo = rhs->info;
 	bool num_to_ptr	    = false;
@@ -168,7 +169,7 @@ Type *TypeSimple::specialize(const std::unordered_map<std::string, Type *> &temp
 }
 bool TypeSimple::compatible(Type *rhs, Stmt *loc)
 {
-	if(!compatible_base(rhs, name[0] == '@' || name == "any", loc)) return false;
+	if(!compatible_base(rhs, name[0] == '@', name == "any", loc)) return false;
 	TypeSimple *r = static_cast<TypeSimple *>(rhs);
 	return true;
 }
@@ -287,7 +288,7 @@ Type *TypeStruct::specialize(const std::unordered_map<std::string, Type *> &temp
 }
 bool TypeStruct::compatible(Type *rhs, Stmt *loc)
 {
-	if(!compatible_base(rhs, false, loc)) return false;
+	if(!compatible_base(rhs, false, false, loc)) return false;
 	TypeStruct *r = static_cast<TypeStruct *>(rhs);
 	if(is_decl_only && !templ) return true;
 	if(templ != r->templ) {
@@ -489,7 +490,7 @@ Type *TypeFunc::specialize(const std::unordered_map<std::string, Type *> &templa
 }
 bool TypeFunc::compatible(Type *rhs, Stmt *loc)
 {
-	if(!compatible_base(rhs, false, loc)) return false;
+	if(!compatible_base(rhs, false, false, loc)) return false;
 	TypeFunc *r = static_cast<TypeFunc *>(rhs);
 	if(templ != r->templ) {
 		err::set(loc, "type mismatch (LHS templates: %zu, RHS templates: %zu", templ,
@@ -722,7 +723,7 @@ Type *TypeVariadic::specialize(const std::unordered_map<std::string, Type *> &te
 }
 bool TypeVariadic::compatible(Type *rhs, Stmt *loc)
 {
-	if(!compatible_base(rhs, false, loc)) return false;
+	if(!compatible_base(rhs, false, false, loc)) return false;
 	TypeVariadic *r = static_cast<TypeVariadic *>(rhs);
 	if(args.size() != r->args.size()) {
 		err::set(loc, "type mismatch (LHS args: %zu, RHS args: %zu", args.size(),

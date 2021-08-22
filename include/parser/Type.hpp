@@ -66,7 +66,7 @@ struct Type
 	virtual Type *copy(const size_t &append_info = 0, const size_t &ptr = 0)	   = 0;
 	virtual Type *specialize(const std::unordered_map<std::string, Type *> &templates) = 0;
 	// ignore_id is for templates
-	bool compatible_base(Type *rhs, const bool &is_templ, Stmt *loc);
+	bool compatible_base(Type *rhs, const bool &is_templ, const bool &is_any, Stmt *loc);
 	virtual bool compatible(Type *rhs, Stmt *loc) = 0;
 	virtual bool assignTemplateActuals(Type *actual,
 					   std::unordered_map<std::string, Type *> &templates,

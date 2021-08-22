@@ -35,4 +35,21 @@ std::vector<std::string> StringDelim(const std::string &str, const std::string &
 
 	return res;
 }
+
+std::string GetRawString(const std::string &data)
+{
+	std::string res;
+	for(auto &e : data) {
+		if(e == '\t') {
+			res.push_back('\\');
+			res.push_back('t');
+		} else if(e == '\n') {
+			res.push_back('\\');
+			res.push_back('n');
+		} else {
+			res.push_back(e);
+		}
+	}
+	return res;
+}
 } // namespace sc
