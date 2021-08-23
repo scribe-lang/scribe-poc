@@ -565,15 +565,19 @@ TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
 	TypeFunc *tmp  = static_cast<TypeFunc *>(this->copy());
 	if(tmp->args.size() > 0 && tmp->args.back()->info & VARIADIC) --val_len;
 	if(has_va) {
-		delete tmp->args.back();
+		Type *vabase = tmp->args.back();
 		tmp->args.pop_back();
-		TypeVariadic *va = new TypeVariadic(nullptr, 0, 0, {});
+		vabase->info &= ~VARIADIC;
+		TypeVariadic *va = new TypeVariadic(nullptr, vabase->ptr, vabase->info, {});
 		for(auto &vtmp : variadics) {
 			Type *v = vtmp->copy();
+			v->ptr += vabase->ptr;
+			v->info |= vabase->info;
 			v->info &= ~VARIADIC;
 			va->args.push_back(v);
 		}
 		tmp->args.push_back(va);
+		delete vabase;
 	}
 	TypeFunc *res = static_cast<TypeFunc *>(tmp->specialize(templates));
 	// no templates delete here because it is done in InitTemplateFn

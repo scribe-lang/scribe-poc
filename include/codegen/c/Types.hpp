@@ -19,6 +19,7 @@ namespace sc
 {
 namespace codegen
 {
+std::string ApplyTypeInfo(parser::Stmt *stmt, parser::Type *type, const std::string &t);
 std::string GetCType(parser::Stmt *stmt, parser::Type *type);
 } // namespace codegen
 } // namespace sc

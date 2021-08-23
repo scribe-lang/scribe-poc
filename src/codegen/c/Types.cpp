@@ -18,7 +18,7 @@ namespace sc
 {
 namespace codegen
 {
-static std::string ApplyTypeInfo(parser::Stmt *&stmt, parser::Type *type, const std::string &t)
+std::string ApplyTypeInfo(parser::Stmt *stmt, parser::Type *type, const std::string &t)
 {
 	if(!type || t.empty()) return "";
 	size_t ptrcount = type->ptr;

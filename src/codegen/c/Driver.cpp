@@ -195,8 +195,9 @@ bool CDriver::visit(parser::StmtSimple *stmt, Writer &writer, const bool &semico
 	}
 	// the following part is only valid for existing variables.
 	// the part for variable declaration exists in Var visit
-	if(stmt->type->info & parser::REF) writer.write("*"); // for references
+	if(stmt->type->info & parser::REF) writer.write("(*"); // for references
 	writer.write(GetMangledName(stmt->val.data.s, stmt->type));
+	if(stmt->type->info & parser::REF) writer.write(")"); // for references
 	if(semicolon) writer.write(";");
 	return true;
 }
@@ -359,6 +360,7 @@ bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon
 		std::string type;
 		if(stmt->type->type == parser::TSTRUCT) {
 			type = "struct_" + std::to_string(stmt->type->id);
+			type = ApplyTypeInfo(stmt, stmt->type, type);
 		} else {
 			type = GetCType(stmt, stmt->type);
 		}
@@ -432,6 +434,7 @@ bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon
 	std::string type;
 	if(stmt->type->type == parser::TSTRUCT) {
 		type = "struct_" + std::to_string(stmt->type->id);
+		type = ApplyTypeInfo(stmt, stmt->type, type);
 	} else {
 		type = GetCType(stmt, stmt->type);
 	}
