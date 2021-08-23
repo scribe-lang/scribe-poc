@@ -86,6 +86,10 @@ bool CDriver::dumpIR(const bool &force)
 		fprintf(fp, "%s\n", d.c_str());
 	}
 	if(funcdecls.size() > 0) fprintf(fp, "\n");
+	for(auto &c : constants) {
+		fprintf(fp, "%s\n", c.second.decl.c_str());
+	}
+	if(constants.size() > 0) fprintf(fp, "\n");
 	fprintf(fp, "%s\n", mod.getData().c_str());
 
 	if(!file.empty()) {
@@ -194,10 +198,10 @@ bool CDriver::visit(parser::StmtSimple *stmt, Writer &writer, const bool &semico
 	case lex::TRUE:	 // fallthrough
 	case lex::FALSE: // fallthrough
 	case lex::NIL:	 // fallthrough
-	case lex::INT: writer.write(stmt->val.data.i); return true;
-	case lex::FLT: writer.write((double)stmt->val.data.f); return true;
-	case lex::CHAR: writer.writeConstChar(stmt->val.data.s[0]); return true;
-	case lex::STR: writer.writeConstString(stmt->val.data.s); return true;
+	case lex::INT:	 // fallthrough
+	case lex::FLT:	 // fallthrough
+	case lex::CHAR:	 // fallthrough
+	case lex::STR: writer.write(getConstantDataVar(stmt->val)); return true;
 	default: break;
 	}
 	// the following part is only valid for existing variables.
@@ -685,6 +689,68 @@ bool CDriver::visit(parser::StmtBreak *stmt, Writer &writer, const bool &semicol
 	writer.write("break");
 	if(semicolon) writer.write(";");
 	return true;
+}
+
+const std::string &CDriver::getConstantDataVar(const lex::Lexeme &val)
+{
+	std::string key;
+	std::string value;
+	std::string type;
+	switch(val.tok.val) {
+	case lex::TRUE:
+		value = "1";
+		key   = value + "i1";
+		type  = "const i1";
+		break;
+	case lex::FALSE:
+		value = "0";
+		key   = value + "i1";
+		type  = "const i1";
+		break;
+	case lex::NIL:
+		value = "0";
+		key   = value + "i1";
+		type  = "const i1";
+		break;
+	case lex::INT:
+		value = std::to_string(val.data.i);
+		key   = value + "i32";
+		type  = "const i32";
+		break;
+	case lex::FLT:
+		value = std::to_string(val.data.f);
+		key   = value + "f32";
+		type  = "const f32";
+		break;
+	case lex::CHAR:
+		value = '\'' + std::to_string(val.data.s[0]) + '\'';
+		key   = value;
+		type  = "const i8";
+		break;
+	case lex::STR:
+		value = '"' + val.data.s + '"';
+		key   = value;
+		type  = "const i8*";
+		break;
+	default: break;
+	}
+	if(key.empty()) {
+		value = "0";
+		key   = "0i32";
+		type  = "const i32";
+	}
+
+	auto res = constants.find(key);
+	if(res != constants.end()) return res->second.var;
+	std::string var	 = getNewConstantVar();
+	std::string decl = type + " " + var + " = " + value + ";";
+	constants[key]	 = {var, decl};
+	return constants[key].var;
+}
+std::string CDriver::getNewConstantVar()
+{
+	static size_t const_id = 0;
+	return "const_" + std::to_string(const_id++);
 }
 
 static bool AcceptsSemicolon(parser::Stmt *stmt)

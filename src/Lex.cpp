@@ -151,7 +151,7 @@ std::string view_backslash(const std::string &data);
 
 Tok::Tok(const int &tok) : val((TokType)tok) {}
 
-const char *Tok::getUnaryNoCharCStr()
+const char *Tok::getUnaryNoCharCStr() const
 {
 	switch(val) {
 	case XINC:
@@ -167,7 +167,7 @@ const char *Tok::getUnaryNoCharCStr()
 	return "";
 }
 
-const char *Tok::getOperCStr()
+const char *Tok::getOperCStr() const
 {
 	switch(val) {
 	case ASSN: return "__assn__";

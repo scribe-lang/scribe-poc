@@ -175,7 +175,7 @@ struct Tok
 	 *
 	 * \return true If the type is one of variable data tokens, false if it isn't
 	 */
-	inline bool isData()
+	inline bool isData() const
 	{
 		return val == INT || val == FLT || val == CHAR || val == STR || val == IDEN ||
 		       val == VOID || val == TRUE || val == FALSE || val == NIL;
@@ -186,7 +186,7 @@ struct Tok
 	 *
 	 * \return true If the type is one of possible operators, false if it isn't
 	 */
-	inline bool isOper()
+	inline bool isOper() const
 	{
 		return val >= ASSN && val <= RBRACK;
 	}
@@ -196,7 +196,7 @@ struct Tok
 	 *
 	 * \return true If the type is one of possible unary pre operators, false if it isn't
 	 */
-	inline bool isUnaryPre()
+	inline bool isUnaryPre() const
 	{
 		return val == UADD || val == USUB || val == UAND || val == UMUL || val == INCX ||
 		       val == DECX;
@@ -207,7 +207,7 @@ struct Tok
 	 *
 	 * \return true If the type is one of possible unary post operators, false if it isn't
 	 */
-	inline bool isUnaryPost()
+	inline bool isUnaryPost() const
 	{
 		return val == XINC || val == XDEC;
 	}
@@ -217,7 +217,7 @@ struct Tok
 	 *
 	 * \return true If the type is one of possible assignment operators, false if it isn't
 	 */
-	inline bool isAssign()
+	inline bool isAssign() const
 	{
 		return (val == ASSN || val == ADD_ASSN || val == SUB_ASSN || val == MUL_ASSN ||
 			val == DIV_ASSN || val == MOD_ASSN || val == BAND_ASSN || val == BOR_ASSN ||
@@ -230,7 +230,7 @@ struct Tok
 	 *
 	 * \return true If valid, false if not
 	 */
-	inline bool isValid()
+	inline bool isValid() const
 	{
 		return val != INVALID && val != FEOF;
 	}
@@ -240,7 +240,7 @@ struct Tok
 	 *
 	 * \return const char* of the token
 	 */
-	inline const char *cstr()
+	inline const char *cstr() const
 	{
 		return TokStrs[val];
 	}
@@ -249,7 +249,7 @@ struct Tok
 	 *
 	 * \return std::string of the token
 	 */
-	inline std::string str()
+	inline std::string str() const
 	{
 		return TokStrs[val];
 	}
@@ -259,7 +259,7 @@ struct Tok
 	 *
 	 * \return const char * of the operator
 	 */
-	const char *getOperCStr();
+	const char *getOperCStr() const;
 
 	/**
 	 * \brief Get the non character containing representation of the unary operator
@@ -267,9 +267,9 @@ struct Tok
 	 *
 	 * \return true If the type is one of possible unary post operators, false if it isn't
 	 */
-	const char *getUnaryNoCharCStr();
+	const char *getUnaryNoCharCStr() const;
 
-	inline bool operator==(Tok &other)
+	inline bool operator==(Tok &other) const
 	{
 		return val == other.val;
 	}

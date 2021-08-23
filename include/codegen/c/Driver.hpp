@@ -28,6 +28,15 @@ class CDriver : public Driver
 	std::vector<std::string> typedefs;
 	std::vector<std::string> structdecls;
 	std::vector<std::string> funcdecls;
+	struct ConstantInfo
+	{
+		// var: names of const declarations
+		// decl: C code equivalent
+		std::string var;
+		std::string decl;
+	};
+	// constants: key is the constant data
+	std::unordered_map<std::string, ConstantInfo> constants;
 	Writer mod;
 
 public:
@@ -64,6 +73,9 @@ public:
 	bool visit(parser::StmtRet *stmt, Writer &writer, const bool &semicolon);
 	bool visit(parser::StmtContinue *stmt, Writer &writer, const bool &semicolon);
 	bool visit(parser::StmtBreak *stmt, Writer &writer, const bool &semicolon);
+
+	const std::string &getConstantDataVar(const lex::Lexeme &val);
+	std::string getNewConstantVar();
 };
 } // namespace codegen
 } // namespace sc
