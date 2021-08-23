@@ -29,10 +29,9 @@ static inline std::string GetMangledName(const std::string &name, parser::Type *
 	return name + std::to_string(type->id);
 }
 
-CDriver::CDriver(parser::RAIIParser &parser) : Driver(parser), headers(default_includes)
-{
-	mod.write(preface);
-}
+CDriver::CDriver(parser::RAIIParser &parser)
+	: Driver(parser), headers(default_includes), typedefs(default_typedefs)
+{}
 CDriver::~CDriver() {}
 bool CDriver::genIR()
 {
@@ -75,10 +74,18 @@ bool CDriver::dumpIR(const bool &force)
 		fprintf(fp, "%s\n", m.c_str());
 	}
 	if(macros.size() > 0) fprintf(fp, "\n");
-	for(auto &d : decls) {
+	for(auto &t : typedefs) {
+		fprintf(fp, "%s\n", t.c_str());
+	}
+	if(typedefs.size() > 0) fprintf(fp, "\n");
+	for(auto &d : structdecls) {
 		fprintf(fp, "%s\n", d.c_str());
 	}
-	if(decls.size() > 0) fprintf(fp, "\n");
+	if(structdecls.size() > 0) fprintf(fp, "\n");
+	for(auto &d : funcdecls) {
+		fprintf(fp, "%s\n", d.c_str());
+	}
+	if(funcdecls.size() > 0) fprintf(fp, "\n");
 	fprintf(fp, "%s\n", mod.getData().c_str());
 
 	if(!file.empty()) {
@@ -135,7 +142,7 @@ bool CDriver::visit(parser::Stmt *stmt, Writer &writer, const bool &semicolon)
 	}
 	if(stmt->isCast()) {
 		writer.write("(");
-		writer.write(GetCType(stmt, stmt->type));
+		writer.write(GetCTypeName(stmt, stmt->type));
 		writer.write(")(");
 		writer.append(tmp);
 		writer.write(")");
@@ -357,13 +364,7 @@ bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon
 	std::string varname = GetMangledName(stmt->name.data.s, stmt->type);
 
 	if(stmt->value) {
-		std::string type;
-		if(stmt->type->type == parser::TSTRUCT) {
-			type = "struct_" + std::to_string(stmt->type->id);
-			type = ApplyTypeInfo(stmt, stmt->type, type);
-		} else {
-			type = GetCType(stmt, stmt->type);
-		}
+		std::string type = GetCTypeName(stmt, stmt->type);
 		writer.write("%s %s = %s", type.c_str(), varname.c_str(),
 			     GetCValue(stmt, stmt->value, stmt->type).c_str());
 		if(semicolon) writer.write(";");
@@ -398,9 +399,6 @@ bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon
 			err::set(stmt, "failed to generate IR for function def");
 			return false;
 		}
-		parser::StmtFnDef *fn = parser::as<parser::StmtFnDef>(stmt->val);
-		std::string ret	      = GetCType(fn->sig->rettype, fn->sig->rettype->type);
-
 		// set as entry point (main function) if signature matches
 		static bool maindone = false;
 		if(!maindone && TrySetMainFunction(stmt, varname, writer)) {
@@ -408,9 +406,21 @@ bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon
 			varname	 = "main";
 		}
 
+		parser::StmtFnDef *fn = parser::as<parser::StmtFnDef>(stmt->val);
+		std::string ret	      = GetCTypeName(fn->sig->rettype, fn->sig->rettype->type);
+
 		tmp.insertAfter(ret.size(), " " + varname);
 		writer.append(tmp);
 		// no semicolon after fndef
+
+		// add declaration (at the top) for the function
+		Writer decl;
+		if(!visit(parser::as<parser::StmtFnDef>(stmt->val)->sig, decl, true)) {
+			err::set(stmt, "failed to generate IR for function def");
+			return false;
+		}
+		decl.insertAfter(ret.size(), " " + varname);
+		funcdecls.push_back(decl.getData());
 		return true;
 	}
 	if(stmt->val && stmt->val->stmt_type == parser::STRUCTDEF) {
@@ -422,7 +432,7 @@ bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon
 		}
 		tmp.write(" %s;", ("struct_" + std::to_string(stmt->val->type->id)).c_str());
 		tmp.write(" // structure: %s", stmt->name.data.s.c_str());
-		decls.push_back(tmp.getData());
+		structdecls.push_back(tmp.getData());
 		return true;
 	}
 
@@ -431,13 +441,7 @@ bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon
 		err::set(stmt, "failed to get C value from scribe declaration value");
 		return false;
 	}
-	std::string type;
-	if(stmt->type->type == parser::TSTRUCT) {
-		type = "struct_" + std::to_string(stmt->type->id);
-		type = ApplyTypeInfo(stmt, stmt->type, type);
-	} else {
-		type = GetCType(stmt, stmt->type);
-	}
+	std::string type = GetCTypeName(stmt, stmt->type);
 	if(type.empty()) {
 		err::set(stmt, "no type found for the variable");
 		return false;
@@ -458,7 +462,7 @@ bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon
 }
 bool CDriver::visit(parser::StmtFnSig *stmt, Writer &writer, const bool &semicolon)
 {
-	writer.write(GetCType(stmt->rettype, stmt->rettype->type));
+	writer.write(GetCTypeName(stmt->rettype, stmt->rettype->type));
 	writer.write("(");
 	for(size_t i = 0; i < stmt->args.size(); ++i) {
 		auto &a = stmt->args[i];
@@ -471,6 +475,7 @@ bool CDriver::visit(parser::StmtFnSig *stmt, Writer &writer, const bool &semicol
 		if(i < stmt->args.size() - 1) writer.write(", ");
 	}
 	writer.write(")");
+	if(semicolon) writer.write(";");
 	return true;
 }
 bool CDriver::visit(parser::StmtFnDef *stmt, Writer &writer, const bool &semicolon)

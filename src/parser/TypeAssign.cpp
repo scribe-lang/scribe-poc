@@ -215,11 +215,6 @@ bool StmtExpr::assignType(TypeMgr &types)
 		}
 	case lex::DOT: {
 		assert(rhs->stmt_type == SIMPLE && "RHS for dot/arrow MUST be a simple type");
-		if(lhs->type->type != TSTRUCT && lhs->type->type != TIMPORT) {
-			err::set(this, "LHS must be a structure to use the dot operator, found: %s",
-				 lhs->type->str().c_str());
-			return false;
-		}
 		StmtSimple *rsim = as<StmtSimple>(rhs);
 		if(lhs->type->type == TIMPORT) {
 			importids.push_back(as<TypeImport>(lhs->type)->getModID());
@@ -238,31 +233,32 @@ bool StmtExpr::assignType(TypeMgr &types)
 			oper.tok.val = lex::EMPTY;
 			break;
 		}
-		TypeStruct *lst = as<TypeStruct>(lhs->type);
-		if(lst->is_def) {
-			err::set(this, "cannot use dot operator on a struct"
-				       " definition; instantiate it first");
-			return false;
-		}
-		// std::string mod_id = importids.empty() ? mod->getID() : importids.back();
-		// rsim->val.data.s   = GetMangledName(mod_id, rsim->val);
-		size_t ptr = lst->ptr;
-		if(oper.tok.val == lex::ARROW) --ptr;
-		Type *res = ptr == 0 ? lst->get_field(rsim->val.data.s) : nullptr;
-		if(!res) {
-			if(!(res = types.getFuncMapCopy(rsim->val.data.s, this))) {
-				err::set(this,
-					 "no function or struct field"
-					 " (in '%s') named '%s' exists",
-					 lst->str().c_str(), rsim->val.data.s.c_str());
+		Type *res = nullptr;
+		if(lhs->type->type == TSTRUCT) {
+			TypeStruct *lst = as<TypeStruct>(lhs->type);
+			if(lst->is_def) {
+				err::set(this, "cannot use dot operator on a struct"
+					       " definition; instantiate it first");
 				return false;
 			}
-		} else if(res->type != TFUNCMAP) {
+			// no module id is attached to a structure field
+			size_t ptr = lst->ptr;
+			if(oper.tok.val == lex::ARROW) --ptr;
+			res = ptr == 0 ? lst->get_field(rsim->val.data.s) : nullptr;
+		}
+		if(!res && !(res = types.getFuncMapCopy(rsim->val.data.s, this))) {
+			err::set(this,
+				 "no function or struct field"
+				 " (in '%s') named '%s' exists",
+				 lhs->type->str().c_str(), rsim->val.data.s.c_str());
+			return false;
+		}
+		if(res->type != TFUNCMAP) {
 			res = res->copy();
 		}
 
 		if(res->type == TFUNCMAP) {
-			Type *self = lst->copy();
+			Type *self = lhs->type->copy();
 			self->info |= REF;
 			as<TypeFuncMap>(res)->setSelf(self);
 		}

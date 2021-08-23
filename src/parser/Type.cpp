@@ -62,11 +62,11 @@ bool Type::compatible_base(Type *rhs, const bool &is_templ, const bool &is_any, 
 	if(is_any) return true;
 	const size_t &rptr  = rhs->ptr;
 	const size_t &rinfo = rhs->info;
-	bool num_to_ptr	    = false;
-	if(ptr > 0 && rptr == 0) {
-		num_to_ptr = integerCompatible() && rhs->integerCompatible();
-	}
-	if(!is_templ && !num_to_ptr && id != rhs->id) {
+	// bool num_to_ptr	    = false;
+	// if(ptr > 0 && rptr == 0) {
+	// 	num_to_ptr = integerCompatible() && rhs->integerCompatible();
+	// }
+	if(!is_templ /* && !num_to_ptr*/ && id != rhs->id) {
 		err::set(loc, "different type ids (LHS: %s, RHS: %s), not compatible",
 			 str().c_str(), rhs->str().c_str());
 		return false;
@@ -77,14 +77,14 @@ bool Type::compatible_base(Type *rhs, const bool &is_templ, const bool &is_any, 
 			 rhs->str().c_str(), str().c_str());
 		return false;
 	}
-	if(rptr == 0 && !num_to_ptr && ptr > 0) {
+	if(rptr == 0 /* && !num_to_ptr*/ && ptr > 0) {
 		err::set(loc, "non pointer type (RHS) cannot be assigned to pointer type (LHS)");
 		return false;
 	}
 	if(rptr != ptr) {
-		err::setw(loc, "inequal pointer assignment here (LHS: %s, RHS: %s), continuing...",
-			  str().c_str(), rhs->str().c_str());
-		err::show(stderr);
+		err::set(loc, "inequal pointer assignment here (LHS: %s, RHS: %s)", str().c_str(),
+			 rhs->str().c_str());
+		return false;
 	}
 	if(rinfo & CONST && !(info & CONST)) {
 		err::set(loc, "losing constness here, cannot continue (LHS: %s, RHS: %s)",

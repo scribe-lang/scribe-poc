@@ -84,5 +84,23 @@ std::string GetCType(parser::Stmt *stmt, parser::Type *type)
 	err::set(stmt, "invalid scribe type encountered '%s'", type->str().c_str());
 	return "";
 }
+
+std::string GetCTypeName(parser::Stmt *stmt, parser::Type *type)
+{
+	std::string res;
+	if(type->type == parser::TSTRUCT) {
+		res = "struct_" + std::to_string(type->id);
+		res = ApplyTypeInfo(stmt, type, res);
+	} else if(type->type == parser::TFUNC) {
+		res = "func_" + std::to_string(type->id);
+		res = ApplyTypeInfo(stmt, type, res);
+	} else if(type->type == parser::TENUM) {
+		res = "enum_" + std::to_string(type->id);
+		res = ApplyTypeInfo(stmt, type, res);
+	} else {
+		res = GetCType(stmt, type);
+	}
+	return res;
+}
 } // namespace codegen
 } // namespace sc

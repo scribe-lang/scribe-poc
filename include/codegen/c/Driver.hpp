@@ -25,7 +25,9 @@ class CDriver : public Driver
 	std::vector<std::string> libflags;
 	std::vector<std::string> headers;
 	std::vector<std::string> macros;
-	std::vector<std::string> decls;
+	std::vector<std::string> typedefs;
+	std::vector<std::string> structdecls;
+	std::vector<std::string> funcdecls;
 	Writer mod;
 
 public:

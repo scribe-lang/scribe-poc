@@ -22,18 +22,10 @@ namespace codegen
 static const std::vector<std::string> default_includes = {"<stdio.h>", "<inttypes.h>", "<stdlib.h>",
 							  "<stdbool.h>"};
 
-static const char *preface = "typedef bool i1;\n"
-			     "typedef char i8;\n"
-			     "typedef int16_t i16;\n"
-			     "typedef int32_t i32;\n"
-			     "typedef int64_t i63;\n"
-			     "typedef uint8_t u8;\n"
-			     "typedef uint16_t u16;\n"
-			     "typedef uint32_t u32;\n"
-			     "typedef uint64_t u64;\n"
-			     "typedef float f32;\n"
-			     "typedef double f64;\n"
-			     "\n";
+static const std::vector<std::string> default_typedefs = {
+"typedef bool i1;",	 "typedef char i8;",	"typedef int16_t i16;",	 "typedef int32_t i32;",
+"typedef int64_t i63;",	 "typedef uint8_t u8;", "typedef uint16_t u16;", "typedef uint32_t u32;",
+"typedef uint64_t u64;", "typedef float f32;",	"typedef double f64;"};
 } // namespace codegen
 } // namespace sc
 
