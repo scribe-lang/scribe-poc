@@ -111,7 +111,8 @@ bool StmtType::assignType(TypeMgr &types)
 	if(resolvabletemplates.empty()) {
 		type = res->copy();
 	} else {
-		type = res->specialize(resolvabletemplates);
+		std::unordered_set<std::string> unresolvedtemplates; // dummy
+		type = res->specialize(resolvabletemplates, unresolvedtemplates);
 	}
 	type->info = info;
 	type->ptr += ptr;
