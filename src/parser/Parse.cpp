@@ -1251,7 +1251,7 @@ bool parse_extern(ParseHelper &p, Stmt *&ext)
 	lex::Lexeme name; // name of the function
 	StmtHeader *headers = nullptr;
 	StmtLib *libs	    = nullptr;
-	Stmt *sig	    = nullptr;
+	StmtFnSig *sig	    = nullptr;
 
 	if(!p.acceptn(lex::EXTERN)) {
 		err::set(p.peak(), "expected extern keyword here, found: %s",
@@ -1287,9 +1287,12 @@ endinfo:
 	}
 
 sig:
-	if(!parse_fnsig(p, sig)) goto fail;
-	ext = new StmtExtern(p.getModule(), name.line, name.col_beg, name, headers, libs,
-			     (StmtFnSig *)sig);
+	if(!parse_fnsig(p, (Stmt *&)sig)) goto fail;
+	if(sig->has_variadic || sig->templates.size() > 0) {
+		err::set(p.peak(), "no variadic or templates are allowed in extern'ed functions");
+		goto fail;
+	}
+	ext = new StmtExtern(p.getModule(), name.line, name.col_beg, name, headers, libs, sig);
 	return true;
 fail:
 	if(headers) delete headers;

@@ -1,0 +1,1 @@
+let strlen = extern[strlen, "<string.h>"] fn(data: *const i8): u64;
