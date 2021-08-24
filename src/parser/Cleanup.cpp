@@ -239,6 +239,7 @@ static void eraseTemplates(std::vector<Stmt *> &stmts)
 			Stmt *found = stmts[j];
 			stmts.erase(stmts.begin() + j);
 			--j;
+			--i;
 			stmts.insert(stmts.begin() + i, found);
 			++i;
 		}
