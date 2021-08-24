@@ -41,7 +41,6 @@ const char *TokStrs[_LAST] = {
 "return",
 "continue",
 "break",
-"void",
 "true",
 "false",
 "nil",
@@ -54,18 +53,6 @@ const char *TokStrs[_LAST] = {
 "inline",
 "struct",
 "enum",
-// "i8",
-// "i16",
-// "i32",
-// "i64",
-// "i128",
-// "u8",
-// "u16",
-// "u32",
-// "u64",
-// "u128",
-// "f32",
-// "f64",
 
 // Operators
 "=",
@@ -429,7 +416,6 @@ static TokType classify_str(const std::string &str)
 	if(str == TokStrs[RETURN]) return RETURN;
 	if(str == TokStrs[CONTINUE]) return CONTINUE;
 	if(str == TokStrs[BREAK]) return BREAK;
-	if(str == TokStrs[VOID]) return VOID;
 	if(str == TokStrs[TRUE]) return TRUE;
 	if(str == TokStrs[FALSE]) return FALSE;
 	if(str == TokStrs[NIL]) return NIL;
@@ -442,18 +428,6 @@ static TokType classify_str(const std::string &str)
 	if(str == TokStrs[INLINE]) return INLINE;
 	if(str == TokStrs[STRUCT]) return STRUCT;
 	if(str == TokStrs[ENUM]) return ENUM;
-	// if(str == TokStrs[I8]) return I8;
-	// if(str == TokStrs[I16]) return I16;
-	// if(str == TokStrs[I32]) return I32;
-	// if(str == TokStrs[I64]) return I64;
-	// if(str == TokStrs[I128]) return I128;
-	// if(str == TokStrs[U8]) return U8;
-	// if(str == TokStrs[U16]) return U16;
-	// if(str == TokStrs[U32]) return U32;
-	// if(str == TokStrs[U64]) return U64;
-	// if(str == TokStrs[U128]) return U128;
-	// if(str == TokStrs[F32]) return F32;
-	// if(str == TokStrs[F64]) return F64;
 
 	// if string begins with dot, it's an atom (str), otherwise an identifier
 	return str[0] == '.' ? STR : IDEN;

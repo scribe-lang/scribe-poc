@@ -127,7 +127,6 @@ bool StmtType::assignType(TypeMgr &types)
 bool StmtSimple::assignType(TypeMgr &types)
 {
 	switch(val.tok.val) {
-	case lex::VOID: type = types.getCopy("void", this); break;
 	case lex::TRUE:	 // fallthrough
 	case lex::FALSE: // fallthrough
 	case lex::NIL: type = types.getCopy("i1", this); break;

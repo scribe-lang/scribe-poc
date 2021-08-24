@@ -1167,7 +1167,7 @@ post_args:
 		size_t line = p.peak(-1).line;
 		size_t col  = p.peak(-1).col_beg;
 		rettype	    = new StmtType(p.getModule(), line, col, 0, 0,
-					   {lex::Lexeme(line, col, col, lex::VOID, "void")}, {});
+					   {lex::Lexeme(line, col, col, lex::IDEN, "void")}, {});
 	}
 
 	fsig =

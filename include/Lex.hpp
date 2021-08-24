@@ -46,7 +46,6 @@ enum TokType
 	RETURN,
 	CONTINUE,
 	BREAK,
-	VOID,
 	TRUE,
 	FALSE,
 	NIL,
@@ -59,18 +58,6 @@ enum TokType
 	INLINE,
 	STRUCT,
 	ENUM,
-	// I8,
-	// I16,
-	// I32,
-	// I64,
-	// I128,
-	// U8,
-	// U16,
-	// U32,
-	// U64,
-	// U128,
-	// F32,
-	// F64,
 
 	// Operators
 	ASSN,
@@ -178,7 +165,7 @@ struct Tok
 	inline bool isData() const
 	{
 		return val == INT || val == FLT || val == CHAR || val == STR || val == IDEN ||
-		       val == VOID || val == TRUE || val == FALSE || val == NIL;
+		       val == TRUE || val == FALSE || val == NIL;
 	}
 
 	/**
