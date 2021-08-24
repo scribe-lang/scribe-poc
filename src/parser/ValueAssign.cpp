@@ -217,11 +217,13 @@ bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 		return false;
 	}
 	std::vector<Stmt *> args;
+	std::vector<StmtType *> templates;
 	if(lhs && lhs->type->type != TFUNC) {
 		args.push_back(lhs);
 	}
 	if(rhs) {
 		if(rhs->stmt_type == FNCALLINFO) {
+			templates = as<StmtFnCallInfo>(rhs)->templates;
 			for(auto &a : as<StmtFnCallInfo>(rhs)->args) {
 				args.push_back(a);
 			}
@@ -229,7 +231,7 @@ bool StmtExpr::assignValue(TypeMgr &types, ValueMgr &vals)
 			args.push_back(rhs);
 		}
 	}
-	return callIntrinsic(types, vals, this, {}, args);
+	return callIntrinsic(types, vals, this, templates, args);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

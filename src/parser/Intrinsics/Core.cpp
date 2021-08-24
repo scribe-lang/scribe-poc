@@ -23,6 +23,8 @@ namespace sc
 namespace parser
 {
 static bool IsValidSource(std::string &modname);
+static size_t SizeOf(Type *ty);
+static size_t GetPrimitiveTypeSize(TypeSimple *ty);
 
 INTRINSIC(import)
 {
@@ -83,7 +85,20 @@ INTRINSIC(as)
 }
 INTRINSIC(szof)
 {
-	printf("called szof intrinsic\n");
+	if(templates.empty()) {
+		err::set(base, "there needs to be one argument - type");
+		return false;
+	}
+	if(!templates[0]->type) {
+		err::set(templates[0], "template has no type info");
+		return false;
+	}
+	int64_t sz = SizeOf(templates[0]->type);
+	if(!sz) {
+		err::set(templates[0], "invalid type info, received size 0");
+		return false;
+	}
+	base->value = values.get(sz);
 	return true;
 }
 INTRINSIC(typid)
@@ -170,6 +185,38 @@ static bool IsValidSource(std::string &modname)
 		}
 	}
 	return false;
+}
+
+static size_t SizeOf(Type *ty)
+{
+	switch(ty->type) {
+	case TSIMPLE: {
+		return GetPrimitiveTypeSize(as<TypeSimple>(ty));
+	}
+	case TSTRUCT: {
+		TypeStruct *st = as<TypeStruct>(ty);
+		size_t sz      = 0;
+		for(auto &t : st->fields) {
+			sz += SizeOf(t.second);
+		}
+		if(!sz) sz = 1;
+		return sz;
+	}
+	default: break;
+	}
+	return 0;
+}
+
+static size_t GetPrimitiveTypeSize(TypeSimple *ty)
+{
+	if(ty->ptr > 0) return sizeof(void *);
+	if(ty->name == "void") return 1;
+	if(ty->name == "i1" || ty->name == "nil" || ty->name == "bool") return 1;
+	if(ty->name == "i8" || ty->name == "u8") return 1;
+	if(ty->name == "i16" || ty->name == "u16") return 2;
+	if(ty->name == "i32" || ty->name == "u32") return 4;
+	if(ty->name == "i64" || ty->name == "u64") return 8;
+	return 0;
 }
 } // namespace parser
 } // namespace sc
