@@ -63,11 +63,11 @@ bool Type::compatible_base(Type *rhs, const bool &is_templ, const bool &is_any, 
 	if(is_any) return true;
 	const size_t &rptr  = rhs->ptr;
 	const size_t &rinfo = rhs->info;
-	// bool num_to_ptr	    = false;
-	// if(ptr > 0 && rptr == 0) {
-	// 	num_to_ptr = integerCompatible() && rhs->integerCompatible();
-	// }
-	if(!is_templ /* && !num_to_ptr*/ && id != rhs->id) {
+	bool num_to_num	    = false;
+	if(ptr == 0 && rptr == 0) {
+		num_to_num = integerCompatible() && rhs->integerCompatible();
+	}
+	if(!is_templ && !num_to_num && id != rhs->id) {
 		err::set(loc, "different type ids (LHS: %s, RHS: %s), not compatible",
 			 str().c_str(), rhs->str().c_str());
 		return false;

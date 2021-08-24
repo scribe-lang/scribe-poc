@@ -37,7 +37,8 @@ static inline std::string GetMangledName(Stmt *stmt, const lex::Lexeme &name)
 static bool InitTemplateFn(TypeMgr &types, Stmt *caller, Type *&calledfn,
 			   std::unordered_map<std::string, Type *> &calltemplates,
 			   const bool &has_va);
-static void ApplyTypeCoercion(StmtExpr *expr);
+static void ApplyTypeCoercion(Stmt *lhs, Stmt *rhs, const lex::Lexeme &oper);
+static void ApplyTypeCoercion(Type *lhs, Stmt *rhs);
 static bool ChooseSuperiorPrimitiveType(TypeSimple *l, TypeSimple *r);
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////// StmtBlock ////////////////////////////////////////////
@@ -308,9 +309,19 @@ bool StmtExpr::assignType(TypeMgr &types)
 				delete tmpl;
 			}
 			delete lhs->type;
-			lhs->type = fn;
-			has_va	  = fn->has_va;
-			type	  = fn->rettype->copy();
+			lhs->type      = fn;
+			has_va	       = fn->has_va;
+			type	       = fn->rettype->copy();
+			size_t farglen = fn->args.size();
+			size_t finflen = finfo->args.size();
+			for(size_t i = 0, j = 0, k = 0; i < farglen && j < finflen; ++i, ++j) {
+				Type *coerced_to = fn->args[i];
+				if(coerced_to->type == TVARIADIC) {
+					coerced_to = as<TypeVariadic>(coerced_to)->args[k++];
+				}
+				ApplyTypeCoercion(coerced_to, finfo->args[j]);
+				if(coerced_to->type == TVARIADIC) --i;
+			}
 		} else if(lhs->type->type == TFUNC) {
 			TypeFunc *oldfn = as<TypeFunc>(lhs->type);
 			TypeFunc *fn	= nullptr;
@@ -337,7 +348,17 @@ bool StmtExpr::assignType(TypeMgr &types)
 			} else if(fn->getIntrinsicFuncType() == IVALUE) {
 				this->setIntrinsicFunc(fn->getIntrinsicFunc());
 			}
-			has_va = fn->has_va;
+			has_va	       = fn->has_va;
+			size_t farglen = fn->args.size();
+			size_t finflen = finfo->args.size();
+			for(size_t i = 0, j = 0, k = 0; i < farglen && j < finflen; ++i, ++j) {
+				Type *coerced_to = fn->args[i];
+				if(coerced_to->type == TVARIADIC) {
+					coerced_to = as<TypeVariadic>(coerced_to)->args[k++];
+				}
+				ApplyTypeCoercion(coerced_to, finfo->args[j]);
+				if(coerced_to->type == TVARIADIC) --i;
+			}
 		} else if(lhs->type->type == TSTRUCT) {
 			TypeStruct *st = as<TypeStruct>(lhs->type);
 			if(!st->is_def) {
@@ -350,6 +371,11 @@ bool StmtExpr::assignType(TypeMgr &types)
 			if(!(type = st->specialize_compatible_call(finfo, calltemplates))) {
 				err::set(this, "failed to instantiate struct with given arguments");
 				return false;
+			}
+			size_t farglen = st->fields.size();
+			size_t finflen = finfo->args.size();
+			for(size_t i = 0, j = 0; i < farglen && j < finflen; ++i, ++j) {
+				ApplyTypeCoercion(st->fields[st->field_order[i]], finfo->args[j]);
 			}
 			delete lhs->type;
 			lhs->type = type;
@@ -470,7 +496,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 	case lex::LSHIFT_ASSN:
 	case lex::RSHIFT_ASSN: {
 	applyoperfn:
-		ApplyTypeCoercion(this); // basically, type promotion for primitives
+		ApplyTypeCoercion(lhs, rhs, this->oper); // basically, type promotion for primitives
 		if(lhs->type->type != TSIMPLE && lhs->type->type != TSTRUCT) {
 			err::set(this, "operators are only usable on primitive types or structs");
 			return false;
@@ -569,9 +595,8 @@ post_mangling:
 		err::set(this, "incompatible given type and value of the variable decl");
 		return false;
 	}
-	if(val) {
+	if(val && !vtype) {
 		type = val->type->copy();
-		if(vtype) type->info |= vtype->type->info;
 	} else if(vtype) {
 		type = vtype->type->copy();
 	}
@@ -588,6 +613,7 @@ post_mangling:
 	if(val && (val->stmt_type == FNDEF || val->stmt_type == EXTERN)) {
 		return types.addFuncCopy(name.data.s, type);
 	}
+	if(vtype && val) ApplyTypeCoercion(vtype->type, val);
 	return types.addCopy(name.data.s, type);
 }
 
@@ -1126,37 +1152,46 @@ static bool InitTemplateFn(TypeMgr &types, Stmt *caller, Type *&calledfn,
 	tfnparent->stmts.push_back(var);
 	return true;
 }
-static void ApplyTypeCoercion(StmtExpr *expr)
+static void ApplyTypeCoercion(Stmt *lhs, Stmt *rhs, const lex::Lexeme &oper)
 {
-	if(!expr->lhs || !expr->rhs) return;
-	if(expr->lhs->type->ptr > 0 || expr->rhs->type->ptr > 0) return;
+	if(!lhs || !rhs) return;
+	if(lhs->type->ptr > 0 || rhs->type->ptr > 0) return;
 	// the following check is also an assurance of lhs and rhs being TypeSimple
-	if(!expr->lhs->type->primitiveCompatible() || !expr->rhs->type->primitiveCompatible())
-		return;
+	if(!lhs->type->primitiveCompatible() || !rhs->type->primitiveCompatible()) return;
 
-	if(expr->oper.tok.val == lex::SUBS) return;
+	if(oper.tok.val == lex::SUBS) return;
 
-	StmtSimple *ls = as<StmtSimple>(expr->lhs);
-	StmtSimple *rs = as<StmtSimple>(expr->rhs);
-
-	TypeSimple *l = as<TypeSimple>(ls->type);
-	TypeSimple *r = as<TypeSimple>(rs->type);
+	TypeSimple *l = as<TypeSimple>(lhs->type);
+	TypeSimple *r = as<TypeSimple>(rhs->type);
 
 	if(l->id == r->id) return;
 
-	if(expr->oper.tok.isAssign()) {
-		rs->cast(l);
+	if(oper.tok.isAssign()) {
+		rhs->cast(l);
 		return;
 	}
 	// 0 => lhs
 	// 1 => rhs
 	bool superior = ChooseSuperiorPrimitiveType(l, r);
 	if(superior) {
-		rs->cast(l);
+		rhs->cast(l);
 	} else {
-		ls->cast(r);
+		lhs->cast(r);
 	}
-	return;
+}
+static void ApplyTypeCoercion(Type *lhs, Stmt *rhs)
+{
+	if(!lhs || !rhs) return;
+	if(lhs->ptr > 0 || rhs->type->ptr > 0) return;
+	// the following check is also an assurance of lhs and rhs being TypeSimple
+	if(!lhs->primitiveCompatible() || !rhs->type->primitiveCompatible()) return;
+
+	TypeSimple *l = as<TypeSimple>(lhs);
+	TypeSimple *r = as<TypeSimple>(rhs->type);
+
+	if(l->id == r->id) return;
+
+	rhs->cast(l);
 }
 
 static bool ChooseSuperiorPrimitiveType(TypeSimple *l, TypeSimple *r)
