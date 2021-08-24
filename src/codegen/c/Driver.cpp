@@ -249,9 +249,9 @@ bool CDriver::visit(parser::StmtExpr *stmt, Writer &writer, const bool &semicolo
 	case lex::FNCALL: {
 		bool is_func = stmt->lhs->type->type == parser::TFUNC;
 		if(is_func) {
-			writer.append(l);
+			if(!stmt->isCast()) writer.append(l);
 			parser::TypeFunc *tfn = parser::as<parser::TypeFunc>(stmt->lhs->type);
-			writer.write("(");
+			if(!stmt->isCast()) writer.write("(");
 			auto &args = parser::as<parser::StmtFnCallInfo>(stmt->rhs)->args;
 			for(size_t i = 0, j = 0; i < args.size() && j < tfn->args.size(); ++i, ++j)
 			{
@@ -272,7 +272,7 @@ bool CDriver::visit(parser::StmtExpr *stmt, Writer &writer, const bool &semicolo
 				}
 				if(i < args.size() - 1) writer.write(", ");
 			}
-			writer.write(")");
+			if(!stmt->isCast()) writer.write(")");
 		} else {
 			writer.write("{");
 			parser::TypeStruct *tst = parser::as<parser::TypeStruct>(stmt->lhs->type);
