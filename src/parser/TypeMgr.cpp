@@ -57,7 +57,7 @@ TypeMgr::TypeMgr(RAIIParser *parser) : parser(parser), vals(parser), init_typefu
 
 	// intrinsics
 	TypeSimple *templ0    = new TypeSimple(nullptr, 0, 0, "@0");
-	TypeSimple *templ1    = new TypeSimple(nullptr, 0, 0, "@1");
+	TypeSimple *templ1    = new TypeSimple(nullptr, 1, 0, "@1");
 	TypeSimple *templ0va  = new TypeSimple(nullptr, 0, VARIADIC, "@0");
 	TypeSimple *templ0ptr = new TypeSimple(nullptr, 1, 0, "@0");
 	TypeImport *importty  = new TypeImport(nullptr, 0, 0, "");

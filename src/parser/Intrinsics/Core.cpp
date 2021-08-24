@@ -80,13 +80,21 @@ gen_import:
 }
 INTRINSIC(as)
 {
-	printf("called as intrinsic\n");
+	if(templates.empty()) {
+		err::set(base, "there needs to be one argument - type to cast to");
+		return false;
+	}
+	if(base->type) {
+		delete base->type;
+	}
+	base->type = args[0]->type->copy();
+	base->cast(templates[0]->type);
 	return true;
 }
 INTRINSIC(szof)
 {
 	if(templates.empty()) {
-		err::set(base, "there needs to be one argument - type");
+		err::set(base, "there needs to be one argument - type to fetch size of");
 		return false;
 	}
 	if(!templates[0]->type) {

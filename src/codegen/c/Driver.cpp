@@ -24,9 +24,9 @@ namespace codegen
 static bool AcceptsSemicolon(parser::Stmt *stmt);
 bool TrySetMainFunction(parser::StmtVar *var, const std::string &varname, Writer &writer);
 
-static inline std::string GetMangledName(const std::string &name, parser::Type *type)
+static inline std::string GetMangledName(const std::string &name, parser::Stmt *stmt)
 {
-	return name + std::to_string(type->id);
+	return name + std::to_string(stmt->cast_from ? stmt->cast_from->id : stmt->type->id);
 }
 
 CDriver::CDriver(parser::RAIIParser &parser)
@@ -207,7 +207,7 @@ bool CDriver::visit(parser::StmtSimple *stmt, Writer &writer, const bool &semico
 	// the following part is only valid for existing variables.
 	// the part for variable declaration exists in Var visit
 	if(stmt->type->info & parser::REF) writer.write("(*"); // for references
-	writer.write(GetMangledName(stmt->val.data.s, stmt->type));
+	writer.write(GetMangledName(stmt->val.data.s, stmt));
 	if(stmt->type->info & parser::REF) writer.write(")"); // for references
 	if(semicolon) writer.write(";");
 	return true;
@@ -243,8 +243,7 @@ bool CDriver::visit(parser::StmtExpr *stmt, Writer &writer, const bool &semicolo
 	case lex::DOT: {
 		const std::string &field = parser::as<parser::StmtSimple>(stmt->rhs)->val.data.s;
 		writer.append(l);
-		writer.write((oper == lex::DOT ? "." : "->") +
-			     GetMangledName(field, stmt->rhs->type));
+		writer.write((oper == lex::DOT ? "." : "->") + GetMangledName(field, stmt->rhs));
 		break;
 	}
 	case lex::FNCALL: {
@@ -365,7 +364,7 @@ bool CDriver::visit(parser::StmtExpr *stmt, Writer &writer, const bool &semicolo
 bool CDriver::visit(parser::StmtVar *stmt, Writer &writer, const bool &semicolon)
 {
 	writer.clear();
-	std::string varname = GetMangledName(stmt->name.data.s, stmt->type);
+	std::string varname = GetMangledName(stmt->name.data.s, stmt);
 
 	if(stmt->value) {
 		std::string type = GetCTypeName(stmt, stmt->type);
