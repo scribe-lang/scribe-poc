@@ -93,6 +93,7 @@ const size_t &Stmt::getVariadicIndex()
 }
 void Stmt::cast(Type *to)
 {
+	if(cast_from) delete cast_from;
 	cast_from = type;
 	type	  = to->copy();
 }

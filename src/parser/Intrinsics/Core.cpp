@@ -84,9 +84,7 @@ INTRINSIC(as)
 		err::set(base, "there needs to be one argument - type to cast to");
 		return false;
 	}
-	if(base->type) {
-		delete base->type;
-	}
+	if(base->type) delete base->type;
 	base->type = args[0]->type->copy();
 	base->cast(templates[0]->type);
 	return true;

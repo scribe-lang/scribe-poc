@@ -206,6 +206,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 		return false;
 	}
 	static std::vector<std::string> importids;
+	bool can_be_comptime = true;
 	if(oper.tok.val != lex::DOT) importids.clear();
 	// TODO: or-var & or-blk
 	switch(oper.tok.val) {
@@ -300,7 +301,7 @@ bool StmtExpr::assignType(TypeMgr &types)
 			if(fmap->getSelf()) {
 				StmtExpr *tmpl	  = as<StmtExpr>(lhs);
 				tmpl->lhs->parent = rhs;
-				finfo->args.push_back(tmpl->lhs);
+				finfo->args.insert(finfo->args.begin(), tmpl->lhs);
 				tmpl->lhs	  = nullptr;
 				tmpl->rhs->parent = this;
 				lhs		  = tmpl->rhs;
@@ -506,15 +507,21 @@ bool StmtExpr::assignType(TypeMgr &types)
 			return false;
 		}
 		StmtFnCallInfo *fci = new StmtFnCallInfo(mod, line, col, {}, {lhs});
+		Pointer<StmtFnCallInfo> fcip(fci);
 		if(rhs) fci->args.push_back(rhs);
 		std::unordered_map<std::string, Type *> calltemplates;
 		TypeFunc *decidedfn = fn->decide_func(fci, calltemplates);
-		err::reset();
+		if(!decidedfn && oper.tok.val == lex::ASSN &&
+		   lhs->type->compatible(rhs->type, this)) {
+			decidedfn =
+			new TypeFunc(this, 0, 0, 0, 0, false,
+				     {lhs->type->copy(), rhs->type->copy()}, lhs->type->copy());
+			can_be_comptime = false;
+		}
 		if(!decidedfn) {
 			err::set(this, "function '%s' does not exist for type: %s",
 				 oper.tok.str().c_str(), lhs->type->str().c_str());
 			fci->args.clear();
-			delete fci;
 			return false;
 		}
 		if(type) delete type;
@@ -539,7 +546,6 @@ bool StmtExpr::assignType(TypeMgr &types)
 		for(auto &t : calltemplates) delete t.second;
 		setDecidedFuncID(decidedfn->id);
 		fci->args.clear();
-		delete fci;
 		delete decidedfn;
 	fail:
 		if(erred) return false;
@@ -552,7 +558,9 @@ bool StmtExpr::assignType(TypeMgr &types)
 		type = nullptr;
 	}
 	if(type->type == TFUNCMAP) return true;
-	if(!isComptime() && lhs->isComptime() && (!rhs || rhs->isComptime())) setComptime(true);
+	if(can_be_comptime && !isComptime() && lhs->isComptime() && (!rhs || rhs->isComptime())) {
+		setComptime(true);
+	}
 	return true;
 }
 
@@ -1154,7 +1162,6 @@ static bool InitTemplateFn(TypeMgr &types, Stmt *caller, Type *&calledfn,
 static void ApplyTypeCoercion(Stmt *lhs, Stmt *rhs, const lex::Lexeme &oper)
 {
 	if(!lhs || !rhs) return;
-	if(lhs->type->ptr > 0 || rhs->type->ptr > 0) return;
 	// the following check is also an assurance of lhs and rhs being TypeSimple
 	if(!lhs->type->primitiveCompatible() || !rhs->type->primitiveCompatible()) return;
 
@@ -1181,7 +1188,6 @@ static void ApplyTypeCoercion(Stmt *lhs, Stmt *rhs, const lex::Lexeme &oper)
 static void ApplyTypeCoercion(Type *lhs, Stmt *rhs)
 {
 	if(!lhs || !rhs) return;
-	if(lhs->ptr > 0 || rhs->type->ptr > 0) return;
 	// the following check is also an assurance of lhs and rhs being TypeSimple
 	if(!lhs->primitiveCompatible() || !rhs->type->primitiveCompatible()) return;
 

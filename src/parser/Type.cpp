@@ -64,8 +64,9 @@ bool Type::compatible_base(Type *rhs, const bool &is_templ, const bool &is_any, 
 	const size_t &rptr  = rhs->ptr;
 	const size_t &rinfo = rhs->info;
 	bool num_to_num	    = false;
+	bool rhs_is_int	    = rhs->integerCompatible();
 	if(ptr == 0 && rptr == 0) {
-		num_to_num = integerCompatible() && rhs->integerCompatible();
+		num_to_num = integerCompatible() && rhs_is_int;
 	}
 	if(!is_templ && !num_to_num && id != rhs->id) {
 		err::set(loc, "different type ids (LHS: %s, RHS: %s), not compatible",
@@ -78,11 +79,11 @@ bool Type::compatible_base(Type *rhs, const bool &is_templ, const bool &is_any, 
 			 rhs->str().c_str(), str().c_str());
 		return false;
 	}
-	if(rptr == 0 /* && !num_to_ptr*/ && ptr > 0) {
+	if(rptr == 0 && ptr > 0 && !rhs_is_int) {
 		err::set(loc, "non pointer type (RHS) cannot be assigned to pointer type (LHS)");
 		return false;
 	}
-	if(rptr != ptr) {
+	if(rptr != ptr && !rhs_is_int) {
 		err::set(loc, "inequal pointer assignment here (LHS: %s, RHS: %s)", str().c_str(),
 			 rhs->str().c_str());
 		return false;
@@ -342,9 +343,11 @@ TypeStruct::specialize_compatible_call(StmtFnCallInfo *callinfo,
 		unresolvedtemplates.erase(t);
 	}
 	for(size_t i = 0; i < this->field_order.size(); ++i) {
-		Type *&field = this->fields[field_order[i]];
-		if(!field->assignTemplateActuals(callinfo->args[i]->type, templates, callinfo))
-			return nullptr;
+		Type *&field	= this->fields[field_order[i]];
+		Type *callargty = callinfo->args[i]->type;
+		if(field->assignTemplateActuals(callargty, templates, callinfo)) continue;
+		for(auto &t : templates) delete t.second;
+		return nullptr;
 	}
 	bool is_field_compatible = true;
 	std::unordered_map<std::string, Type *> specializedfields;
@@ -555,9 +558,10 @@ TypeFunc *TypeFunc::specialize_compatible_call(StmtFnCallInfo *callinfo,
 		unresolvedtemplates.erase(t);
 	}
 	for(size_t i = 0; i < this->args.size() && i < callinfo->args.size(); ++i) {
-		if(!this->args[i]->assignTemplateActuals(callinfo->args[i]->type, templates,
-							 callinfo))
-			return nullptr;
+		Type *callargty = callinfo->args[i]->type;
+		if(this->args[i]->assignTemplateActuals(callargty, templates, callinfo)) continue;
+		for(auto &t : templates) delete t.second;
+		return nullptr;
 	}
 	bool is_arg_compatible = true;
 	std::vector<Type *> variadics;

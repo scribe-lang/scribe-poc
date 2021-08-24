@@ -274,6 +274,7 @@ bool CDriver::visit(parser::StmtExpr *stmt, Writer &writer, const bool &semicolo
 			}
 			if(!stmt->isCast()) writer.write(")");
 		} else {
+			writer.write("(%s)", GetCTypeName(stmt->lhs, stmt->lhs->type).c_str());
 			writer.write("{");
 			parser::TypeStruct *tst = parser::as<parser::TypeStruct>(stmt->lhs->type);
 			auto &args = parser::as<parser::StmtFnCallInfo>(stmt->rhs)->args;
@@ -500,8 +501,8 @@ bool CDriver::visit(parser::StmtHeader *stmt, Writer &writer, const bool &semico
 	if(!stmt->names.data.s.empty()) {
 		std::vector<std::string> headersf = StringDelim(stmt->names.data.s, ",");
 		for(auto &h : headersf) {
-			if(is_one_of(headerflags, h)) continue;
-			headerflags.push_back(h);
+			if(is_one_of(headers, h)) continue;
+			headers.push_back(h);
 		}
 	}
 	if(!stmt->flags.data.s.empty()) {
@@ -555,6 +556,7 @@ bool CDriver::visit(parser::StmtVarDecl *stmt, Writer &writer, const bool &semic
 			err::set(stmt, "failed to generate C code for var decl");
 			return false;
 		}
+		writer.append(tmp);
 	}
 	return true;
 }
@@ -665,6 +667,7 @@ bool CDriver::visit(parser::StmtRet *stmt, Writer &writer, const bool &semicolon
 {
 	if(!stmt->val) {
 		writer.write("return");
+		if(semicolon) writer.write(";");
 		return true;
 	}
 	Writer tmp(writer);
