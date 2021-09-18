@@ -1,2 +1,2 @@
 # scribe
-Scribe Reference Implementation
+Scribe Proof of Concept Implementation
